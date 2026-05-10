@@ -1,36 +1,58 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Login from './Login'
 import Register from './Register'
 import AdminDashboard from './AdminDashboard'
+import { supabase } from './supabase'
 
 function App() {
   const [page, setPage] = useState('home')
+  const [user, setUser] = useState(null)
 
-  if (page === 'login') return <Login setPage={setPage} />
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setPage('home')
+  }
+
+  if (page === 'login') return <Login setPage={setPage} setUser={setUser} />
   if (page === 'register') return <Register setPage={setPage} />
   if (page === 'admin') return <AdminDashboard setPage={setPage} />
 
   return (
     <div style={{ fontFamily: 'Arial', margin: 0, padding: 0 }}>
-      
-      {/* NAVBAR */}
       <nav style={{ background: '#1435c3', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }} onClick={() => setPage('home')}>BilX</h1>
-        <div>
-          <button onClick={() => setPage('login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
-          <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {user ? (
+            <>
+              <span style={{ color: 'white', marginRight: '15px' }}>Salam, {user.user_metadata?.full_name || user.email}!</span>
+              <button onClick={handleLogout} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Çıxış</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setPage('login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
+              <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
+            </>
+          )}
           <button onClick={() => setPage('admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
         </div>
       </nav>
 
-      {/* HERO */}
       <div style={{ background: '#f0f4ff', padding: '60px 40px', textAlign: 'center' }}>
         <h2 style={{ fontSize: '40px', color: '#1435c3' }}>Azərbaycan dilində keyfiyyətli təhsil</h2>
         <p style={{ fontSize: '18px', color: '#555', marginTop: '10px' }}>İstənilən vaxt, istənilən yerdən öyrən</p>
         <button style={{ background: '#1435c3', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '8px', fontSize: '18px', marginTop: '20px', cursor: 'pointer' }}>Kurslara bax</button>
       </div>
 
-      {/* COURSES */}
       <div style={{ padding: '40px', background: 'white' }}>
         <h3 style={{ fontSize: '28px', color: '#333' }}>Kurslar</h3>
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '20px' }}>
@@ -49,7 +71,6 @@ function App() {
           ))}
         </div>
       </div>
-
     </div>
   )
 }
