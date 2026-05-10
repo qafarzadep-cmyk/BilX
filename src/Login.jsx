@@ -1,83 +1,48 @@
-import { useState, useEffect } from 'react'
-import Login from './Login'
-import Register from './Register'
-import AdminDashboard from './AdminDashboard'
+import { useState } from 'react'
 import { supabase } from './supabase'
 
-function App() {
-  const [page, setPage] = useState('home')
-  const [user, setUser] = useState(null)
+function Login({ setPage }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-    })
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-  }, [])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setPage('home')
+  const handleLogin = async () => {
+    setLoading(true)
+    setError('')
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError(error.message)
+    } else {
+      alert('Xoş gəldiniz!')
+      setPage('home')
+    }
+    setLoading(false)
   }
 
-  if (page === 'login') return <Login setPage={setPage} setUser={setUser} />
-  if (page === 'register') return <Register setPage={setPage} />
-  if (page === 'admin') return <AdminDashboard setPage={setPage} />
-
   return (
-    <div style={{ fontFamily: 'Arial', margin: 0, padding: 0 }}>
-      
-      {/* NAVBAR */}
+    <div style={{ fontFamily: 'Arial', minHeight: '100vh', background: '#f0f4ff' }}>
       <nav style={{ background: '#1435c3', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }} onClick={() => setPage('home')}>BilX</h1>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {user ? (
-            <>
-              <span style={{ color: 'white', marginRight: '15px' }}>Salam, {user.user_metadata?.full_name || user.email}!</span>
-              <button onClick={handleLogout} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Çıxış</button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => setPage('login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
-              <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
-            </>
-          )}
-          <button onClick={() => setPage('admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
+        <h1 onClick={() => setPage('home')} style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }}>BilX</h1>
+        <div>
+          <button onClick={() => setPage('login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
+          <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
         </div>
       </nav>
-
-      {/* HERO */}
-      <div style={{ background: '#f0f4ff', padding: '60px 40px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '40px', color: '#1435c3' }}>Azərbaycan dilində keyfiyyətli təhsil</h2>
-        <p style={{ fontSize: '18px', color: '#555', marginTop: '10px' }}>İstənilən vaxt, istənilən yerdən öyrən</p>
-        <button style={{ background: '#1435c3', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '8px', fontSize: '18px', marginTop: '20px', cursor: 'pointer' }}>Kurslara bax</button>
-      </div>
-
-      {/* COURSES */}
-      <div style={{ padding: '40px', background: 'white' }}>
-        <h3 style={{ fontSize: '28px', color: '#333' }}>Kurslar</h3>
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '20px' }}>
-          {[
-            { title: 'IELTS Hazırlıq', price: '60 AZN', instructor: 'Müəllim Aytən' },
-            { title: 'Riyaziyyat 9-cu sinif', price: '40 AZN', instructor: 'Müəllim Əli' },
-            { title: 'İngilis dili A1-B2', price: '50 AZN', instructor: 'Müəllim Leyla' },
-          ].map((course, i) => (
-            <div key={i} style={{ border: '1px solid #ddd', borderRadius: '10px', padding: '20px', width: '250px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <div style={{ background: '#1435c3', height: '120px', borderRadius: '8px', marginBottom: '15px' }}></div>
-              <h4 style={{ margin: '0 0 8px', color: '#333' }}>{course.title}</h4>
-              <p style={{ margin: '0 0 8px', color: '#777', fontSize: '14px' }}>{course.instructor}</p>
-              <p style={{ margin: '0 0 15px', color: '#1435c3', fontWeight: 'bold', fontSize: '18px' }}>{course.price}</p>
-              <button style={{ background: '#1435c3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', width: '100%' }}>Kursa bax</button>
-            </div>
-          ))}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 20px' }}>
+        <div style={{ background: 'white', padding: '40px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', width: '350px' }}>
+          <h2 style={{ color: '#1435c3', textAlign: 'center', marginBottom: '30px' }}>Giriş</h2>
+          {error && <p style={{ color: 'red', textAlign: 'center', marginBottom: '15px' }}>{error}</p>}
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '16px', boxSizing: 'border-box' }} />
+          <input type="password" placeholder="Şifrə" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '20px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '16px', boxSizing: 'border-box' }} />
+          <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '12px', background: '#1435c3', color: 'white', border: 'none', borderRadius: '5px', fontSize: '16px', cursor: 'pointer' }}>
+            {loading ? 'Yüklənir...' : 'Giriş et'}
+          </button>
+          <p style={{ textAlign: 'center', marginTop: '20px', color: '#555' }}>Hesabın yoxdur? <span onClick={() => setPage('register')} style={{ color: '#1435c3', cursor: 'pointer' }}>Qeydiyyat</span></p>
         </div>
       </div>
-
     </div>
   )
 }
 
-export default App
+export default Login
