@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 
-function Login({ setPage }) {
+function Login() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -17,7 +19,7 @@ function Login({ setPage }) {
       setError(error.message)
     } else {
       setSuccess('Xoş gəldiniz!')
-      setTimeout(() => setPage('home'), 1000)
+      setTimeout(() => navigate('/'), 1000)
     }
     setLoading(false)
   }
@@ -25,10 +27,10 @@ function Login({ setPage }) {
   return (
     <div style={{ fontFamily: 'Arial', minHeight: '100vh', background: '#f0f4ff' }}>
       <nav style={{ background: '#1435c3', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 onClick={() => setPage('home')} style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }}>BilX</h1>
+        <h1 onClick={() => navigate('/')} style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }}>BilX</h1>
         <div>
-          <button onClick={() => setPage('login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
-          <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
+          <button onClick={() => navigate('/login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
+          <button onClick={() => navigate('/register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
         </div>
       </nav>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 20px' }}>
@@ -41,7 +43,7 @@ function Login({ setPage }) {
           <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '12px', background: '#1435c3', color: 'white', border: 'none', borderRadius: '5px', fontSize: '16px', cursor: 'pointer' }}>
             {loading ? 'Yüklənir...' : 'Giriş et'}
           </button>
-          <p style={{ textAlign: 'center', marginTop: '20px', color: '#555' }}>Hesabın yoxdur? <span onClick={() => setPage('register')} style={{ color: '#1435c3', cursor: 'pointer' }}>Qeydiyyat</span></p>
+          <p style={{ textAlign: 'center', marginTop: '20px', color: '#555' }}>Hesabın yoxdur? <span onClick={() => navigate('/register')} style={{ color: '#1435c3', cursor: 'pointer' }}>Qeydiyyat</span></p>
         </div>
       </div>
     </div>
