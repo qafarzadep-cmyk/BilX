@@ -58,11 +58,11 @@ function CoursePage({ user }) {
         <div style={{ background: 'white', borderRadius: '10px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '2px solid #1435c3' }}>
           <h3 style={{ color: '#1435c3', marginTop: 0 }}>Kursu almaq üçün</h3>
           <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#1435c3', margin: '0 0 20px' }}>60 AZN</p>
-          <p style={{ color: '#555', marginBottom: '20px' }}>Aşağıdakı karta ödəniş edin və skrinşot göndərin:</p>
+          <p style={{ color: '#555', marginBottom: '20px' }}>Aşağıdakı karta ödəniş edin və skrinşot (ekran görüntüsü) göndərin:</p>
           <div style={{ background: '#f0f4ff', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
             <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Kart nömrəsi:</strong> 4098584465826715</p>
-            <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Ad:</strong> Parvin Qafarzada</p>
-            <p style={{ margin: 0, color: '#333' }}><strong>WhatsApp:</strong> +994 55 383 91 18</p>
+            <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Ad:</strong> BilX</p>
+            <p style={{ margin: 0, color: '#333' }}><strong>WhatsApp:</strong> +994 55 383 91 XX</p>
           </div>
           <p style={{ color: '#888', fontSize: '14px' }}>Ödənişdən sonra 24 saat ərzində kursa giriş aktivləşdiriləcək.</p>
           {!user && (
