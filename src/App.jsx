@@ -43,8 +43,9 @@ function App() {
               <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
             </>
           )}
-          <button onClick={() => setPage('admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
-        </div>
+{user?.email === 'qafarzadep@gmail.com' && (
+  <button onClick={() => setPage('admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
+)}        </div>
       </nav>
 
       <div style={{ background: '#f0f4ff', padding: '60px 40px', textAlign: 'center' }}>
