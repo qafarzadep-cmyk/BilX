@@ -62,7 +62,7 @@ function CoursePage({ user }) {
           <div style={{ background: '#f0f4ff', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
             <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Kart nömrəsi:</strong> 4098584465826715</p>
             <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Ad:</strong> BilX</p>
-            <p style={{ margin: 0, color: '#333' }}><strong>WhatsApp:</strong> +994 55 383 91 XX</p>
+            <p style={{ margin: 0, color: '#333' }}><strong>WhatsApp:</strong> +994 55 383 91 18</p>
           </div>
           <p style={{ color: '#888', fontSize: '14px' }}>Ödənişdən sonra 24 saat ərzində kursa giriş aktivləşdiriləcək.</p>
           {!user && (
