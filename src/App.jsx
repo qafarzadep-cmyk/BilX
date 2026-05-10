@@ -4,6 +4,7 @@ import Login from './Login'
 import Register from './Register'
 import AdminDashboard from './AdminDashboard'
 import StudentProfile from './StudentProfile'
+import CoursePage from './CoursePage'
 import { supabase } from './supabase'
 
 function Home({ user, handleLogout }) {
@@ -33,7 +34,7 @@ function Home({ user, handleLogout }) {
       <div style={{ background: '#f0f4ff', padding: '60px 40px', textAlign: 'center' }}>
         <h2 style={{ fontSize: '40px', color: '#1435c3' }}>Azərbaycan dilində keyfiyyətli təhsil</h2>
         <p style={{ fontSize: '18px', color: '#555', marginTop: '10px' }}>İstənilən vaxt, istənilən yerdən öyrən</p>
-        <button style={{ background: '#1435c3', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '8px', fontSize: '18px', marginTop: '20px', cursor: 'pointer' }}>Kurslara bax</button>
+        <button onClick={() => navigate('/course')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '8px', fontSize: '18px', marginTop: '20px', cursor: 'pointer' }}>Kurslara bax</button>
       </div>
 
       <div style={{ padding: '40px', background: 'white' }}>
@@ -80,10 +81,11 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Home user={user} handleLogout={handleLogout} />} />
-      <Route path="/login" element={<Login user={user} />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/profile" element={<StudentProfile user={user} />} />
+      <Route path="/course" element={<CoursePage user={user} />} />
     </Routes>
   )
 }
