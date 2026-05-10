@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Login from './Login'
 import Register from './Register'
 import AdminDashboard from './AdminDashboard'
+import StudentProfile from './StudentProfile'
 import { supabase } from './supabase'
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
   if (page === 'login') return <Login setPage={setPage} setUser={setUser} />
   if (page === 'register') return <Register setPage={setPage} />
   if (page === 'admin') return <AdminDashboard setPage={setPage} />
+  if (page === 'profile') return <StudentProfile setPage={setPage} user={user} />
 
   return (
     <div style={{ fontFamily: 'Arial', margin: 0, padding: 0 }}>
@@ -34,7 +36,7 @@ function App() {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {user ? (
             <>
-              <span style={{ color: 'white', marginRight: '15px' }}>Salam, {user.user_metadata?.full_name || user.email}!</span>
+              <span onClick={() => setPage('profile')} style={{ color: 'white', marginRight: '15px', cursor: 'pointer', textDecoration: 'underline' }}>Salam, {user.user_metadata?.full_name || user.email}!</span>
               <button onClick={handleLogout} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Çıxış</button>
             </>
           ) : (
@@ -43,9 +45,10 @@ function App() {
               <button onClick={() => setPage('register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
             </>
           )}
-{user?.email === 'qafarzadep@gmail.com' && (
-  <button onClick={() => setPage('admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
-)}        </div>
+          {user?.email === 'qafarzadep@gmail.com' && (
+            <button onClick={() => setPage('admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
+          )}
+        </div>
       </nav>
 
       <div style={{ background: '#f0f4ff', padding: '60px 40px', textAlign: 'center' }}>
