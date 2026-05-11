@@ -64,7 +64,7 @@ function InstructorDashboard() {
 
       // INSERT COURSE
       const { data, error: insertError } = await supabase
-        .from('courses')
+        .from('Courses')
         .insert([
           {
             title: title,
