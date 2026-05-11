@@ -1,72 +1,69 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 function CoursePage({ user }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const course = location.state?.course
+
+  if (!course) {
+    navigate('/')
+    return null
+  }
 
   return (
-    <div style={{ fontFamily: 'Arial', minHeight: '100vh', background: '#f0f4ff' }}>
-      <nav style={{ background: '#1435c3', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 onClick={() => navigate('/')} style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }}>BilX</h1>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", minHeight: '100vh', background: '#fff' }}>
+      
+      {/* NAVBAR */}
+      <nav style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px', borderBottom: '1px solid #d1d7dc', position: 'sticky', top: 0, zIndex: 100 }}>
+        <h1 onClick={() => navigate('/')} style={{ color: '#1435c3', margin: 0, fontSize: '22px', fontWeight: '700', cursor: 'pointer' }}>Bil-X</h1>
+        <div style={{ display: 'flex', gap: '8px' }}>
           {user ? (
-            <span onClick={() => navigate('/profile')} style={{ color: 'white', cursor: 'pointer', textDecoration: 'underline' }}>Salam, {user.user_metadata?.full_name}!</span>
+            <span onClick={() => navigate('/profile')} style={{ color: '#1c1d1f', cursor: 'pointer', fontSize: '14px' }}>Salam, {user.user_metadata?.full_name?.split(' ')[0]}!</span>
           ) : (
             <>
-              <button onClick={() => navigate('/login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
-              <button onClick={() => navigate('/register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
+              <button onClick={() => navigate('/login')} style={{ background: 'transparent', color: '#1c1d1f', border: '1px solid #1c1d1f', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>Giriş</button>
+              <button onClick={() => navigate('/register')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>Qeydiyyat</button>
             </>
           )}
         </div>
       </nav>
 
-      <div style={{ padding: '40px', maxWidth: '900px', margin: '0 auto' }}>
-        
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 24px' }}>
+
         {/* COURSE HEADER */}
-        <div style={{ background: 'white', borderRadius: '10px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
-          <div style={{ background: '#1435c3', height: '200px', borderRadius: '8px', marginBottom: '20px' }}></div>
-          <h2 style={{ color: '#333', marginTop: 0 }}>IELTS Hazırlıq</h2>
-          <p style={{ color: '#555' }}>Müəllim: <strong>Aytən Məmmədova</strong></p>
-          <p style={{ color: '#555' }}>Bu kurs sizi IELTS imtahanına tam hazırlayır. Reading, Writing, Listening və Speaking bölmələri üzrə detallı dərslər daxildir.</p>
-          <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
-            <span style={{ background: '#f0f4ff', padding: '8px 15px', borderRadius: '20px', color: '#1435c3', fontSize: '14px' }}>40 dərs</span>
-            <span style={{ background: '#f0f4ff', padding: '8px 15px', borderRadius: '20px', color: '#1435c3', fontSize: '14px' }}>Bütün səviyyələr</span>
-            <span style={{ background: '#f0f4ff', padding: '8px 15px', borderRadius: '20px', color: '#1435c3', fontSize: '14px' }}>Ömürlük giriş</span>
+        <div style={{ border: '1px solid #d1d7dc', borderRadius: '4px', padding: '32px', marginBottom: '24px' }}>
+          <div style={{ background: '#e0e8ff', height: '200px', borderRadius: '4px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '64px' }}>📚</div>
+          <h2 style={{ margin: '0 0 12px', fontSize: '28px', fontWeight: '700', color: '#1c1d1f' }}>{course.title}</h2>
+          <p style={{ margin: '0 0 16px', color: '#4a4a4a', fontSize: '15px', lineHeight: '1.6' }}>{course.description}</p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <span style={{ background: '#f0f4ff', padding: '6px 14px', borderRadius: '100px', color: '#1435c3', fontSize: '13px', fontWeight: '600' }}>Ömürlük giriş</span>
+            <span style={{ background: '#f0f4ff', padding: '6px 14px', borderRadius: '100px', color: '#1435c3', fontSize: '13px', fontWeight: '600' }}>Video dərs</span>
           </div>
         </div>
 
-        {/* CURRICULUM */}
-        <div style={{ background: 'white', borderRadius: '10px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
-          <h3 style={{ color: '#333', marginTop: 0 }}>Dərs proqramı</h3>
-          {[
-            'Giriş və IELTS haqqında',
-            'Reading - Əsas strategiyalar',
-            'Reading - Mətn növləri',
-            'Writing Task 1 - Qrafik təsviri',
-            'Writing Task 2 - Esse yazımı',
-            'Listening - Dinləmə texnikaları',
-            'Speaking - Part 1, 2, 3',
-            'Mock Test - Tam imtahan simulyasiyası',
-          ].map((lesson, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eee' }}>
-              <span style={{ background: '#1435c3', color: 'white', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginRight: '15px', flexShrink: 0 }}>{i + 1}</span>
-              <span style={{ color: '#555' }}>🔒 {lesson}</span>
-            </div>
-          ))}
-        </div>
+        {/* VIDEO PREVIEW */}
+        {course.video_url && (
+          <div style={{ border: '1px solid #d1d7dc', borderRadius: '4px', padding: '32px', marginBottom: '24px' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: '700', color: '#1c1d1f' }}>Kurs nümunəsi</h3>
+            <video controls style={{ width: '100%', borderRadius: '4px' }} src={course.video_url}>
+              Brauzeriniz video dəstəkləmir.
+            </video>
+          </div>
+        )}
 
         {/* PAYMENT */}
-        <div style={{ background: 'white', borderRadius: '10px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '2px solid #1435c3' }}>
-          <h3 style={{ color: '#1435c3', marginTop: 0 }}>Kursu almaq üçün</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#1435c3', margin: '0 0 20px' }}>60 AZN</p>
-          <p style={{ color: '#555', marginBottom: '20px' }}>Aşağıdakı karta ödəniş edin və skrinşot (ekran görüntüsü) göndərin:</p>
-          <div style={{ background: '#f0f4ff', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-            <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Kart nömrəsi:</strong> 4098584465826715</p>
-            <p style={{ margin: '0 0 8px', color: '#333' }}><strong>Ad:</strong> BilX</p>
-            <p style={{ margin: 0, color: '#333' }}><strong>WhatsApp:</strong> +994 55 383 91 18</p>
+        <div style={{ border: '2px solid #1435c3', borderRadius: '4px', padding: '32px' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: '700', color: '#1c1d1f' }}>Kursu al</h3>
+          <p style={{ margin: '0 0 24px', fontSize: '36px', fontWeight: '700', color: '#1435c3' }}>{course.price} AZN</p>
+          <p style={{ margin: '0 0 16px', color: '#4a4a4a', fontSize: '14px' }}>Aşağıdakı karta ödəniş edin və ekran görüntüsünü WhatsApp-a göndərin:</p>
+          <div style={{ background: '#f7f9fa', padding: '20px', borderRadius: '4px', marginBottom: '20px' }}>
+            <p style={{ margin: '0 0 8px', color: '#1c1d1f', fontSize: '14px' }}><strong>Kart nömrəsi:</strong> 4098584465826715</p>
+            <p style={{ margin: '0 0 8px', color: '#1c1d1f', fontSize: '14px' }}><strong>Ad:</strong> Bil-X</p>
+            <p style={{ margin: 0, color: '#1c1d1f', fontSize: '14px' }}><strong>WhatsApp:</strong> +994 55 383 91 18</p>
           </div>
-          <p style={{ color: '#888', fontSize: '14px' }}>Ödənişdən sonra 24 saat ərzində kursa giriş aktivləşdiriləcək.</p>
+          <p style={{ color: '#6a6f73', fontSize: '13px', margin: '0 0 16px' }}>Ödənişdən sonra 24 saat ərzində kursa giriş aktivləşdiriləcək.</p>
           {!user && (
-            <button onClick={() => navigate('/register')} style={{ width: '100%', padding: '15px', background: '#1435c3', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginTop: '15px' }}>
+            <button onClick={() => navigate('/register')} style={{ width: '100%', padding: '14px', background: '#1435c3', color: 'white', border: 'none', borderRadius: '4px', fontSize: '15px', cursor: 'pointer', fontWeight: '700' }}>
               Qeydiyyatdan keç və al
             </button>
           )}

@@ -1,11 +1,8 @@
-Replace your ENTIRE file with this:
-
-```javascript
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 
-function InstructorDashboard() {
+function InstructorDashboard({ user }) {
   const navigate = useNavigate()
 
   const [title, setTitle] = useState('')
@@ -22,74 +19,63 @@ function InstructorDashboard() {
       return
     }
 
-    try {
-      setUploading(true)
-      setError('')
-      setSuccess('')
+    setUploading(true)
+    setError('')
+    setSuccess('')
 
-      // CHECK LOGIN
+    try {
       const {
-        data: { user },
-        error: userError,
+        data: { user: currentUser },
       } = await supabase.auth.getUser()
 
-      if (userError || !user) {
-        throw new Error('Zəhmət olmasa yenidən giriş edin')
+      if (!currentUser) {
+        throw new Error('İstifadəçi tapılmadı')
       }
 
-      // FILE NAME
       const fileExt = videoFile.name.split('.').pop()
       const fileName = `${Date.now()}.${fileExt}`
 
-      // UPLOAD VIDEO
+      // Upload video
       const { error: uploadError } = await supabase.storage
         .from('videos')
-        .upload(fileName, videoFile, {
-          cacheControl: '3600',
-          upsert: false,
-        })
+        .upload(fileName, videoFile)
 
       if (uploadError) {
         throw uploadError
       }
 
-      // GET PUBLIC URL
+      // Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage
         .from('videos')
         .getPublicUrl(fileName)
 
-      // INSERT COURSE
-      const { error: insertError } = await supabase
+      // Save course
+      const { error: dbError } = await supabase
         .from('Courses')
-        .insert([
-          {
-            title: title,
-            description: description,
-            price: Number(price),
-            instructor_id: user.id,
-            video_url: publicUrl,
-            is_published: true,
-          },
-        ])
+        .insert({
+          title: title,
+          description: description,
+          price: parseInt(price),
+          instructor_id: currentUser.id,
+          video_url: publicUrl,
+          is_published: true,
+        })
 
-      if (insertError) {
-        throw insertError
+      if (dbError) {
+        throw dbError
       }
 
       setSuccess('Kurs uğurla yükləndi!')
 
-      // CLEAR FORM
       setTitle('')
       setDescription('')
       setPrice('')
       setVideoFile(null)
 
-      // REDIRECT AFTER 1 SECOND
-      setTimeout(() => {
-        navigate('/')
-      }, 1000)
+      // REDIRECT
+      navigate('/')
 
     } catch (err) {
       console.log(err)
@@ -108,6 +94,7 @@ function InstructorDashboard() {
         color: '#1c1d1f',
       }}
     >
+
       {/* NAVBAR */}
       <nav
         style={{
@@ -238,7 +225,7 @@ function InstructorDashboard() {
           </p>
         )}
 
-        {/* FORM */}
+        {/* FORM CARD */}
         <div
           style={{
             border: '1px solid #d1d7dc',
@@ -271,6 +258,7 @@ function InstructorDashboard() {
 
             <input
               type="text"
+              placeholder="Məs: IELTS Hazırlıq kursu"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               style={{
@@ -280,6 +268,7 @@ function InstructorDashboard() {
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
+                outline: 'none',
               }}
             />
           </div>
@@ -297,6 +286,7 @@ function InstructorDashboard() {
             </label>
 
             <textarea
+              placeholder="Bu kurs haqqında məlumat..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
@@ -307,6 +297,8 @@ function InstructorDashboard() {
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box',
+                outline: 'none',
+                resize: 'vertical',
               }}
             />
           </div>
@@ -325,6 +317,7 @@ function InstructorDashboard() {
 
             <input
               type="number"
+              placeholder="50"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               style={{
@@ -333,6 +326,7 @@ function InstructorDashboard() {
                 border: '1px solid #d1d7dc',
                 borderRadius: '4px',
                 fontSize: '14px',
+                outline: 'none',
               }}
             />
           </div>
@@ -353,6 +347,9 @@ function InstructorDashboard() {
               type="file"
               accept="video/*"
               onChange={(e) => setVideoFile(e.target.files[0])}
+              style={{
+                fontSize: '14px',
+              }}
             />
 
             {videoFile && (
@@ -391,4 +388,3 @@ function InstructorDashboard() {
 }
 
 export default InstructorDashboard
-```
