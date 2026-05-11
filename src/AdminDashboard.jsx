@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 
 function AdminDashboard() {
   const navigate = useNavigate()
+
   const users = [
     { name: 'Anar Məmmədov', email: 'anar@gmail.com', course: 'IELTS Hazırlıq', status: 'Gözləyir' },
     { name: 'Günel Əliyeva', email: 'gunel@gmail.com', course: 'Riyaziyyat 9', status: 'Təsdiqlənib' },
@@ -9,56 +10,212 @@ function AdminDashboard() {
   ]
 
   return (
-    <div style={{ fontFamily: 'Arial', minHeight: '100vh', background: '#f0f4ff' }}>
-      <nav style={{ background: '#1435c3', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 onClick={() => navigate('/')} style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }}>BilX Admin</h1>
-        <button onClick={() => navigate('/')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Ana səhifə</button>
+    <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", background: '#fff', minHeight: '100vh', color: '#1c1d1f' }}>
+
+      {/* NAVBAR */}
+      <nav
+        style={{
+          background: '#fff',
+          padding: '0 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: '56px',
+          borderBottom: '1px solid #d1d7dc',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100
+        }}
+      >
+        <h1
+          onClick={() => navigate('/')}
+          style={{
+            color: '#1435c3',
+            margin: 0,
+            fontSize: '22px',
+            fontWeight: '700',
+            cursor: 'pointer'
+          }}
+        >
+          Bil-X Admin
+        </h1>
+
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            background: '#1435c3',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: '700'
+          }}
+        >
+          Ana səhifə
+        </button>
       </nav>
 
-      <div style={{ padding: '40px' }}>
-        <h2 style={{ color: '#333' }}>Admin Panel</h2>
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
+      {/* HEADER */}
+      <div
+        style={{
+          background: '#f0f4ff',
+          padding: '40px 60px',
+          borderBottom: '1px solid #d1d7dc'
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '34px',
+            margin: '0 0 10px',
+            fontWeight: '700'
+          }}
+        >
+          Admin Panel
+        </h2>
+
+        <p style={{ margin: 0, color: '#555', fontSize: '15px' }}>
+          Platform istifadəçilərini və kursları idarə et.
+        </p>
+      </div>
+
+      {/* STATS */}
+      <div style={{ padding: '32px 60px' }}>
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '40px' }}>
           {[
             { label: 'Ümumi İstifadəçi', value: '3' },
             { label: 'Aktiv Kurs', value: '3' },
-            { label: 'Gözləyən', value: '2' },
+            { label: 'Gözləyən Sorğu', value: '2' },
           ].map((stat, i) => (
-            <div key={i} style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', flex: 1, textAlign: 'center' }}>
-              <h3 style={{ color: '#1435c3', fontSize: '36px', margin: 0 }}>{stat.value}</h3>
-              <p style={{ color: '#555', margin: '5px 0 0' }}>{stat.label}</p>
+            <div
+              key={i}
+              style={{
+                background: '#fff',
+                border: '1px solid #d1d7dc',
+                padding: '24px',
+                borderRadius: '8px',
+                flex: '1',
+                minWidth: '220px'
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  color: '#1435c3',
+                  fontSize: '32px',
+                  fontWeight: '700'
+                }}
+              >
+                {stat.value}
+              </h3>
+
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  color: '#6a6f73',
+                  fontSize: '14px'
+                }}
+              >
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>
 
-        <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <h3 style={{ padding: '20px', margin: 0, borderBottom: '1px solid #eee' }}>İstifadəçilər</h3>
+        {/* USERS TABLE */}
+        <div
+          style={{
+            border: '1px solid #d1d7dc',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            background: '#fff'
+          }}
+        >
+          <div
+            style={{
+              padding: '20px',
+              borderBottom: '1px solid #d1d7dc',
+              fontWeight: '700',
+              fontSize: '18px'
+            }}
+          >
+            İstifadəçilər
+          </div>
+
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f8f9fa' }}>
-                <th style={{ padding: '12px 20px', textAlign: 'left', color: '#555' }}>Ad</th>
-                <th style={{ padding: '12px 20px', textAlign: 'left', color: '#555' }}>Email</th>
-                <th style={{ padding: '12px 20px', textAlign: 'left', color: '#555' }}>Kurs</th>
-                <th style={{ padding: '12px 20px', textAlign: 'left', color: '#555' }}>Status</th>
-                <th style={{ padding: '12px 20px', textAlign: 'left', color: '#555' }}>Əməliyyat</th>
+              <tr style={{ background: '#f7f9fa' }}>
+                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '14px' }}>Ad</th>
+                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '14px' }}>Email</th>
+                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '14px' }}>Kurs</th>
+                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '14px' }}>Status</th>
+                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '14px' }}>Əməliyyat</th>
               </tr>
             </thead>
+
             <tbody>
               {users.map((user, i) => (
                 <tr key={i} style={{ borderTop: '1px solid #eee' }}>
-                  <td style={{ padding: '12px 20px' }}>{user.name}</td>
-                  <td style={{ padding: '12px 20px', color: '#555' }}>{user.email}</td>
-                  <td style={{ padding: '12px 20px' }}>{user.course}</td>
-                  <td style={{ padding: '12px 20px' }}>
-                    <span style={{ background: user.status === 'Təsdiqlənib' ? '#d4edda' : '#fff3cd', color: user.status === 'Təsdiqlənib' ? '#155724' : '#856404', padding: '4px 10px', borderRadius: '20px', fontSize: '14px' }}>
+                  <td style={{ padding: '16px 20px' }}>{user.name}</td>
+
+                  <td style={{ padding: '16px 20px', color: '#6a6f73' }}>
+                    {user.email}
+                  </td>
+
+                  <td style={{ padding: '16px 20px' }}>
+                    {user.course}
+                  </td>
+
+                  <td style={{ padding: '16px 20px' }}>
+                    <span
+                      style={{
+                        background:
+                          user.status === 'Təsdiqlənib'
+                            ? '#d1fadf'
+                            : '#fff4cc',
+                        color:
+                          user.status === 'Təsdiqlənib'
+                            ? '#137333'
+                            : '#946200',
+                        padding: '6px 12px',
+                        borderRadius: '100px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}
+                    >
                       {user.status}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 20px' }}>
-                    {user.status === 'Gözləyir' && (
-                      <button style={{ background: '#1435c3', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '5px', cursor: 'pointer' }}>Təsdiqlə</button>
-                    )}
-                    {user.status === 'Təsdiqlənib' && (
-                      <button style={{ background: '#dc3545', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '5px', cursor: 'pointer' }}>Ləğv et</button>
+
+                  <td style={{ padding: '16px 20px' }}>
+                    {user.status === 'Gözləyir' ? (
+                      <button
+                        style={{
+                          background: '#1435c3',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Təsdiqlə
+                      </button>
+                    ) : (
+                      <button
+                        style={{
+                          background: '#b32d0f',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Ləğv et
+                      </button>
                     )}
                   </td>
                 </tr>

@@ -4,7 +4,8 @@ import Login from './Login'
 import Register from './Register'
 import AdminDashboard from './AdminDashboard'
 import StudentProfile from './StudentProfile'
-import CoursePage from './CoursePage'import InstructorDashboard from './InstructorDashboard'
+import CoursePage from './CoursePage'
+import InstructorDashboard from './InstructorDashboard'
 import { supabase } from './supabase'
 
 function Home({ user, handleLogout }) {
