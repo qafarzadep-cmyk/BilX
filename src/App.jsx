@@ -4,7 +4,7 @@ import Login from './Login'
 import Register from './Register'
 import AdminDashboard from './AdminDashboard'
 import StudentProfile from './StudentProfile'
-import CoursePage from './CoursePage'
+import CoursePage from './CoursePage'import InstructorDashboard from './InstructorDashboard'
 import { supabase } from './supabase'
 
 function Home({ user, handleLogout }) {
@@ -133,7 +133,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/profile" element={<StudentProfile user={user} />} />
-      <Route path="/course" element={<CoursePage user={user} />} />
+      <Route path="/course" element={<CoursePage user={user} />} /><Route path="/instructor" element={<InstructorDashboard user={user} />} />
     </Routes>
   )
 }
