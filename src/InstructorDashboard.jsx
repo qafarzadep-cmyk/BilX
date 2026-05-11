@@ -1,3 +1,6 @@
+Replace your ENTIRE file with this:
+
+```javascript
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
@@ -39,15 +42,12 @@ function InstructorDashboard() {
       const fileName = `${Date.now()}.${fileExt}`
 
       // UPLOAD VIDEO
-      const { data: uploadData, error: uploadError } =
-        await supabase.storage
-          .from('videos')
-          .upload(fileName, videoFile, {
-            cacheControl: '3600',
-            upsert: false,
-          })
-
-      console.log('UPLOAD:', uploadData)
+      const { error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(fileName, videoFile, {
+          cacheControl: '3600',
+          upsert: false,
+        })
 
       if (uploadError) {
         throw uploadError
@@ -60,10 +60,8 @@ function InstructorDashboard() {
         .from('videos')
         .getPublicUrl(fileName)
 
-      console.log('VIDEO URL:', publicUrl)
-
       // INSERT COURSE
-      const { data, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('Courses')
         .insert([
           {
@@ -75,9 +73,6 @@ function InstructorDashboard() {
             is_published: true,
           },
         ])
-        .select()
-
-      console.log('INSERTED COURSE:', data)
 
       if (insertError) {
         throw insertError
@@ -85,10 +80,16 @@ function InstructorDashboard() {
 
       setSuccess('Kurs uğurla yükləndi!')
 
+      // CLEAR FORM
       setTitle('')
       setDescription('')
       setPrice('')
       setVideoFile(null)
+
+      // REDIRECT AFTER 1 SECOND
+      setTimeout(() => {
+        navigate('/')
+      }, 1000)
 
     } catch (err) {
       console.log(err)
@@ -390,3 +391,4 @@ function InstructorDashboard() {
 }
 
 export default InstructorDashboard
+```
