@@ -10,51 +10,63 @@ import { supabase } from './supabase'
 function Home({ user, handleLogout }) {
   const navigate = useNavigate()
   return (
-    <div style={{ fontFamily: 'Arial', margin: 0, padding: 0 }}>
-      <nav style={{ background: '#1435c3', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ color: 'white', margin: 0, fontSize: '24px', cursor: 'pointer' }} onClick={() => navigate('/')}>BilX</h1>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", margin: 0, padding: 0, background: '#fff', color: '#1c1d1f' }}>
+      
+      {/* NAVBAR */}
+      <nav style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '64px', borderBottom: '1px solid #d1d7dc', position: 'sticky', top: 0, zIndex: 100 }}>
+        <h1 style={{ color: '#1435c3', margin: 0, fontSize: '24px', fontWeight: '700', cursor: 'pointer' }} onClick={() => navigate('/')}>Bil-X</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {user ? (
             <>
-              <span onClick={() => navigate('/profile')} style={{ color: 'white', marginRight: '15px', cursor: 'pointer', textDecoration: 'underline' }}>Salam, {user.user_metadata?.full_name || user.email}!</span>
-              <button onClick={handleLogout} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Çıxış</button>
+              <span onClick={() => navigate('/profile')} style={{ color: '#1c1d1f', cursor: 'pointer', fontSize: '14px' }}>Salam, {user.user_metadata?.full_name || user.email}!</span>
+              <button onClick={handleLogout} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}>Çıxış</button>
             </>
           ) : (
             <>
-              <button onClick={() => navigate('/login')} style={{ background: 'white', color: '#1435c3', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Giriş</button>
-              <button onClick={() => navigate('/register')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer' }}>Qeydiyyat</button>
+              <button onClick={() => navigate('/login')} style={{ background: 'white', color: '#1c1d1f', border: '1px solid #1c1d1f', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}>Giriş</button>
+              <button onClick={() => navigate('/register')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}>Qeydiyyat</button>
             </>
           )}
           {user?.email === 'qafarzadep@gmail.com' && (
-            <button onClick={() => navigate('/admin')} style={{ background: 'orange', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', marginLeft: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Admin</button>
+            <button onClick={() => navigate('/admin')} style={{ background: '#ff6b00', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}>Admin</button>
           )}
         </div>
       </nav>
 
-      <div style={{ background: '#f0f4ff', padding: '60px 40px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '40px', color: '#1435c3' }}>Azərbaycan dilində keyfiyyətli təhsil</h2>
-        <p style={{ fontSize: '18px', color: '#555', marginTop: '10px' }}>İstənilən vaxt, istənilən yerdən öyrən</p>
-        <button onClick={() => navigate('/course')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '8px', fontSize: '18px', marginTop: '20px', cursor: 'pointer' }}>Kurslara bax</button>
+      {/* HERO */}
+      <div style={{ padding: '60px 24px', borderBottom: '1px solid #d1d7dc', maxWidth: '750px' }}>
+        <h2 style={{ fontSize: '40px', fontWeight: '700', margin: '0 0 16px', lineHeight: '1.2', color: '#1c1d1f' }}>Azərbaycan dilində keyfiyyətli təhsil</h2>
+        <p style={{ fontSize: '18px', margin: '0 0 24px', color: '#4a4a4a', lineHeight: '1.6' }}>Peşəkar müəllimlərdən video dərslər. İstənilən vaxt, istənilən yerdən öyrən.</p>
+        <button onClick={() => navigate('/course')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '14px 24px', borderRadius: '4px', fontSize: '16px', cursor: 'pointer', fontWeight: '700' }}>Kurslara bax</button>
       </div>
 
-      <div style={{ padding: '40px', background: 'white' }}>
-        <h3 style={{ fontSize: '28px', color: '#333' }}>Kurslar</h3>
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '20px' }}>
+      {/* COURSES */}
+      <div style={{ padding: '40px 24px' }}>
+        <h3 style={{ fontSize: '22px', fontWeight: '700', color: '#1c1d1f', margin: '0 0 24px' }}>Ən populyar kurslar</h3>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
           {[
-            { title: 'IELTS Hazırlıq', price: '60 AZN', instructor: 'Müəllim Aytən' },
-            { title: 'Riyaziyyat 9-cu sinif', price: '40 AZN', instructor: 'Müəllim Əli' },
-            { title: 'İngilis dili A1-B2', price: '50 AZN', instructor: 'Müəllim Leyla' },
+            { title: 'IELTS Hazırlıq', price: '60 AZN', instructor: 'Müəllim Aytən', lessons: '40 dərs', level: 'Bütün səviyyələr' },
+            { title: 'Riyaziyyat 9-cu sinif', price: '40 AZN', instructor: 'Müəllim Əli', lessons: '35 dərs', level: 'Orta' },
+            { title: 'İngilis dili A1-B2', price: '50 AZN', instructor: 'Müəllim Leyla', lessons: '50 dərs', level: 'Başlanğıc' },
           ].map((course, i) => (
-            <div key={i} style={{ border: '1px solid #ddd', borderRadius: '10px', padding: '20px', width: '250px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <div style={{ background: '#1435c3', height: '120px', borderRadius: '8px', marginBottom: '15px' }}></div>
-              <h4 style={{ margin: '0 0 8px', color: '#333' }}>{course.title}</h4>
-              <p style={{ margin: '0 0 8px', color: '#777', fontSize: '14px' }}>{course.instructor}</p>
-              <p style={{ margin: '0 0 15px', color: '#1435c3', fontWeight: 'bold', fontSize: '18px' }}>{course.price}</p>
-              <button onClick={() => navigate('/course')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', width: '100%' }}>Kursa bax</button>
+            <div key={i} onClick={() => navigate('/course')} style={{ width: '260px', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+              <div style={{ background: '#f7f9fa', height: '140px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>📚</div>
+              <h4 style={{ margin: '0 0 4px', color: '#1c1d1f', fontSize: '15px', fontWeight: '700', lineHeight: '1.3' }}>{course.title}</h4>
+              <p style={{ margin: '0 0 2px', color: '#6a6f73', fontSize: '12px' }}>{course.instructor}</p>
+              <p style={{ margin: '0 0 6px', color: '#6a6f73', fontSize: '12px' }}>{course.lessons} • {course.level}</p>
+              <p style={{ margin: 0, color: '#1c1d1f', fontWeight: '700', fontSize: '16px' }}>{course.price}</p>
             </div>
           ))}
         </div>
       </div>
+
+      {/* FOOTER */}
+      <div style={{ borderTop: '1px solid #d1d7dc', padding: '24px', textAlign: 'center', color: '#6a6f73', fontSize: '13px', marginTop: '40px' }}>
+        © 2025 <strong style={{ color: '#1435c3' }}>Bil-X</strong> — Azərbaycan dilində onlayn təhsil platforması
+      </div>
+
     </div>
   )
 }
