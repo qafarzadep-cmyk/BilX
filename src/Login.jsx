@@ -1,53 +1,118 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
+import Navbar from './Navbar'
+import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('error')
 
-  const handleLogin = async () => {
+  const showMessage = (text, type = 'error') => {
+    setMessage(text)
+    setMessageType(type)
+  }
+
+  const handleLogin = async (event) => {
+    event.preventDefault()
     setLoading(true)
-    setError('')
-    setSuccess('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(error.message)
-    } else {
-      setSuccess('Xoş gəldiniz!')
-      setTimeout(() => navigate('/'), 1000)
+    showMessage('')
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+
+      if (error) {
+        showMessage('E-poçt və ya şifrə yanlışdır.')
+        return
+      }
+
+      showMessage('Giriş uğurludur. Yönləndirilirsiniz...', 'success')
+      setTimeout(() => navigate(isAdmin(data.user) ? '/admin' : '/', { replace: true }), 450)
+    } catch (error) {
+      showMessage(`Giriş alınmadı: ${error.message}`)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
+  }
+
+  const sendReset = async () => {
+    if (!email.trim()) {
+      showMessage('Şifrə sıfırlamaq üçün e-poçt yazın.')
+      return
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    showMessage(
+      error ? error.message : 'Şifrə sıfırlama linki e-poçtunuza göndərildi.',
+      error ? 'error' : 'success'
+    )
   }
 
   return (
-    <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", minHeight: '100vh', background: '#fff' }}>
-      
-      {/* NAVBAR */}
-      <nav style={{ background: '#fff', padding: '0 16px', display: 'flex', alignItems: 'center', height: '56px', borderBottom: '1px solid #d1d7dc' }}>
-        <h1 onClick={() => navigate('/')} style={{ color: '#1435c3', margin: 0, fontSize: '22px', fontWeight: '700', cursor: 'pointer' }}>Bil-X</h1>
-      </nav>
+    <div className="page auth-page-soft">
+      <Navbar />
+      <main className="auth-shell">
+        <form className="auth-card-clean" onSubmit={handleLogin}>
+          <p className="auth-kicker">Bil-X hesabı</p>
+          <h1>Giriş</h1>
+          <p className="auth-subtitle">Kurslarınıza və panelinizə davam etmək üçün daxil olun.</p>
 
-      {/* FORM */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 20px' }}>
-        <div style={{ width: '100%', maxWidth: '400px', border: '1px solid #d1d7dc', borderRadius: '4px', padding: '40px' }}>
-          <h2 style={{ color: '#1c1d1f', textAlign: 'center', marginBottom: '24px', fontSize: '24px', fontWeight: '700' }}>Giriş</h2>
-          {error && <p style={{ color: '#dc3545', textAlign: 'center', marginBottom: '15px', background: '#ffe6e6', padding: '10px', borderRadius: '4px', fontSize: '14px' }}>{error}</p>}
-          {success && <p style={{ color: '#28a745', textAlign: 'center', marginBottom: '15px', background: '#e6ffe6', padding: '10px', borderRadius: '4px', fontSize: '14px' }}>{success}</p>}
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ width: '100%', padding: '12px', marginBottom: '12px', border: '1px solid #d1d7dc', borderRadius: '4px', fontSize: '15px', boxSizing: 'border-box', outline: 'none' }} />
-          <input type="password" placeholder="Şifrə" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ width: '100%', padding: '12px', marginBottom: '16px', border: '1px solid #d1d7dc', borderRadius: '4px', fontSize: '15px', boxSizing: 'border-box', outline: 'none' }} />
-          <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '12px', background: '#1435c3', color: 'white', border: 'none', borderRadius: '4px', fontSize: '15px', cursor: 'pointer', fontWeight: '700' }}>
+          {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
+
+          <label>E-poçt</label>
+          <input
+            type="email"
+            placeholder="learnbyspeaking1@gmail.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+
+          <label>Şifrə</label>
+          <div className="password-input-wrap">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Şifrənizi yazın"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="password-eye-button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              title={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          <button className="primary-button full" disabled={loading}>
             {loading ? 'Yüklənir...' : 'Giriş et'}
           </button>
-          <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px', color: '#6a6f73' }}>
-            Hesabın yoxdur? <span onClick={() => navigate('/register')} style={{ color: '#1435c3', cursor: 'pointer', fontWeight: '700' }}>Qeydiyyat</span>
-          </div>
-        </div>
-      </div>
+
+          <button type="button" className="text-button" onClick={sendReset}>
+            Şifrəni unutmusunuz?
+          </button>
+
+          <p className="auth-footer">
+            Hesabınız yoxdur? <button type="button" onClick={() => navigate('/register')}>Qeydiyyat</button>
+          </p>
+        </form>
+      </main>
     </div>
   )
 }

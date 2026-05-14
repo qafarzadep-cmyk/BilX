@@ -1,135 +1,240 @@
-import { useEffect, useState } from 'react'
-import { Routes, Route, useNavigate } from 'react-router-dom'
-import Login from './Login'
-import Register from './Register'
+import { useEffect, useRef, useState } from 'react'
+import { Route, Routes, useNavigate } from 'react-router-dom'
 import AdminDashboard from './AdminDashboard'
-import StudentProfile from './StudentProfile'
 import CoursePage from './CoursePage'
+import EditCourse from './EditCourse'
 import InstructorDashboard from './InstructorDashboard'
+import Login from './Login'
+import Navbar from './Navbar'
+import Register from './Register'
+import ResetPassword from './ResetPassword'
+import StudentProfile from './StudentProfile'
+import heroCover from './assets/bilx-hero-cover.png'
+import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
+import { ensureProfile, fallbackProfile, isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
-function Home({ user, handleLogout }) {
+function Home({ user, profile, handleLogout }) {
   const navigate = useNavigate()
+  const courseRowRef = useRef(null)
   const [search, setSearch] = useState('')
   const [courses, setCourses] = useState([])
+  const [loadingCourses, setLoadingCourses] = useState(true)
+  const role = profile?.role || 'student'
+  const roleLabel = isAdmin(user)
+    ? 'Admin kimi daxil oldunuz'
+    : role === 'instructor'
+      ? 'Müəllim kimi daxil oldunuz'
+      : 'Tələbə kimi daxil oldunuz'
 
   useEffect(() => {
-    fetchCourses()
+    let mounted = true
+
+    async function loadCourses() {
+      const { data } = await supabase
+        .from('Courses')
+        .select('*')
+        .eq('is_published', true)
+        .order('id', { ascending: false })
+
+      const coursesWithAuthors = await attachCourseAuthorNames(data || [])
+      if (mounted) {
+        setCourses(coursesWithAuthors)
+        setLoadingCourses(false)
+      }
+    }
+
+    loadCourses()
+    return () => {
+      mounted = false
+    }
   }, [])
 
-  const fetchCourses = async () => {
-    const { data, error } = await supabase
-      .from('Courses')
-      .select('*')
-      .eq('is_published', true)
-    if (!error && data) setCourses(data)
+  const filteredCourses = courses.filter((course) =>
+    `${course.title || ''} ${course.description || ''}`.toLowerCase().includes(search.toLowerCase())
+  )
+  const scrollCourses = (direction) => {
+    courseRowRef.current?.scrollBy({
+      left: direction * 300,
+      behavior: 'smooth',
+    })
   }
 
   return (
-    <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", margin: 0, padding: 0, background: '#fff', color: '#1c1d1f' }}>
+    <div className="page">
+      <Navbar
+        user={user}
+        profile={profile}
+        search={search}
+        onSearchChange={setSearch}
+        onLogout={handleLogout}
+      />
 
-      {/* NAVBAR */}
-      <nav style={{ background: '#fff', padding: '0 16px', display: 'flex', alignItems: 'center', height: '56px', borderBottom: '1px solid #d1d7dc', position: 'sticky', top: 0, zIndex: 100, gap: '16px' }}>
-        <h1 style={{ color: '#1435c3', margin: 0, fontSize: '22px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => navigate('/')}>Bil-X</h1>
-        <div style={{ flex: 1, maxWidth: '600px', display: 'flex', alignItems: 'center', background: '#f7f9fa', border: '1px solid #d1d7dc', borderRadius: '100px', padding: '8px 16px', gap: '8px' }}>
-          <span style={{ fontSize: '16px' }}>🔍</span>
-          <input type="text" placeholder="Kurs axtar..." value={search} onChange={e => setSearch(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', width: '100%', color: '#1c1d1f' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
-          {user ? (
-            <>
-              <span onClick={() => navigate('/profile')} style={{ color: '#1c1d1f', cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap' }}>Salam, {user.user_metadata?.full_name?.split(' ')[0]}!</span>
-              <button onClick={handleLogout} style={{ background: 'transparent', color: '#1c1d1f', border: '1px solid #1c1d1f', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>Çıxış</button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => navigate('/login')} style={{ background: 'transparent', color: '#1c1d1f', border: '1px solid #1c1d1f', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>Giriş</button>
-              <button onClick={() => navigate('/register')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>Qeydiyyat</button>
-            </>
+      <section className="home-hero">
+        <img className="home-hero-image" src={heroCover} alt="" aria-hidden="true" />
+        <div className="home-hero-content">
+          {user && (
+            <p className="role-pill">
+              {roleLabel}
+            </p>
           )}
-          {user?.email === 'qafarzadep@gmail.com' && (
-            <button onClick={() => navigate('/admin')} style={{ background: '#ff6b00', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>Admin</button>
+          <h1>Bil-X ilə öyrənməyə başla</h1>
+          <p>
+            Azərbaycan dilində video kurslar.
+          </p>
+          {user && role === 'instructor' && (
+            <div className="hero-actions">
+              <button className="outline-button large" onClick={() => navigate('/instructor')}>Müəllim paneli</button>
+            </div>
           )}
         </div>
-      </nav>
+      </section>
 
-      {/* HERO */}
-      <div style={{ background: '#f0f4ff', padding: '48px 60px', borderBottom: '1px solid #d1d7dc' }}>
-        <div style={{ maxWidth: '500px' }}>
-          <h2 style={{ fontSize: '36px', fontWeight: '700', margin: '0 0 16px', lineHeight: '1.2', color: '#1c1d1f' }}>Öyrənməyə bu gün başla</h2>
-          <p style={{ fontSize: '16px', margin: '0 0 24px', color: '#4a4a4a', lineHeight: '1.6' }}>Azərbaycan dilində peşəkar müəllimlərdən keyfiyyətli video dərslər.</p>
-          <button onClick={() => navigate('/course')} style={{ background: '#1435c3', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '15px', cursor: 'pointer', fontWeight: '700' }}>Kurslara bax</button>
-        </div>
-      </div>
-
-      {/* CATEGORIES */}
-      <div style={{ padding: '16px 60px', borderBottom: '1px solid #d1d7dc', display: 'flex', gap: '8px', overflowX: 'auto' }}>
-        {['Hamısı', 'İngilis dili', 'Riyaziyyat', 'IELTS', 'Proqramlaşdırma', 'Biznes'].map((cat, i) => (
-          <button key={i} style={{ background: i === 0 ? '#1435c3' : 'white', color: i === 0 ? 'white' : '#1c1d1f', border: '1px solid #d1d7dc', padding: '6px 16px', borderRadius: '100px', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>{cat}</button>
-        ))}
-      </div>
-
-      {/* COURSES */}
-      <div style={{ padding: '32px 60px' }}>
-        <h3 style={{ fontSize: '20px', fontWeight: '700', color: '#1c1d1f', margin: '0 0 20px' }}>
-          {courses.length > 0 ? 'Kurslar' : 'Tezliklə...'}
-        </h3>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          {courses.length > 0 ? courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase())).map((course, i) => (
-            <div key={i} onClick={() => navigate('/course', { state: { course } })}
-              style={{ width: '240px', cursor: 'pointer', border: '1px solid #d1d7dc', borderRadius: '4px', overflow: 'hidden' }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-              <div style={{ background: '#e0e8ff', height: '135px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px' }}>📚</div>
-              <div style={{ padding: '12px' }}>
-                <h4 style={{ margin: '0 0 4px', color: '#1c1d1f', fontSize: '14px', fontWeight: '700' }}>{course.title}</h4>
-                <p style={{ margin: '0 0 8px', color: '#6a6f73', fontSize: '12px' }}>{course.description?.substring(0, 60)}...</p>
-                <p style={{ margin: 0, color: '#1c1d1f', fontWeight: '700', fontSize: '16px' }}>{course.price} AZN</p>
+      <main className="content-shell">
+        {loadingCourses ? null : filteredCourses.length === 0 ? null : (
+          <section className="home-course-section" aria-label="Kurslar">
+            <div className="home-course-header">
+              <h2>Kurslar</h2>
+              <div className="home-course-arrows">
+                <button type="button" aria-label="Sola sürüşdür" onClick={() => scrollCourses(-1)}>←</button>
+                <button type="button" aria-label="Sağa sürüşdür" onClick={() => scrollCourses(1)}>→</button>
               </div>
             </div>
-          )) : (
-            <p style={{ color: '#6a6f73', fontSize: '14px' }}>Hələ kurs yoxdur. Tezliklə əlavə olunacaq!</p>
-          )}
-        </div>
-      </div>
 
-      {/* FOOTER */}
-      <div style={{ borderTop: '1px solid #d1d7dc', padding: '24px 60px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px' }}>
-        <span style={{ color: '#1435c3', fontWeight: '700', fontSize: '18px' }}>Bil-X</span>
-        <span style={{ fontSize: '12px', color: '#6a6f73' }}>© 2025 Bil-X — Azərbaycan dilində onlayn təhsil</span>
-      </div>
+            <div className="home-course-carousel">
+              <button className="home-course-side-arrow left" type="button" aria-label="Sola sürüşdür" onClick={() => scrollCourses(-1)}>←</button>
+              <div className="home-course-row" ref={courseRowRef}>
+                {filteredCourses.map((course) => {
+                  const instructorName = getCourseAuthorName(course)
+                  const hasThumbnail = Boolean(course.thumbnail_url)
+                  const duration = course.total_hours || course.duration
+                  const level = course.level
+
+                  return (
+                    <article
+                      key={course.id}
+                      className="home-course-card"
+                      onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                    >
+                      {hasThumbnail ? (
+                        <img className="home-course-thumb" src={course.thumbnail_url} alt={course.title} />
+                      ) : (
+                        <div className="home-course-thumb home-course-thumb-empty" aria-hidden="true">📚</div>
+                      )}
+                      <div className="home-course-card-body">
+                        <h3>{course.title}</h3>
+                        {instructorName && <small className="home-course-instructor">{instructorName}</small>}
+                        {/* {duration && level && <small className="home-course-meta">{duration} · {level}</small>} */}
+                        <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : 'Free'}</strong>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+              <button className="home-course-side-arrow right" type="button" aria-label="Sağa sürüşdür" onClick={() => scrollCourses(1)}>→</button>
+            </div>
+          </section>
+        )}
+      </main>
     </div>
   )
 }
 
 function App() {
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [loggingOut, setLoggingOut] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    let mounted = true
+
+    async function loadSession() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const currentUser = session?.user || null
+      if (!mounted) return
+      setUser(currentUser)
+    }
+
+    loadSession()
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (loggingOut) return
+      const currentUser = session?.user || null
+      setUser(currentUser)
+      if (!currentUser) setProfile(null)
     })
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
+
+    const refreshProfile = () => {
+      const currentUser = supabase.auth.getUser().then(({ data }) => {
+        if (!mounted || loggingOut || !data.user) return
+        setUser(data.user)
+        ensureProfile(data.user).then((nextProfile) => {
+          if (mounted) setProfile(nextProfile || fallbackProfile(data.user))
+        })
+      })
+      return currentUser
+    }
+
+    window.addEventListener('focus', refreshProfile)
+
+    return () => {
+      mounted = false
+      window.removeEventListener('focus', refreshProfile)
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+
+    async function loadProfile() {
+      if (!user || loggingOut) {
+        setProfile(null)
+        return
+      }
+
+      try {
+        const nextProfile = await ensureProfile(user)
+        if (mounted) setProfile(nextProfile || fallbackProfile(user))
+      } catch (error) {
+        console.error('Could not load profile:', error)
+        if (mounted) setProfile(fallbackProfile(user))
+      }
+    }
+
+    loadProfile()
+    const profileRefreshTimer = setInterval(loadProfile, 10000)
+
+    return () => {
+      mounted = false
+      clearInterval(profileRefreshTimer)
+    }
+  }, [user, loggingOut])
+
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    setLoggingOut(true)
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Could not sign out from Supabase:', error)
+    }
     setUser(null)
-    navigate('/')
+    setProfile(null)
+    navigate('/', { replace: true })
+    setTimeout(() => setLoggingOut(false), 300)
   }
 
   return (
     <Routes>
-      <Route path="/" element={<Home user={user} handleLogout={handleLogout} />} />
+      <Route path="/" element={<Home user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/profile" element={<StudentProfile user={user} />} />
-      <Route path="/course" element={<CoursePage user={user} />} />
-      <Route path="/instructor" element={<InstructorDashboard user={user} />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/admin" element={<AdminDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/profile" element={<StudentProfile user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/course" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/instructor" element={<InstructorDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/edit-course" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
     </Routes>
   )
 }

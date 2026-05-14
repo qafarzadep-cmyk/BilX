@@ -1,388 +1,330 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getCourseAuthorName } from './courseAuthors'
+import Navbar from './Navbar'
 import { supabase } from './supabase'
 
-function InstructorDashboard({ user }) {
+function InstructorDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
+  const role = profile?.role || 'student'
+  const [courses, setCourses] = useState([])
+  const [videos, setVideos] = useState([])
+  const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [form, setForm] = useState({ title: '', description: '', price: '' })
+  const [thumbnailFile, setThumbnailFile] = useState(null)
+  const [lessonTitle, setLessonTitle] = useState('')
+  const [lessonFile, setLessonFile] = useState(null)
+  const [activeTab, setActiveTab] = useState('courses')
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('notice')
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [price, setPrice] = useState('')
-  const [videoFile, setVideoFile] = useState(null)
-  const [uploading, setUploading] = useState(false)
-  const [success, setSuccess] = useState('')
-  const [error, setError] = useState('')
+  const selectedCourse = useMemo(
+    () => courses.find((course) => String(course.id) === String(selectedCourseId)),
+    [courses, selectedCourseId]
+  )
+  const courseVideos = videos.filter((video) => String(video.course_id) === String(selectedCourseId))
 
-  const handleUpload = async () => {
-    if (!title || !description || !price || !videoFile) {
-      setError('Bütün sahələri doldurun!')
+  const showMessage = (text, type = 'notice') => {
+    setMessage(text)
+    setMessageType(type)
+  }
+
+  const loadData = async (currentUser = user) => {
+    if (!currentUser) return
+
+    const { data: courseData, error: courseError } = await supabase
+      .from('Courses')
+      .select('*')
+      .eq('instructor_id', currentUser.id)
+      .order('id', { ascending: false })
+
+    if (courseError) {
+      showMessage(`Kurslar yüklənmədi: ${courseError.message}`, 'error')
       return
     }
 
-    setUploading(true)
-    setError('')
-    setSuccess('')
+    const instructorName = profile?.full_name || currentUser.user_metadata?.full_name || currentUser.email || ''
+    const nextCourses = (courseData || []).map((course) => ({
+      ...course,
+      instructor_name: course.instructor_name || instructorName,
+    }))
+    setCourses(nextCourses)
 
-    try {
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser()
-
-      if (!currentUser) {
-        throw new Error('İstifadəçi tapılmadı')
-      }
-
-      const fileExt = videoFile.name.split('.').pop()
-      const fileName = `${Date.now()}.${fileExt}`
-
-      // Upload video
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(fileName, videoFile)
-
-      if (uploadError) {
-        throw uploadError
-      }
-
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage
-        .from('videos')
-        .getPublicUrl(fileName)
-
-      // Save course
-      const { error: dbError } = await supabase
-        .from('Courses')
-        .insert({
-          title: title,
-          description: description,
-          price: parseInt(price),
-          instructor_id: currentUser.id,
-          video_url: publicUrl,
-          is_published: true,
-        })
-
-      if (dbError) {
-        throw dbError
-      }
-
-      setSuccess('Kurs uğurla yükləndi!')
-
-      setTitle('')
-      setDescription('')
-      setPrice('')
-      setVideoFile(null)
-
-      // REDIRECT
-      navigate('/')
-
-    } catch (err) {
-      console.log(err)
-      setError('Xəta baş verdi: ' + err.message)
+    const selectedStillExists = nextCourses.some((course) => String(course.id) === String(selectedCourseId))
+    if (!selectedStillExists) {
+      setSelectedCourseId(nextCourses[0] ? String(nextCourses[0].id) : '')
     }
 
-    setUploading(false)
+    const ids = nextCourses.map((course) => course.id)
+    if (ids.length === 0) {
+      setVideos([])
+      setActiveTab('new')
+      return
+    }
+
+    const { data: videoData, error: videoError } = await supabase
+      .from('videos')
+      .select('*')
+      .in('course_id', ids)
+      .order('order_index', { ascending: true })
+
+    if (videoError) {
+      showMessage(`Dərslər yüklənmədi: ${videoError.message}`, 'error')
+      return
+    }
+
+    setVideos(videoData || [])
   }
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  useEffect(() => {
+    if (user && role !== 'instructor') {
+      navigate('/profile', { replace: true })
+    }
+  }, [user, role, navigate])
+
+  const uploadPublicFile = async (bucket, file, prefix) => {
+    if (!file) return null
+
+    const ext = file.name.split('.').pop()
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+    const fileName = `${prefix}-${Date.now()}-${safeName}.${ext}`
+    const { error } = await supabase.storage.from(bucket).upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+    })
+
+    if (error) {
+      throw new Error(
+        `${bucket} storage upload alınmadı: ${error.message}. Supabase Storage-da "${bucket}" bucket-i public yaradın və upload icazəsini aktiv edin.`
+      )
+    }
+
+    return supabase.storage.from(bucket).getPublicUrl(fileName).data.publicUrl
+  }
+
+  const createCourse = async () => {
+    if (!user || !form.title.trim() || !form.description.trim() || !form.price) {
+      showMessage('Bütün kurs sahələrini doldurun.', 'error')
+      return
+    }
+
+    setLoading(true)
+    showMessage('')
+
+    try {
+      const thumbnailUrl = await uploadPublicFile('thumbnails', thumbnailFile, 'thumb')
+      const instructorName = profile?.full_name || user.user_metadata?.full_name || user.email
+      let { data, error } = await supabase
+        .from('Courses')
+        .insert({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          price: Number(form.price),
+          instructor_id: user.id,
+          instructor_name: instructorName,
+          thumbnail_url: thumbnailUrl,
+          is_published: false,
+        })
+        .select()
+        .single()
+
+      if (error && error.message?.toLowerCase().includes('instructor_name')) {
+        const retry = await supabase
+          .from('Courses')
+          .insert({
+            title: form.title.trim(),
+            description: form.description.trim(),
+            price: Number(form.price),
+            instructor_id: user.id,
+            thumbnail_url: thumbnailUrl,
+            is_published: false,
+          })
+          .select()
+          .single()
+        data = retry.data
+        error = retry.error
+      }
+
+      if (error) throw error
+
+      setForm({ title: '', description: '', price: '' })
+      setThumbnailFile(null)
+      setSelectedCourseId(String(data.id))
+      setActiveTab('courses')
+      showMessage('Kurs yaradıldı. İndi bu kursa video dərslər əlavə edə bilərsiniz.', 'success')
+      await loadData(user)
+    } catch (error) {
+      showMessage(`Xəta: ${error.message}`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addLesson = async () => {
+    if (!selectedCourseId) {
+      showMessage('Əvvəlcə kurs yaradın və ya mövcud kurs seçin.', 'error')
+      setActiveTab('new')
+      return
+    }
+
+    if (!lessonTitle.trim() || !lessonFile) {
+      showMessage('Dərs adı və video faylı seçin.', 'error')
+      return
+    }
+
+    setLoading(true)
+    showMessage('')
+
+    try {
+      const videoUrl = await uploadPublicFile('videos', lessonFile, `lesson-${selectedCourseId}`)
+      const { error } = await supabase.from('videos').insert({
+        course_id: Number(selectedCourseId),
+        title: lessonTitle.trim(),
+        video_url: videoUrl,
+        order_index: courseVideos.length + 1,
+      })
+
+      if (error) throw error
+
+      setLessonTitle('')
+      setLessonFile(null)
+      showMessage('Dərs videosu əlavə edildi.', 'success')
+      await loadData(user)
+    } catch (error) {
+      showMessage(`Xəta: ${error.message}`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitCourse = async () => {
+    if (!selectedCourseId || courseVideos.length === 0) {
+      showMessage('Kursu təqdim etmək üçün ən azı bir video dərs əlavə edin.', 'error')
+      return
+    }
+
+    const { error } = await supabase
+      .from('Courses')
+      .update({ is_published: false })
+      .eq('id', selectedCourseId)
+
+    if (error) {
+      showMessage(`Xəta: ${error.message}`, 'error')
+      return
+    }
+
+    showMessage('Kurs admin təsdiqi üçün göndərildi.', 'success')
+    await loadData(user)
+  }
+
+  if (!user) {
+    return (
+      <div className="page centered-page">
+        <div className="empty-box compact">
+          <h2>Müəllim paneli üçün daxil olun</h2>
+          <button className="primary-button" onClick={() => navigate('/login')}>Daxil ol</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (role !== 'instructor') return null
+
   return (
-    <div
-      style={{
-        fontFamily: "'Segoe UI', Arial, sans-serif",
-        minHeight: '100vh',
-        background: '#fff',
-        color: '#1c1d1f',
-      }}
-    >
+    <div className="page">
+      <Navbar user={user} profile={profile} onLogout={handleLogout} />
+      <main className="dashboard-shell">
+        <section className="dashboard-header">
+          <div>
+            <p className="role-pill">Müəllim kimi daxil oldunuz</p>
+            <h1>Müəllim Paneli</h1>
+            <p>Kurs yaradın, video dərslər əlavə edin və təsdiq üçün adminə göndərin.</p>
+          </div>
+        </section>
 
-      {/* NAVBAR */}
-      <nav
-        style={{
-          background: '#fff',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: '56px',
-          borderBottom: '1px solid #d1d7dc',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        <h1
-          onClick={() => navigate('/')}
-          style={{
-            color: '#1435c3',
-            margin: 0,
-            fontSize: '22px',
-            fontWeight: '700',
-            cursor: 'pointer',
-          }}
-        >
-          Bil-X
-        </h1>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => navigate('/profile')}
-            style={{
-              background: 'transparent',
-              color: '#1c1d1f',
-              border: '1px solid #1c1d1f',
-              padding: '8px 14px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '13px',
-            }}
-          >
-            Tələbə kimi keç
-          </button>
-
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              background: '#1435c3',
-              color: 'white',
-              border: 'none',
-              padding: '8px 14px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '700',
-              fontSize: '13px',
-            }}
-          >
-            Ana səhifə
-          </button>
+        <div className="tabs">
+          <button className={activeTab === 'courses' ? 'active' : ''} onClick={() => setActiveTab('courses')}>Kurslarım</button>
+          <button className={activeTab === 'new' ? 'active' : ''} onClick={() => setActiveTab('new')}>Kurs yarat</button>
         </div>
-      </nav>
 
-      {/* HERO */}
-      <div
-        style={{
-          background: '#f0f4ff',
-          padding: '40px 60px',
-          borderBottom: '1px solid #d1d7dc',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '34px',
-            margin: '0 0 10px',
-            fontWeight: '700',
-          }}
-        >
-          Müəllim Paneli
-        </h2>
-
-        <p
-          style={{
-            margin: 0,
-            color: '#6a6f73',
-            fontSize: '15px',
-          }}
-        >
-          Yeni kurslar yarat və tələbələrinə dərs paylaş.
-        </p>
-      </div>
-
-      {/* CONTENT */}
-      <div
-        style={{
-          maxWidth: '900px',
-          margin: '0 auto',
-          padding: '32px 24px',
-        }}
-      >
-        {error && (
-          <p
-            style={{
-              color: '#b32d0f',
-              background: '#ffe7e3',
-              padding: '14px',
-              borderRadius: '6px',
-              marginBottom: '20px',
-              fontSize: '14px',
-            }}
-          >
-            {error}
-          </p>
+        {message && (
+          <div className={messageType === 'error' ? 'error-box' : messageType === 'success' ? 'success-box' : 'notice-box'}>
+            {message}
+          </div>
         )}
 
-        {success && (
-          <p
-            style={{
-              color: '#137333',
-              background: '#d1fadf',
-              padding: '14px',
-              borderRadius: '6px',
-              marginBottom: '20px',
-              fontSize: '14px',
-            }}
-          >
-            {success}
-          </p>
-        )}
+        {activeTab === 'new' ? (
+          <section className="panel-card form-panel">
+            <h2>Yeni kurs yarat</h2>
+            <label>Kurs adı</label>
+            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Məsələn: Python-a giriş" />
+            <label>Təsvir</label>
+            <textarea rows={5} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Kurs haqqında məlumat..." />
+            <label>Qiymət (AZN)</label>
+            <input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
+            <label>Örtük şəkli</label>
+            <input type="file" accept="image/*" onChange={(event) => setThumbnailFile(event.target.files[0])} />
+            <button className="primary-button full" onClick={createCourse} disabled={loading}>{loading ? 'Yaradılır...' : 'Kursu yarat'}</button>
+          </section>
+        ) : (
+          <section className="studio-grid">
+            <div className="panel-card">
+              <h2>Kurslarım</h2>
+              {courses.length === 0 ? (
+                <div className="empty-box">
+                  Hələ kurs yoxdur. Video yükləmək üçün əvvəlcə kurs yaradın.
+                </div>
+              ) : courses.map((course) => {
+                const instructorName = getCourseAuthorName(course)
 
-        {/* FORM CARD */}
-        <div
-          style={{
-            border: '1px solid #d1d7dc',
-            borderRadius: '8px',
-            padding: '32px',
-            background: '#fff',
-          }}
-        >
-          <h3
-            style={{
-              margin: '0 0 28px',
-              fontSize: '22px',
-              fontWeight: '700',
-            }}
-          >
-            Yeni Kurs Əlavə Et
-          </h3>
+                return (
+                  <button key={course.id} className={String(course.id) === String(selectedCourseId) ? 'course-row active' : 'course-row'} onClick={() => setSelectedCourseId(String(course.id))}>
+                    <img src={course.thumbnail_url || '/ortuksekli.jpg'} alt={course.title} />
+                    <span>
+                      <strong>{course.title}</strong>
+                      {instructorName && <small>Müəllim: {instructorName}</small>}
+                      <small>{course.is_published ? 'Təsdiqlənib' : 'Gözləyir'} · {course.price} AZN · {videos.filter((video) => video.course_id === course.id).length} dərs</small>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
 
-          <div style={{ marginBottom: '22px' }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                fontSize: '14px',
-              }}
-            >
-              Kurs adı
-            </label>
+            {selectedCourse && (
+              <div className="panel-card form-panel">
+                <>
+                  <h2>{selectedCourse.title}</h2>
+                  {getCourseAuthorName(selectedCourse) && <p className="muted">Müəllim: {getCourseAuthorName(selectedCourse)}</p>}
+                  <button className="outline-button full" onClick={() => navigate('/edit-course', { state: { course: selectedCourse } })}>
+                    Kurs məlumatlarını redaktə et
+                  </button>
+                  <label>Dərs adı</label>
+                  <input value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} placeholder={`${courseVideos.length + 1}. dərs adı`} />
+                  <label>Video faylı</label>
+                  <input type="file" accept="video/*" onChange={(event) => setLessonFile(event.target.files[0] || null)} />
+                  <button className="primary-button full" onClick={addLesson} disabled={loading}>
+                    {loading ? 'Yüklənir...' : `Dərs ${courseVideos.length + 1}-i əlavə et`}
+                  </button>
+                  <button className="dark-button full" onClick={submitCourse} disabled={courseVideos.length === 0}>Kursu təqdim et</button>
 
-            <input
-              type="text"
-              placeholder="Məs: IELTS Hazırlıq kursu"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px 14px',
-                border: '1px solid #d1d7dc',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '22px' }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                fontSize: '14px',
-              }}
-            >
-              Kurs təsviri
-            </label>
-
-            <textarea
-              placeholder="Bu kurs haqqında məlumat..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              style={{
-                width: '100%',
-                padding: '12px 14px',
-                border: '1px solid #d1d7dc',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                outline: 'none',
-                resize: 'vertical',
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '22px' }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                fontSize: '14px',
-              }}
-            >
-              Qiymət (AZN)
-            </label>
-
-            <input
-              type="number"
-              placeholder="50"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              style={{
-                width: '220px',
-                padding: '12px 14px',
-                border: '1px solid #d1d7dc',
-                borderRadius: '4px',
-                fontSize: '14px',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '30px' }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                fontSize: '14px',
-              }}
-            >
-              Video yüklə
-            </label>
-
-            <input
-              type="file"
-              accept="video/*"
-              onChange={(e) => setVideoFile(e.target.files[0])}
-              style={{
-                fontSize: '14px',
-              }}
-            />
-
-            {videoFile && (
-              <p
-                style={{
-                  color: '#6a6f73',
-                  fontSize: '13px',
-                  marginTop: '8px',
-                }}
-              >
-                Seçildi: {videoFile.name}
-              </p>
+                  <div className="lesson-list">
+                    {courseVideos.length === 0 ? <p className="muted">Bu kursda hələ dərs yoxdur.</p> : courseVideos.map((video, index) => (
+                      <div key={video.id} className="lesson-row"><span>{index + 1}</span>{video.title}</div>
+                    ))}
+                  </div>
+                </>
+              </div>
             )}
-          </div>
-
-          <button
-            onClick={handleUpload}
-            disabled={uploading}
-            style={{
-              background: '#1435c3',
-              color: 'white',
-              border: 'none',
-              padding: '14px 32px',
-              borderRadius: '4px',
-              fontSize: '15px',
-              cursor: 'pointer',
-              fontWeight: '700',
-            }}
-          >
-            {uploading ? 'Yüklənir...' : 'Kursu yüklə'}
-          </button>
-        </div>
-      </div>
+          </section>
+        )}
+      </main>
     </div>
   )
 }

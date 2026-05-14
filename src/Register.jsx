@@ -1,295 +1,94 @@
-```jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Navbar from './Navbar'
 import { supabase } from './supabase'
 
 function Register() {
   const navigate = useNavigate()
-
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('student')
-
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('error')
 
-  const handleRegister = async () => {
+  const showMessage = (text, type = 'error') => {
+    setMessage(text)
+    setMessageType(type)
+  }
+
+  const handleRegister = async (event) => {
+    event.preventDefault()
     setLoading(true)
-    setError('')
-    setSuccess('')
+    showMessage('')
 
-    const { error } = await supabase.auth.signUp({
-      email,
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
       password,
       options: {
         data: {
-          full_name: name,
-          role: role,
+          full_name: name.trim(),
+          role: 'student',
         },
       },
     })
 
     if (error) {
-      setError(error.message)
-    } else {
-      setSuccess('Qeydiyyat uğurlu oldu!')
-
-      setTimeout(() => {
-        navigate('/login')
-      }, 1500)
+      showMessage(error.message)
+      setLoading(false)
+      return
     }
 
+    if (data.user) {
+      const { error: profileError } = await supabase.from('profiles').insert({
+        user_id: data.user.id,
+        full_name: name.trim(),
+        role: 'student',
+      })
+
+      if (profileError && profileError.code !== '23505') {
+        showMessage(profileError.message)
+        setLoading(false)
+        return
+      }
+    }
+
+    showMessage('Qeydiyyat tamamlandı. İndi giriş edə bilərsiniz.', 'success')
+    setTimeout(() => navigate('/login'), 900)
     setLoading(false)
   }
 
   return (
-    <div
-      style={{
-        fontFamily: "'Segoe UI', Arial, sans-serif",
-        minHeight: '100vh',
-        background: '#fff',
-      }}
-    >
-      {/* NAVBAR */}
-      <nav
-        style={{
-          background: '#fff',
-          padding: '0 16px',
-          display: 'flex',
-          alignItems: 'center',
-          height: '56px',
-          borderBottom: '1px solid #d1d7dc',
-        }}
-      >
-        <h1
-          onClick={() => navigate('/')}
-          style={{
-            color: '#1435c3',
-            margin: 0,
-            fontSize: '22px',
-            fontWeight: '700',
-            cursor: 'pointer',
-          }}
-        >
-          Bil-X
-        </h1>
-      </nav>
+    <div className="page auth-page-soft">
+      <Navbar />
+      <main className="auth-shell">
+        <form className="auth-card-clean" onSubmit={handleRegister}>
+          <p className="auth-kicker">Bil-X hesabı</p>
+          <h1>Qeydiyyat</h1>
+          <p className="auth-subtitle">Bil-X hesabı yaradın və tələbə kimi kurslara başlayın.</p>
 
-      {/* FORM */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '60px 20px',
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            border: '1px solid #d1d7dc',
-            borderRadius: '4px',
-            padding: '40px',
-          }}
-        >
-          <h2
-            style={{
-              color: '#1c1d1f',
-              textAlign: 'center',
-              marginBottom: '24px',
-              fontSize: '24px',
-              fontWeight: '700',
-            }}
-          >
-            Qeydiyyat
-          </h2>
+          {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
 
-          {error && (
-            <p
-              style={{
-                color: '#dc3545',
-                textAlign: 'center',
-                marginBottom: '15px',
-                background: '#ffe6e6',
-                padding: '10px',
-                borderRadius: '4px',
-                fontSize: '14px',
-              }}
-            >
-              {error}
-            </p>
-          )}
+          <label>Ad Soyad</label>
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Noni" required />
 
-          {success && (
-            <p
-              style={{
-                color: '#28a745',
-                textAlign: 'center',
-                marginBottom: '15px',
-                background: '#e6ffe6',
-                padding: '10px',
-                borderRadius: '4px',
-                fontSize: '14px',
-              }}
-            >
-              {success}
-            </p>
-          )}
+          <label>E-poçt</label>
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="numune@bilx.az" required />
 
-          <input
-            type="text"
-            placeholder="Ad Soyad"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              marginBottom: '12px',
-              border: '1px solid #d1d7dc',
-              borderRadius: '4px',
-              fontSize: '15px',
-              boxSizing: 'border-box',
-              outline: 'none',
-            }}
-          />
+          <label>Şifrə</label>
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Ən azı 6 simvol" required />
 
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              marginBottom: '12px',
-              border: '1px solid #d1d7dc',
-              borderRadius: '4px',
-              fontSize: '15px',
-              boxSizing: 'border-box',
-              outline: 'none',
-            }}
-          />
-
-          <input
-            type="password"
-            placeholder="Şifrə"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              marginBottom: '16px',
-              border: '1px solid #d1d7dc',
-              borderRadius: '4px',
-              fontSize: '15px',
-              boxSizing: 'border-box',
-              outline: 'none',
-            }}
-          />
-
-          {/* ROLE */}
-          <div style={{ marginBottom: '18px' }}>
-            <p
-              style={{
-                marginBottom: '10px',
-                fontWeight: '600',
-                color: '#1c1d1f',
-              }}
-            >
-              Hesab növü
-            </p>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setRole('student')}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  border:
-                    role === 'student'
-                      ? '2px solid #1435c3'
-                      : '1px solid #d1d7dc',
-                  background:
-                    role === 'student' ? '#eef2ff' : 'white',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                }}
-              >
-                🎓 Tələbə
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRole('instructor')}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  border:
-                    role === 'instructor'
-                      ? '2px solid #1435c3'
-                      : '1px solid #d1d7dc',
-                  background:
-                    role === 'instructor'
-                      ? '#eef2ff'
-                      : 'white',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                }}
-              >
-                👨‍🏫 Müəllim
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={handleRegister}
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: '#1435c3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '15px',
-              cursor: 'pointer',
-              fontWeight: '700',
-            }}
-          >
-            {loading ? 'Yüklənir...' : 'Qeydiyyatdan keç'}
+          <button className="primary-button full" disabled={loading}>
+            {loading ? 'Yaradılır...' : 'Hesab yarat'}
           </button>
 
-          <div
-            style={{
-              textAlign: 'center',
-              marginTop: '16px',
-              fontSize: '14px',
-              color: '#6a6f73',
-            }}
-          >
-            Hesabın var?{' '}
-            <span
-              onClick={() => navigate('/login')}
-              style={{
-                color: '#1435c3',
-                cursor: 'pointer',
-                fontWeight: '700',
-              }}
-            >
-              Giriş et
-            </span>
-          </div>
-        </div>
-      </div>
+          <p className="auth-footer">
+            Hesabınız var? <button type="button" onClick={() => navigate('/login')}>Giriş</button>
+          </p>
+        </form>
+      </main>
     </div>
   )
 }
 
 export default Register
-```
