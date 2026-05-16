@@ -79,7 +79,7 @@ function Register() {
           {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
 
           <label>Ad</label>
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="John" required />
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Emily" required />
 
           <label>Soyad</label>
           <input value={surname} onChange={(event) => setSurname(event.target.value)} placeholder="Smith" required />
