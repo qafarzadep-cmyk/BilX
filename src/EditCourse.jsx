@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
 import { supabase } from './supabase'
@@ -7,7 +7,9 @@ import { supabase } from './supabase'
 function EditCourse({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const { state } = useLocation()
+  const { id } = useParams()
   const initialCourse = state?.course
+  const courseId = initialCourse?.id || id
   const [course, setCourse] = useState(initialCourse)
   const [videos, setVideos] = useState([])
   const [form, setForm] = useState({
@@ -18,15 +20,15 @@ function EditCourse({ user, profile, handleLogout }) {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!initialCourse) {
+    if (!courseId) {
       navigate('/instructor')
       return
     }
 
     async function load() {
       const [{ data: courseData }, { data: videoData }] = await Promise.all([
-        supabase.from('Courses').select('*').eq('id', initialCourse.id).single(),
-        supabase.from('videos').select('*').eq('course_id', initialCourse.id).order('order_index', { ascending: true }),
+        supabase.from('Courses').select('*').eq('id', courseId).single(),
+        supabase.from('videos').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
       ])
       if (courseData) {
         setCourse(courseData)
@@ -36,7 +38,7 @@ function EditCourse({ user, profile, handleLogout }) {
     }
 
     load()
-  }, [initialCourse, navigate])
+  }, [courseId, navigate])
 
   const save = async () => {
     const { error } = await supabase
@@ -58,7 +60,7 @@ function EditCourse({ user, profile, handleLogout }) {
   return (
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
-      <main className="content-shell">
+      <main className="content-shell edit-course-shell">
         {message && <div className="notice-box">{message}</div>}
         <section className="panel-card form-panel">
           <h1>Kursu redaktə et</h1>

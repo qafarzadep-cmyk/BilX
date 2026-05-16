@@ -36,7 +36,7 @@ function Login() {
       }
 
       showMessage('Giriş uğurludur. Yönləndirilirsiniz...', 'success')
-      setTimeout(() => navigate(isAdmin(data.user) ? '/admin' : '/', { replace: true }), 450)
+      setTimeout(() => navigate(isAdmin(data.user) ? '/admin' : '/profile', { replace: true }), 450)
     } catch (error) {
       showMessage(`Giriş alınmadı: ${error.message}`)
     } finally {

@@ -74,7 +74,8 @@ returns table (
   user_id uuid,
   email text,
   full_name text,
-  role text
+  role text,
+  created_at timestamptz
 )
 language sql
 security definer
@@ -84,7 +85,8 @@ as $$
     u.id as user_id,
     u.email,
     coalesce(p.full_name, u.raw_user_meta_data ->> 'full_name', u.email) as full_name,
-    coalesce(p.role, u.raw_user_meta_data ->> 'role', 'student') as role
+    coalesce(p.role, u.raw_user_meta_data ->> 'role', 'student') as role,
+    u.created_at
   from auth.users u
   left join public.profiles p on p.user_id = u.id
   where lower(coalesce(auth.jwt() ->> 'email', '')) = 'qafarzadep@gmail.com'

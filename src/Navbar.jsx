@@ -1,27 +1,28 @@
 import { BookOpen, LogOut, Search, Shield, User, Video } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
   const [applicationOpen, setApplicationOpen] = useState(false)
   const [applicationForm, setApplicationForm] = useState({ name: '', surname: '', phone: '' })
   const [applicationMessage, setApplicationMessage] = useState('')
   const [applicationMessageType, setApplicationMessageType] = useState('error')
   const [applicationLoading, setApplicationLoading] = useState(false)
-  const [showTeacherCongrats, setShowTeacherCongrats] = useState(false)
   const menuRef = useRef(null)
   const role = profile?.role || 'student'
   const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Bil-X'
   const firstLetter = name.charAt(0).toUpperCase()
   const isInstructor = role === 'instructor'
+  const isTeacherMode = location.pathname.startsWith('/instructor') || location.pathname.startsWith('/edit-course')
 
   const roleLabel = isAdmin(user)
     ? 'Admin kimi daxil oldunuz'
-    : role === 'instructor'
+    : isTeacherMode
       ? 'Müəllim kimi daxil oldunuz'
       : 'Tələbə kimi daxil oldunuz'
 
@@ -33,16 +34,6 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     document.addEventListener('mousedown', closeOnOutside)
     return () => document.removeEventListener('mousedown', closeOnOutside)
   }, [])
-
-  useEffect(() => {
-    if (!user || !isInstructor || isAdmin(user)) return
-
-    const storageKey = `bilx-teacher-congrats-${user.id}`
-    if (localStorage.getItem(storageKey)) return
-
-    setShowTeacherCongrats(true)
-    localStorage.setItem(storageKey, 'shown')
-  }, [user, isInstructor])
 
   const go = (path) => {
     setOpen(false)
@@ -88,7 +79,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
         setApplicationMessageType('error')
       }
     } else {
-      setApplicationMessage('Müraciət etdiyiniz üçün təşəkkür edirik. Müraciətiniz uğurla admin komandamıza göndərildi. Tezliklə sizinlə e-poçt və ya telefon vasitəsilə əlaqə saxlayacağıq.')
+      setApplicationMessage('Müraciətiniz uğurla göndərildi. Admin təsdiqindən sonra müəllim paneli açılacaq.')
       setApplicationMessageType('success')
     }
 
@@ -118,6 +109,14 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     openApplicationForm()
   }
 
+  const handleModeSwitch = () => {
+    if (isTeacherMode) {
+      go('/profile')
+    } else {
+      go('/instructor')
+    }
+  }
+
   return (
     <nav className="top-nav">
       <button className="logo-button" onClick={() => navigate('/')}>Bil-X</button>
@@ -143,19 +142,19 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
               {!isAdmin(user) && !isInstructor && (
                 <button
                   type="button"
-                  className="outline-button nav-switch-button"
+                  className="nav-switch-button"
                   onClick={openApplicationForm}
                 >
                   Müəllim olmaq üçün müraciət et
                 </button>
               )}
               {!isAdmin(user) && isInstructor && (
-                <button type="button" className="outline-button nav-switch-button" onClick={() => go('/instructor')}>
-                  Müəllim panelinə keç
+                <button type="button" className="nav-switch-button" onClick={handleModeSwitch}>
+                  {isTeacherMode ? 'Tələbə panelinə keç' : 'Müəllim panelinə keç'}
                 </button>
               )}
               {isAdmin(user) && (
-                <button type="button" className="outline-button nav-switch-button" onClick={handleLogoutClick}>
+                <button type="button" className="nav-switch-button" onClick={handleLogoutClick}>
                   Çıxış
                 </button>
               )}
@@ -170,13 +169,20 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                     <strong>{name}</strong>
                     <span>{user.email}</span>
                   </div>
-                  <button type="button" onClick={() => go('/profile')}><User size={16} /> Profil</button>
-                  <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> Mənim kurslarım</button>
+                  {!isAdmin(user) && (
+                    <>
+                      <button type="button" onClick={() => go('/profile')}><User size={16} /> Profil</button>
+                      <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> Mənim kurslarım</button>
+                    </>
+                  )}
                   {role === 'instructor' && (
-                    <button type="button" onClick={() => go('/instructor')}><Video size={16} /> Müəllim Paneli</button>
+                    <>
+                      <button type="button" onClick={() => go('/instructor')}><Video size={16} /> Müəllim paneli</button>
+                      <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> Tələbə panelinə keç</button>
+                    </>
                   )}
                   {isAdmin(user) && (
-                    <button type="button" onClick={() => go('/admin')}><Shield size={16} /> Admin Paneli</button>
+                    <button type="button" onClick={() => go('/admin')}><Shield size={16} /> Admin paneli</button>
                   )}
                   <button type="button" className="danger-menu-item" onClick={handleLogoutClick}><LogOut size={16} /> Çıxış</button>
                 </div>
@@ -195,7 +201,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
           <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="teacher-application-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2 id="teacher-application-title">Müəllim müraciəti</h2>
-              <button type="button" className="modal-close-button" onClick={() => setApplicationOpen(false)}>×</button>
+              <button type="button" className="modal-close-button" onClick={() => setApplicationOpen(false)}>x</button>
             </div>
             <form className="form-panel" onSubmit={submitTeacherApplication}>
               {applicationMessage && (
@@ -214,16 +220,8 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
           </div>
         </div>
       )}
-      {showTeacherCongrats && (
-        <div className="toast-notice" role="status">
-          <span>Təbrik edirik! Artıq müəllim kimi məzmun paylaşa bilərsiniz.</span>
-          <button type="button" className="toast-action-button" onClick={() => go('/instructor')}>Müəllim panelinə keç</button>
-          <button type="button" className="toast-close-button" onClick={() => setShowTeacherCongrats(false)}>×</button>
-        </div>
-      )}
     </nav>
   )
 }
 
 export default Navbar
-

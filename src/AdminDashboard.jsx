@@ -1,10 +1,34 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
 import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
+function formatDateTime(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleString('az-AZ', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function splitFullName(fullName = '') {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  return {
+    name: parts[0] || '-',
+    surname: parts.slice(1).join(' ') || '-',
+  }
+}
+
 function AdminDashboard({ user, profile, handleLogout }) {
+  const navigate = useNavigate()
   const [courses, setCourses] = useState([])
   const [profiles, setProfiles] = useState([])
   const [authUsers, setAuthUsers] = useState([])
@@ -188,16 +212,117 @@ function AdminDashboard({ user, profile, handleLogout }) {
       source: 'Müraciət',
     })
   })
-  const visibleUsers = Array.from(usersByKey.values())
-  const students = visibleUsers
-  const instructors = visibleUsers.filter((item) => item.role === 'Müəllim' || item.role === 'instructor')
+  const approvedTeacherApplications = teacherApplications.filter((application) => application.status === 'approved')
+  const approvedTeacherByUserId = new Map(approvedTeacherApplications.map((application) => [application.user_id, application]))
+  const approvedTeacherByEmail = new Map(approvedTeacherApplications.map((application) => [String(application.email || '').toLowerCase(), application]))
+  const profileByUserId = new Map(profiles.map((item) => [item.user_id, item]))
+  const userRowsByKey = new Map()
+
+  const upsertUserRow = (key, next) => {
+    if (!key) return
+    const existing = userRowsByKey.get(key) || {}
+    userRowsByKey.set(key, { ...existing, ...next })
+  }
+
+  authUsers.forEach((item) => {
+    const application = approvedTeacherByUserId.get(item.user_id) || approvedTeacherByEmail.get(String(item.email || '').toLowerCase())
+    const profileItem = profileByUserId.get(item.user_id)
+    const fullName = application
+      ? `${application.name || ''} ${application.surname || ''}`.trim()
+      : profileItem?.full_name || item.full_name || item.email || ''
+    const nameParts = application ? { name: application.name || '-', surname: application.surname || '-' } : splitFullName(fullName)
+    const role = application || item.role === 'instructor' || profileItem?.role === 'instructor' ? 'Müəllim' : 'Tələbə'
+
+    upsertUserRow(item.user_id || item.email, {
+      key: item.user_id || item.email,
+      name: nameParts.name,
+      surname: nameParts.surname,
+      email: item.email || '-',
+      phone: application?.phone || '-',
+      role,
+      signedUpAt: item.created_at || item.createdAt || item.signup_at || item.signupAt || null,
+      teacherApprovedAt: role === 'Müəllim' ? application?.reviewed_at || application?.created_at || null : null,
+    })
+  })
+
+  profiles.forEach((item) => {
+    if (userRowsByKey.has(item.user_id)) return
+    const application = approvedTeacherByUserId.get(item.user_id)
+    const nameParts = application ? { name: application.name || '-', surname: application.surname || '-' } : splitFullName(item.full_name)
+    upsertUserRow(item.user_id, {
+      key: item.user_id,
+      name: nameParts.name,
+      surname: nameParts.surname,
+      email: application?.email || item.user_id,
+      phone: application?.phone || '-',
+      role: item.role === 'instructor' || application ? 'Müəllim' : 'Tələbə',
+      signedUpAt: null,
+      teacherApprovedAt: application?.reviewed_at || application?.created_at || null,
+    })
+  })
+
+  approvedTeacherApplications.forEach((application) => {
+    const key = application.user_id || application.email
+    upsertUserRow(key, {
+      key,
+      name: application.name || '-',
+      surname: application.surname || '-',
+      email: application.email || '-',
+      phone: application.phone || '-',
+      role: 'Müəllim',
+      teacherApprovedAt: application.reviewed_at || application.created_at || null,
+    })
+  })
+
+  enrollments.forEach((item) => {
+    const key = item.user_id
+    if (!key || userRowsByKey.has(key)) return
+    upsertUserRow(key, {
+      key,
+      name: item.user_id,
+      surname: '-',
+      email: item.user_id,
+      phone: '-',
+      role: 'Tələbə',
+      signedUpAt: null,
+      teacherApprovedAt: null,
+    })
+  })
+
+  requests.forEach((item) => {
+    const key = item.user_id || item.user_email
+    if (!key || userRowsByKey.has(key)) return
+    const nameParts = splitFullName(item.user_name || '')
+    upsertUserRow(key, {
+      key,
+      name: nameParts.name === '-' ? item.user_email || item.user_id : nameParts.name,
+      surname: nameParts.surname,
+      email: item.user_email || item.user_id || '-',
+      phone: '-',
+      role: 'Tələbə',
+      signedUpAt: null,
+      teacherApprovedAt: null,
+    })
+  })
+
+  const visibleUsers = Array.from(userRowsByKey.values()).sort((a, b) => {
+    const aTime = a.signedUpAt ? new Date(a.signedUpAt).getTime() : 0
+    const bTime = b.signedUpAt ? new Date(b.signedUpAt).getTime() : 0
+    return bTime - aTime
+  })
+  const instructors = visibleUsers.filter((item) => item.role === 'Müəllim')
+  const students = visibleUsers.filter((item) => item.role === 'Tələbə')
+  const userStats = [
+    ['Tələbələr', students.length],
+    ['Müəllimlər', instructors.length],
+    ['Ümumi istifadəçi', visibleUsers.length],
+  ]
   const pendingTeacherApplications = teacherApplications.filter((application) => application.status === 'pending')
   const adminTabs = [
     ['pending', 'Təsdiq gözləyən kurslar', reviewCourses.length],
     ['teacher-applications', 'Təsdiq gözləyən müəllimlər', pendingTeacherApplications.length],
     ['access', 'Giriş ver', enrollments.length],
-    ['students', 'Tələbələr', students.length],
-    ['instructors', 'Müəllimlər', instructors.length],
+    ['users', 'İstifadəçi Sayı', visibleUsers.length],
     ['courses', 'Təsdiqlənmiş kurslar', approvedCourses.length],
   ]
 
@@ -229,11 +354,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
                 return (
                   <div key={course.id} className="admin-row">
-                    <div>
+                    <button className="admin-row-main" type="button" onClick={() => navigate(`/course/${course.id}`, { state: { course } })}>
                       <strong>{index + 1}. {course.title}</strong>
                       {instructorName && <p>Müəllim: {instructorName}</p>}
                       <p>{course.price} AZN · Gözləyir</p>
-                    </div>
+                    </button>
                     <div>
                       <button className="approve-button" onClick={() => approveCourse(course.id)}>Təsdiqlə</button>
                     </div>
@@ -298,22 +423,40 @@ function AdminDashboard({ user, profile, handleLogout }) {
             </div>
           )}
 
-          {activeTab === 'students' && (
+          {activeTab === 'users' && (
             <div className="panel-card table-wrap">
-              <h2>Tələbələr</h2>
+              <h2>İstifadəçi Sayı</h2>
               <table>
-                <thead><tr><th>Sıra</th><th>Ad</th><th>Rol</th><th>Mənbə</th><th>İstifadəçi / e-poçt</th></tr></thead>
-                <tbody>{students.map((item, index) => <tr key={item.id}><td>{index + 1}</td><td>{item.name}</td><td>{item.role}</td><td>{item.source}</td><td>{item.id}</td></tr>)}</tbody>
+                <thead><tr><th>İstifadəçi tipi</th><th>Sayı</th></tr></thead>
+                <tbody>{userStats.map(([label, count]) => <tr key={label}><td>{label}</td><td>{count}</td></tr>)}</tbody>
               </table>
-            </div>
-          )}
-
-          {activeTab === 'instructors' && (
-            <div className="panel-card table-wrap">
-              <h2>Müəllimlər</h2>
-              <table>
-                <thead><tr><th>Sıra</th><th>Ad</th><th>Rol</th><th>Mənbə</th><th>İstifadəçi / e-poçt</th></tr></thead>
-                <tbody>{instructors.map((item, index) => <tr key={item.id}><td>{index + 1}</td><td>{item.name}</td><td>{item.role}</td><td>{item.source}</td><td>{item.id}</td></tr>)}</tbody>
+              <table className="user-detail-table">
+                <thead>
+                  <tr>
+                    <th>Sıra</th>
+                    <th>Rol</th>
+                    <th>Ad</th>
+                    <th>Soyad</th>
+                    <th>E-poçt</th>
+                    <th>Telefon</th>
+                    <th>Qeydiyyat tarixi</th>
+                    <th>Müəllim olduğu tarix</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleUsers.map((item, index) => (
+                    <tr key={item.key || item.email || index}>
+                      <td>{index + 1}</td>
+                      <td>{item.role}</td>
+                      <td>{item.name}</td>
+                      <td>{item.surname}</td>
+                      <td>{item.email}</td>
+                      <td>{item.phone}</td>
+                      <td>{formatDateTime(item.signedUpAt)}</td>
+                      <td>{formatDateTime(item.teacherApprovedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           )}

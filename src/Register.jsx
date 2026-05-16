@@ -39,14 +39,14 @@ function Register() {
       return
     }
 
-    if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
+    if (data.user && data.session) {
+      const { error: profileError } = await supabase.from('profiles').upsert({
         user_id: data.user.id,
         full_name: name.trim(),
         role: 'student',
       })
 
-      if (profileError && profileError.code !== '23505') {
+      if (profileError && !['23505', '42501'].includes(profileError.code)) {
         showMessage(profileError.message)
         setLoading(false)
         return

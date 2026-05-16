@@ -9,7 +9,6 @@ function StudentProfile({ user, profile, handleLogout }) {
   const [enrollments, setEnrollments] = useState([])
   const [progress, setProgress] = useState([])
   const [loading, setLoading] = useState(true)
-  const role = profile?.role || 'student'
 
   useEffect(() => {
     let mounted = true
@@ -84,7 +83,6 @@ function StudentProfile({ user, profile, handleLogout }) {
       <main className="dashboard-shell">
         <section className="dashboard-header">
           <div>
-            <p className="role-pill">{role === 'instructor' ? 'Müəllim hesabı' : 'Tələbə hesabı'}</p>
             <h1>Salam, {profile?.full_name || user.user_metadata?.full_name || user.email}</h1>
             <p>Kurslarınıza buradan davam edin.</p>
           </div>
@@ -115,7 +113,7 @@ function StudentProfile({ user, profile, handleLogout }) {
                       <h3>{course.title}</h3>
                       {course.description && <p>{course.description}</p>}
                       {instructorName && <small className="course-instructor">{instructorName}</small>}
-                      <strong>{Number(course.price) > 0 ? `${course.price} AZN` : 'Free'}</strong>
+                      <strong>{Number(course.price) > 0 ? `${course.price} AZN` : 'Pulsuz'}</strong>
                       <p>{videos.length} dərs</p>
                       <div className="progress-bar"><span style={{ width: `${percent}%` }} /></div>
                       <small>{percent}% tamamlandı</small>

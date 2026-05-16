@@ -11,7 +11,7 @@ import ResetPassword from './ResetPassword'
 import StudentProfile from './StudentProfile'
 import heroCover from './assets/bilx-hero-cover.png'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
-import { ensureProfile, fallbackProfile, isAdmin } from './profileApi'
+import { ensureProfile, fallbackProfile } from './profileApi'
 import { supabase } from './supabase'
 
 function Home({ user, profile, handleLogout }) {
@@ -20,12 +20,6 @@ function Home({ user, profile, handleLogout }) {
   const [search, setSearch] = useState('')
   const [courses, setCourses] = useState([])
   const [loadingCourses, setLoadingCourses] = useState(true)
-  const role = profile?.role || 'student'
-  const roleLabel = isAdmin(user)
-    ? 'Admin kimi daxil oldunuz'
-    : role === 'instructor'
-      ? 'Müəllim kimi daxil oldunuz'
-      : 'Tələbə kimi daxil oldunuz'
 
   useEffect(() => {
     let mounted = true
@@ -53,6 +47,7 @@ function Home({ user, profile, handleLogout }) {
   const filteredCourses = courses.filter((course) =>
     `${course.title || ''} ${course.description || ''}`.toLowerCase().includes(search.toLowerCase())
   )
+
   const scrollCourses = (direction) => {
     courseRowRef.current?.scrollBy({
       left: direction * 300,
@@ -73,20 +68,8 @@ function Home({ user, profile, handleLogout }) {
       <section className="home-hero">
         <img className="home-hero-image" src={heroCover} alt="" aria-hidden="true" />
         <div className="home-hero-content">
-          {user && (
-            <p className="role-pill">
-              {roleLabel}
-            </p>
-          )}
           <h1>Bil-X ilə öyrənməyə başla</h1>
-          <p>
-            Azərbaycan dilində video kurslar.
-          </p>
-          {user && role === 'instructor' && (
-            <div className="hero-actions">
-              <button className="outline-button large" onClick={() => navigate('/instructor')}>Müəllim paneli</button>
-            </div>
-          )}
+          <p>Azərbaycan dilində video kurslar.</p>
         </div>
       </section>
 
@@ -107,8 +90,6 @@ function Home({ user, profile, handleLogout }) {
                 {filteredCourses.map((course) => {
                   const instructorName = getCourseAuthorName(course)
                   const hasThumbnail = Boolean(course.thumbnail_url)
-                  const duration = course.total_hours || course.duration
-                  const level = course.level
 
                   return (
                     <article
@@ -124,8 +105,7 @@ function Home({ user, profile, handleLogout }) {
                       <div className="home-course-card-body">
                         <h3>{course.title}</h3>
                         {instructorName && <small className="home-course-instructor">{instructorName}</small>}
-                        {/* {duration && level && <small className="home-course-meta">{duration} · {level}</small>} */}
-                        <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : 'Free'}</strong>
+                        <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : 'Pulsuz'}</strong>
                       </div>
                     </article>
                   )
@@ -182,7 +162,7 @@ function App() {
       window.removeEventListener('focus', refreshProfile)
       listener.subscription.unsubscribe()
     }
-  }, [])
+  }, [loggingOut])
 
   useEffect(() => {
     let mounted = true
@@ -235,6 +215,7 @@ function App() {
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/instructor" element={<InstructorDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/edit-course" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/edit-course/:id" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
     </Routes>
   )
 }
