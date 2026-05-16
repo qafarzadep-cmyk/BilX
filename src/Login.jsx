@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
+import { appUrl } from './appUrl'
 import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
@@ -51,7 +52,7 @@ function Login() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: appUrl('/reset-password'),
     })
 
     showMessage(

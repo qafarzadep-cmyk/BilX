@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from './Navbar'
+import { appUrl } from './appUrl'
 import { supabase } from './supabase'
 
 function Register() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,6 +21,10 @@ function Register() {
 
   const handleRegister = async (event) => {
     event.preventDefault()
+    const trimmedName = name.trim()
+    const trimmedSurname = surname.trim()
+    const fullName = `${trimmedName} ${trimmedSurname}`.trim()
+
     setLoading(true)
     showMessage('')
 
@@ -26,8 +32,11 @@ function Register() {
       email: email.trim(),
       password,
       options: {
+        emailRedirectTo: appUrl('/login'),
         data: {
-          full_name: name.trim(),
+          name: trimmedName,
+          surname: trimmedSurname,
+          full_name: fullName,
           role: 'student',
         },
       },
@@ -42,7 +51,7 @@ function Register() {
     if (data.user && data.session) {
       const { error: profileError } = await supabase.from('profiles').upsert({
         user_id: data.user.id,
-        full_name: name.trim(),
+        full_name: fullName,
         role: 'student',
       })
 
@@ -69,8 +78,11 @@ function Register() {
 
           {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
 
-          <label>Ad Soyad</label>
+          <label>Ad</label>
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Noni" required />
+
+          <label>Soyad</label>
+          <input value={surname} onChange={(event) => setSurname(event.target.value)} placeholder="Qafarzade" required />
 
           <label>E-poçt</label>
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="numune@bilx.az" required />
