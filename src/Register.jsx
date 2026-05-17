@@ -62,7 +62,7 @@ function Register() {
       }
     }
 
-    showMessage('Qeydiyyat tamamlandı. İndi giriş edə bilərsiniz.', 'success')
+    showMessage('E-poçt ünvanınıza təsdiq məktubu göndərdik. Zəhmət olmasa e-poçtunuzu yoxlayın və hesabınızı aktivləşdirmək üçün təsdiqləyin!', 'success')
     setTimeout(() => navigate('/login'), 900)
     setLoading(false)
   }
