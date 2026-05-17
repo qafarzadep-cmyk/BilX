@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
@@ -19,6 +19,25 @@ function Login() {
     setMessage(text)
     setMessageType(type)
   }
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const isSignupConfirmation =
+      searchParams.get('type') === 'signup' ||
+      hashParams.get('type') === 'signup' ||
+      searchParams.has('access_token') ||
+      hashParams.has('access_token')
+
+    if (!isSignupConfirmation) return
+
+    const messageTimer = window.setTimeout(() => {
+      showMessage('E-poçtunuz təsdiqləndi! İndi daxil ola bilərsiniz.', 'success')
+    }, 0)
+    window.history.replaceState({}, document.title, window.location.pathname)
+
+    return () => window.clearTimeout(messageTimer)
+  }, [])
 
   const handleLogin = async (event) => {
     event.preventDefault()

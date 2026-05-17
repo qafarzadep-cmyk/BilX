@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import Navbar from './Navbar'
 import { appUrl } from './appUrl'
+import sendWelcomeEmail from './sendWelcomeEmail'
 import { supabase } from './supabase'
 
 function Register() {
@@ -12,11 +14,9 @@ function Register() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [messageType, setMessageType] = useState('error')
 
-  const showMessage = (text, type = 'error') => {
+  const showMessage = (text) => {
     setMessage(text)
-    setMessageType(type)
   }
 
   const handleRegister = async (event) => {
@@ -48,22 +48,34 @@ function Register() {
       return
     }
 
-    if (data.user && data.session) {
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        user_id: data.user.id,
-        full_name: fullName,
-        role: 'student',
-      })
-
-      if (profileError && !['23505', '42501'].includes(profileError.code)) {
-        showMessage(profileError.message)
-        setLoading(false)
-        return
-      }
+    if (!data.user || data.user.identities?.length === 0) {
+      showMessage('Bu e-poçt artıq qeydiyyatdan keçib.')
+      setLoading(false)
+      return
     }
 
-    showMessage('E-poçt ünvanınıza təsdiq məktubu göndərdik. Zəhmət olmasa e-poçtunuzu yoxlayın və hesabınızı aktivləşdirmək üçün təsdiqləyin!', 'success')
-    setTimeout(() => navigate('/login'), 900)
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      user_id: data.user.id,
+      full_name: fullName,
+      role: 'student',
+    })
+
+    if (profileError && !['23505', '42501'].includes(profileError.code)) {
+      showMessage(profileError.message)
+      setLoading(false)
+      return
+    }
+
+    try {
+      await sendWelcomeEmail({
+        name: trimmedName,
+        email: email.trim(),
+      })
+    } catch (emailError) {
+      console.error('Welcome email could not be sent:', emailError)
+    }
+
+    toast.success('E-poçt ünvanınıza təsdiq məktubu göndərdik. Zəhmət olmasa e-poçtunuzu yoxlayın!')
     setLoading(false)
   }
 
@@ -76,7 +88,7 @@ function Register() {
           <h1>Qeydiyyat</h1>
           <p className="auth-subtitle">Bil-X hesabı yaradın və tələbə kimi kurslara başlayın.</p>
 
-          {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
+          {message && <div className="error-box">{message}</div>}
 
           <label>Ad</label>
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Emily" required />
