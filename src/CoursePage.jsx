@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Circle, Clock3, ExternalLink, PlayCircle } from 'lucide-react'
+import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
@@ -297,7 +298,7 @@ function CoursePage({ user, profile, handleLogout }) {
     }
 
     const message = `Salam! "${course.title}" kursu ilə maraqlanıram.\n\nAd: ${profile?.full_name || user?.user_metadata?.full_name || ''}\nE-poçt: ${user?.email || ''}`
-    window.open(`https://wa.me/994773857252?text=${encodeURIComponent(message)}`, '_blank')
+    window.open(getWhatsAppUrl(message), '_blank')
   }
 
   if (!course) return null
@@ -417,7 +418,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 <div className="success-box">Sorğunuz göndərildi. Tezliklə sizinlə əlaqə saxlanılacaq.</div>
               ) : (
                 <>
-                  <button className="whatsapp-button" onClick={handleWhatsApp}>WhatsApp ilə əlaqə</button>
+                  <button className="whatsapp-button" onClick={handleWhatsApp} title={`WhatsApp: ${WHATSAPP_PHONE_DISPLAY}`}>WhatsApp ilə əlaqə</button>
                   {!user && (
                     <>
                       <button className="primary-button full" onClick={() => navigate('/login')}>Daxil ol</button>
