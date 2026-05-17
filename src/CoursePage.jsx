@@ -297,7 +297,7 @@ function CoursePage({ user, profile, handleLogout }) {
     }
 
     const message = `Salam! "${course.title}" kursu ilə maraqlanıram.\n\nAd: ${profile?.full_name || user?.user_metadata?.full_name || ''}\nE-poçt: ${user?.email || ''}`
-    window.open(`https://wa.me/994553839118?text=${encodeURIComponent(message)}`, '_blank')
+    window.open(`https://wa.me/994773857252?text=${encodeURIComponent(message)}`, '_blank')
   }
 
   if (!course) return null
