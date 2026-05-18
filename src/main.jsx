@@ -10,8 +10,8 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <LanguageProvider>
       <BrowserRouter>
-        <Toaster position="top-right" toastOptions={{ duration: 5000 }} containerStyle={{ pointerEvents: 'none' }} toastOptions={{ duration: 5000, style: { pointerEvents: 'auto' } }} />
         <App />
+        <Toaster position="top-right" toastOptions={{ duration: 5000 }} containerStyle={{ pointerEvents: 'none' }} toastOptions={{ duration: 5000, style: { pointerEvents: 'auto' } }} />
       </BrowserRouter>
     </LanguageProvider>
   </StrictMode>
