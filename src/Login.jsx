@@ -76,7 +76,7 @@ function Login() {
           <h1>Giriş</h1>
           <p className="auth-subtitle">Kurslarınıza və panelinizə davam etmək üçün daxil olun.</p>
 
-          {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
+          {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'} style={{ pointerEvents: 'auto' }}>{message}</div>}
 
           <label>E-poçt</label>
           <input
