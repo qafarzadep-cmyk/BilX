@@ -111,14 +111,13 @@ function Login() {
             {loading ? 'Yüklənir...' : 'Giriş et'}
           </button>
 
-          <button type="button" className="text-button" style={{ position: 'relative', zIndex: 1, pointerEvents: 'auto', cursor: 'pointer' }} onClick={sendReset}>
-            Şifrəni unutmusunuz?
-          </button>
-
           <p className="auth-footer">
             Hesabınız yoxdur? <button type="button" onClick={() => navigate('/register')}>Qeydiyyat</button>
           </p>
         </form>
+        <button type="button" className="text-button" style={{ position: 'relative', zIndex: 1, pointerEvents: 'auto', cursor: 'pointer' }} onClick={sendReset}>
+          Şifrəni unutmusunuz?
+        </button>
       </main>
     </div>
   )
