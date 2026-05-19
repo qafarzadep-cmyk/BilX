@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
 import { appUrl } from './appUrl'
 import sendWelcomeEmail from './sendWelcomeEmail'
@@ -12,6 +13,7 @@ function Register() {
   const [surname, setSurname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -100,7 +102,24 @@ function Register() {
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="numune@bilx.az" required />
 
           <label>Şifrə</label>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Ən azı 6 simvol" required />
+          <div className="password-input-wrap">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Ən azı 6 simvol"
+              required
+            />
+            <button
+              type="button"
+              className="password-eye-button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              title={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           <button className="primary-button full" disabled={loading}>
             {loading ? 'Yaradılır...' : 'Hesab yarat'}
