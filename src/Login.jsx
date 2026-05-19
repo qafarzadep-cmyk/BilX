@@ -4,7 +4,6 @@ import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
 import { appUrl } from './appUrl'
 import { isAdmin } from './profileApi'
-import { sendPasswordResetEmail } from './sendPasswordResetEmail'
 import { supabase } from './supabase'
 
 function Login() {
@@ -52,19 +51,18 @@ function Login() {
       return
     }
 
-    const resetEmail = email.trim()
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: appUrl('/reset-password'),
-    })
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: appUrl('/reset-password'),
+      })
 
-    if (!error) {
-      await sendPasswordResetEmail(resetEmail)
+      showMessage(
+        error ? error.message : 'Şifrə sıfırlama linki e-poçtunuza göndərildi.',
+        error ? 'error' : 'success'
+      )
+    } catch (error) {
+      showMessage(`Şifrə sıfırlama linki göndərilmədi: ${error.message}`)
     }
-
-    showMessage(
-      error ? error.message : 'Şifrə sıfırlama linki e-poçtunuza göndərildi.',
-      error ? 'error' : 'success'
-    )
   }
 
   return (
