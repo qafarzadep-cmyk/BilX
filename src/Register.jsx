@@ -68,9 +68,9 @@ function Register() {
     }
 
     if (data.session) {
-      toast.success('Hesabınız yaradıldı. Daxil ola bilərsiniz.')
+      await supabase.auth.signOut()
+      toast.error('E-poçt təsdiqi aktiv deyil. Admin Supabase-də e-poçt təsdiqini aktiv etməlidir.')
       setLoading(false)
-      setTimeout(() => navigate('/login', { replace: true }), 700)
       return
     }
 
