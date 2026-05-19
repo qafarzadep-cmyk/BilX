@@ -4,7 +4,6 @@ import toast from 'react-hot-toast'
 import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
 import { appUrl } from './appUrl'
-import sendWelcomeEmail from './sendWelcomeEmail'
 import { supabase } from './supabase'
 
 function Register() {
@@ -68,13 +67,11 @@ function Register() {
       return
     }
 
-    try {
-      await sendWelcomeEmail({
-        name: trimmedName,
-        email: email.trim(),
-      })
-    } catch (emailError) {
-      console.error('Welcome email could not be sent:', emailError)
+    if (data.session) {
+      toast.success('Hesabınız yaradıldı. Daxil ola bilərsiniz.')
+      setLoading(false)
+      setTimeout(() => navigate('/login', { replace: true }), 700)
+      return
     }
 
     toast.success('E-poçt ünvanınıza təsdiq məktubu göndərdik. Zəhmət olmasa e-poçtunuzu yoxlayın!')
