@@ -137,11 +137,14 @@ function App() {
     }
 
     loadSession()
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (loggingOut) return
       const currentUser = session?.user || null
       setUser(currentUser)
       if (!currentUser) setProfile(null)
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password', { replace: true })
+      }
     })
 
     const refreshProfile = () => {
@@ -162,7 +165,7 @@ function App() {
       window.removeEventListener('focus', refreshProfile)
       listener.subscription.unsubscribe()
     }
-  }, [loggingOut])
+  }, [loggingOut, navigate])
 
   useEffect(() => {
     let mounted = true
