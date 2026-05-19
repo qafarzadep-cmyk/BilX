@@ -20,6 +20,18 @@ function Login() {
     setMessageType(type)
   }
 
+  const getResetErrorMessage = (error) => {
+    if (error?.status === 504 || error?.message === '{}') {
+      return 'Şifrə sıfırlama e-poçtu hazırda göndərilmir. Zəhmət olmasa adminlə əlaqə saxlayın və ya bir az sonra yenidən yoxlayın.'
+    }
+
+    if (error?.message === 'fetch failed' || error?.name === 'AuthRetryableFetchError') {
+      return 'Şifrə sıfırlama xidməti ilə əlaqə alınmadı. Zəhmət olmasa bir az sonra yenidən yoxlayın.'
+    }
+
+    return error?.message || 'Şifrə sıfırlama linki göndərilmədi.'
+  }
+
   const handleLogin = async (event) => {
     event.preventDefault()
     setLoading(true)
@@ -57,11 +69,11 @@ function Login() {
       })
 
       showMessage(
-        error ? error.message : 'Şifrə sıfırlama linki e-poçtunuza göndərildi.',
+        error ? getResetErrorMessage(error) : 'Şifrə sıfırlama linki e-poçtunuza göndərildi.',
         error ? 'error' : 'success'
       )
     } catch (error) {
-      showMessage(`Şifrə sıfırlama linki göndərilmədi: ${error.message}`)
+      showMessage(getResetErrorMessage(error))
     }
   }
 
