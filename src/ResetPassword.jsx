@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
 import { supabase } from './supabase'
 
@@ -7,6 +8,8 @@ function ResetPassword() {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [ready, setReady] = useState(false)
   const [message, setMessage] = useState('')
@@ -77,24 +80,48 @@ function ResetPassword() {
           {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
 
           <label>Yeni şifrə</label>
-          <input
-            type="password"
-            placeholder="Ən azı 6 simvol"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            disabled={!ready || loading}
-            required
-          />
+          <div className="password-input-wrap">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Ən azı 6 simvol"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              disabled={!ready || loading}
+              required
+            />
+            <button
+              type="button"
+              className="password-eye-button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              title={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              disabled={!ready || loading}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           <label>Yeni şifrəni təkrar yazın</label>
-          <input
-            type="password"
-            placeholder="Şifrəni təkrar yazın"
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            disabled={!ready || loading}
-            required
-          />
+          <div className="password-input-wrap">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              placeholder="Şifrəni təkrar yazın"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              disabled={!ready || loading}
+              required
+            />
+            <button
+              type="button"
+              className="password-eye-button"
+              onClick={() => setShowConfirmPassword((value) => !value)}
+              aria-label={showConfirmPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              title={showConfirmPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              disabled={!ready || loading}
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           <button className="primary-button full" disabled={!ready || loading}>
             {loading ? 'Yenilənir...' : 'Şifrəni yenilə'}
