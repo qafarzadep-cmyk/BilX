@@ -31,7 +31,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
   const [profiles, setProfiles] = useState([])
-  const [authUsers, setAuthUsers] = useState([])
   const [teacherApplications, setTeacherApplications] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [requests, setRequests] = useState([])
@@ -46,14 +45,12 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const [
       { data: courseData, error: courseError },
       { data: profileData, error: profileError },
-      { data: authUserData, error: authUserError },
       { data: teacherApplicationData, error: teacherApplicationError },
       { data: enrollmentData, error: enrollmentError },
       { data: requestData, error: requestError },
     ] = await Promise.all([
       supabase.from('Courses').select('*').order('id', { ascending: false }),
       supabase.from('profiles').select('*'),
-      supabase.rpc('admin_list_users'),
       supabase.from('teacher_applications').select('*').order('id', { ascending: false }),
       supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
       supabase.from('requests').select('*').order('created_at', { ascending: false }),
@@ -77,7 +74,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
     setCourses(coursesWithAuthors)
     setProfiles(profileData || [])
     setProfileError(profileError?.message || '')
-    setAuthUsers(authUserError ? [] : authUserData || [])
     setTeacherApplications(teacherApplicationError ? [] : teacherApplicationData || [])
     setEnrollments(enrollmentData || [])
     setRequests(requestData || [])
@@ -132,10 +128,25 @@ function AdminDashboard({ user, profile, handleLogout }) {
   }
 
   const reviewTeacherApplication = async (applicationId, decision) => {
-    const { error } = await supabase.rpc('review_teacher_application', {
-      app_id: applicationId,
-      app_decision: decision,
-    })
+    const application = teacherApplications.find((item) => item.id === applicationId)
+    const { error } = await supabase
+      .from('teacher_applications')
+      .update({ status: decision })
+      .eq('id', applicationId)
+      .eq('status', 'pending')
+
+    if (!error && decision === 'approved' && application?.user_id) {
+      const fullName = `${application.name || ''} ${application.surname || ''}`.trim()
+      const { error: profileUpdateError } = await supabase.from('profiles').upsert({
+        user_id: application.user_id,
+        full_name: fullName || application.email,
+        role: 'instructor',
+      })
+
+      setMessage(profileUpdateError ? `Xəta: ${profileUpdateError.message}` : '')
+      if (!profileUpdateError) loadData()
+      return
+    }
 
     setMessage(error ? `Xəta: ${error.message}` : '')
     if (!error) loadData()
@@ -157,14 +168,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
     return `${course.title}${instructorName ? ` · Müəllim: ${instructorName}` : ''}`
   }
   const usersByKey = new Map()
-  authUsers.forEach((item) => {
-    usersByKey.set(item.user_id, {
-      id: item.email || item.user_id,
-      name: item.full_name || item.email || item.user_id,
-      role: item.role === 'instructor' ? 'Müəllim' : 'Tələbə',
-      source: 'Hesab',
-    })
-  })
   profiles.forEach((item) => {
     if (usersByKey.has(item.user_id)) return
     usersByKey.set(item.user_id, {
@@ -214,8 +217,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
   })
   const approvedTeacherApplications = teacherApplications.filter((application) => application.status === 'approved')
   const approvedTeacherByUserId = new Map(approvedTeacherApplications.map((application) => [application.user_id, application]))
-  const approvedTeacherByEmail = new Map(approvedTeacherApplications.map((application) => [String(application.email || '').toLowerCase(), application]))
-  const profileByUserId = new Map(profiles.map((item) => [item.user_id, item]))
   const userRowsByKey = new Map()
 
   const upsertUserRow = (key, next) => {
@@ -223,27 +224,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const existing = userRowsByKey.get(key) || {}
     userRowsByKey.set(key, { ...existing, ...next })
   }
-
-  authUsers.forEach((item) => {
-    const application = approvedTeacherByUserId.get(item.user_id) || approvedTeacherByEmail.get(String(item.email || '').toLowerCase())
-    const profileItem = profileByUserId.get(item.user_id)
-    const fullName = application
-      ? `${application.name || ''} ${application.surname || ''}`.trim()
-      : profileItem?.full_name || item.full_name || item.email || ''
-    const nameParts = application ? { name: application.name || '-', surname: application.surname || '-' } : splitFullName(fullName)
-    const role = application || item.role === 'instructor' || profileItem?.role === 'instructor' ? 'Müəllim' : 'Tələbə'
-
-    upsertUserRow(item.user_id || item.email, {
-      key: item.user_id || item.email,
-      name: nameParts.name,
-      surname: nameParts.surname,
-      email: item.email || '-',
-      phone: application?.phone || '-',
-      role,
-      signedUpAt: item.created_at || item.createdAt || item.signup_at || item.signupAt || null,
-      teacherApprovedAt: role === 'Müəllim' ? application?.reviewed_at || application?.created_at || null : null,
-    })
-  })
 
   profiles.forEach((item) => {
     if (userRowsByKey.has(item.user_id)) return
