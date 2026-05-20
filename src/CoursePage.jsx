@@ -118,6 +118,7 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [videos])
 
   const activeVideo = lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
+  const previewLesson = !hasAccess && videos.length > 0 ? lessons[0] : null
   const activeLessonIndex = lessons.findIndex((video) => String(video.id) === String(activeVideo?.id))
   const watchedIds = useMemo(
     () => new Set(progress.filter((item) => item.watched).map((item) => String(item.video_id))),
@@ -400,13 +401,34 @@ function CoursePage({ user, profile, handleLogout }) {
         ) : (
           <section className="purchase-grid">
             <div className="panel-card">
+              {previewLesson && (
+                <div className="preview-player-block">
+                  <p className="player-eyebrow">Pulsuz preview</p>
+                  <div className="youtube-player-shell">
+                    {previewLesson.video_url && isYouTubeUrl(previewLesson.video_url) ? (
+                      <iframe
+                        className="youtube-player"
+                        src={getEmbedSrc(previewLesson.video_url)}
+                        title={previewLesson.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : previewLesson.video_url ? (
+                      <video controls src={previewLesson.video_url} className="youtube-player">
+                        {t('videoNotSupported')}
+                      </video>
+                    ) : null}
+                  </div>
+                  <h2>{previewLesson.title}</h2>
+                </div>
+              )}
               <h2>Bu kursda nə öyrənəcəksiniz</h2>
               <p className="muted">
                 Kursu almaq üçün WhatsApp vasitəsilə əlaqə saxlayın.
               </p>
               <h3>Dərs siyahısı</h3>
               {lessons.length === 0 ? <p className="muted">Dərslər tezliklə əlavə olunacaq.</p> : lessons.map((video, index) => (
-                <div key={video.id} className="locked-lesson"><span>{index + 1}</span>{video.title}<small>Bağlı</small></div>
+                <div key={video.id} className="locked-lesson"><span>{index + 1}</span>{video.title}<small>{index === 0 && previewLesson ? 'Preview' : 'Bağlı'}</small></div>
               ))}
             </div>
             <aside className="panel-card sticky-panel">

@@ -898,6 +898,20 @@ button {
   background: #000;
 }
 
+.preview-player-block {
+  margin-bottom: 24px;
+}
+
+.preview-player-block .youtube-player-shell {
+  margin: 8px 0 14px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.preview-player-block h2 {
+  margin-bottom: 0;
+}
+
 .course-player-details {
   display: flex;
   align-items: center;
