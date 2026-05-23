@@ -178,14 +178,12 @@ function AdminDashboard({ user, profile, handleLogout }) {
       .from('teacher_applications')
       .update({ status: decision, reviewed_at: new Date().toISOString() }, { count: 'exact' })
       .eq('id', applicationId)
-      .eq('status', 'pending')
 
     const updateResult = updateWithReviewedAt.error
       ? await supabase
         .from('teacher_applications')
         .update({ status: decision }, { count: 'exact' })
         .eq('id', applicationId)
-        .eq('status', 'pending')
       : updateWithReviewedAt
 
     const { count, error } = updateResult
@@ -206,7 +204,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
         return
       }
 
-      setMessage('Xəta: təsdiq gözləyən müraciət tapılmadı.')
+      setMessage('Xəta: müraciət yenilənmədi. Admin icazələri və ya review funksiyası Supabase-də aktiv deyil.')
       loadData()
       return
     }
