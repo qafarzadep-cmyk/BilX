@@ -27,6 +27,18 @@ function splitFullName(fullName = '') {
   }
 }
 
+function shouldTryTeacherReviewFallback(error) {
+  const message = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
+  return (
+    message.includes('function') ||
+    message.includes('schema cache') ||
+    message.includes('permission denied') ||
+    message.includes('not found') ||
+    error?.code === 'PGRST202' ||
+    error?.code === '42501'
+  )
+}
+
 function AdminDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
@@ -38,13 +50,12 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [studentEmail, setStudentEmail] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
   const [message, setMessage] = useState('')
-  const [profileError, setProfileError] = useState('')
   const canAdmin = isAdmin(user)
 
   const loadData = useCallback(async () => {
     const [
       { data: courseData, error: courseError },
-      { data: profileData, error: profileError },
+      { data: profileData },
       { data: teacherApplicationData, error: teacherApplicationError },
       { data: enrollmentData, error: enrollmentError },
       { data: requestData, error: requestError },
@@ -73,7 +84,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
     setCourses(coursesWithAuthors)
     setProfiles(profileData || [])
-    setProfileError(profileError?.message || '')
     setTeacherApplications(teacherApplicationError ? [] : teacherApplicationData || [])
     setEnrollments(enrollmentData || [])
     setRequests(requestData || [])
@@ -129,11 +139,54 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
   const reviewTeacherApplication = async (applicationId, decision) => {
     const application = teacherApplications.find((item) => item.id === applicationId)
-    const { error } = await supabase
+    const rpcAttempts = [
+      ['admin_review_teacher_application', { application_id: applicationId, decision }],
+      ['review_teacher_application', { app_id: applicationId, app_decision: decision }],
+    ]
+
+    for (const [functionName, params] of rpcAttempts) {
+      const { error } = await supabase.rpc(functionName, params)
+      if (!error) {
+        setMessage(decision === 'approved' ? 'Müəllim müraciəti təsdiqləndi.' : 'Müraciət rədd edildi.')
+        loadData()
+        return
+      }
+
+      if (!shouldTryTeacherReviewFallback(error)) {
+        setMessage(`Xəta: ${error.message}`)
+        return
+      }
+    }
+
+    const updateWithReviewedAt = await supabase
       .from('teacher_applications')
-      .update({ status: decision })
+      .update({ status: decision, reviewed_at: new Date().toISOString() })
       .eq('id', applicationId)
       .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+
+    const updateResult = updateWithReviewedAt.error
+      ? await supabase
+        .from('teacher_applications')
+        .update({ status: decision })
+        .eq('id', applicationId)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle()
+      : updateWithReviewedAt
+
+    const { data, error } = updateResult
+    if (error) {
+      setMessage(`Xəta: ${error.message}`)
+      return
+    }
+
+    if (!data) {
+      setMessage('Xəta: təsdiq gözləyən müraciət tapılmadı.')
+      loadData()
+      return
+    }
 
     if (!error && decision === 'approved' && application?.user_id) {
       const fullName = `${application.name || ''} ${application.surname || ''}`.trim()
@@ -143,13 +196,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
         role: 'instructor',
       })
 
-      setMessage(profileUpdateError ? `Xəta: ${profileUpdateError.message}` : '')
-      if (!profileUpdateError) loadData()
+      setMessage(profileUpdateError ? `Müraciət təsdiqləndi, amma profil rolu yenilənmədi: ${profileUpdateError.message}` : 'Müəllim müraciəti təsdiqləndi.')
+      loadData()
       return
     }
 
-    setMessage(error ? `Xəta: ${error.message}` : '')
-    if (!error) loadData()
+    setMessage(decision === 'approved' ? 'Müəllim müraciəti təsdiqləndi.' : 'Müraciət rədd edildi.')
+    loadData()
   }
 
   if (!canAdmin) {
