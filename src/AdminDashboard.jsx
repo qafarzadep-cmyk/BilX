@@ -139,6 +139,23 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
   const reviewTeacherApplication = async (applicationId, decision) => {
     const application = teacherApplications.find((item) => item.id === applicationId)
+    const finishTeacherReview = async () => {
+      if (decision === 'approved' && application?.user_id) {
+        const fullName = `${application.name || ''} ${application.surname || ''}`.trim()
+        const { error: profileUpdateError } = await supabase.from('profiles').upsert({
+          user_id: application.user_id,
+          full_name: fullName || application.email,
+          role: 'instructor',
+        })
+
+        setMessage(profileUpdateError ? `Müraciət təsdiqləndi, amma profil rolu yenilənmədi: ${profileUpdateError.message}` : 'Müəllim müraciəti təsdiqləndi.')
+        loadData()
+        return
+      }
+
+      setMessage(decision === 'approved' ? 'Müəllim müraciəti təsdiqləndi.' : 'Müraciət rədd edildi.')
+      loadData()
+    }
     const rpcAttempts = [
       ['admin_review_teacher_application', { application_id: applicationId, decision }],
       ['review_teacher_application', { app_id: applicationId, app_decision: decision }],
@@ -147,8 +164,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     for (const [functionName, params] of rpcAttempts) {
       const { error } = await supabase.rpc(functionName, params)
       if (!error) {
-        setMessage(decision === 'approved' ? 'Müəllim müraciəti təsdiqləndi.' : 'Müraciət rədd edildi.')
-        loadData()
+        finishTeacherReview()
         return
       }
 
@@ -160,49 +176,42 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
     const updateWithReviewedAt = await supabase
       .from('teacher_applications')
-      .update({ status: decision, reviewed_at: new Date().toISOString() })
+      .update({ status: decision, reviewed_at: new Date().toISOString() }, { count: 'exact' })
       .eq('id', applicationId)
       .eq('status', 'pending')
-      .select('id')
-      .maybeSingle()
 
     const updateResult = updateWithReviewedAt.error
       ? await supabase
         .from('teacher_applications')
-        .update({ status: decision })
+        .update({ status: decision }, { count: 'exact' })
         .eq('id', applicationId)
         .eq('status', 'pending')
-        .select('id')
-        .maybeSingle()
       : updateWithReviewedAt
 
-    const { data, error } = updateResult
+    const { count, error } = updateResult
     if (error) {
       setMessage(`Xəta: ${error.message}`)
       return
     }
 
-    if (!data) {
+    if (count === 0) {
+      const { data: currentApplication, error: currentApplicationError } = await supabase
+        .from('teacher_applications')
+        .select('status')
+        .eq('id', applicationId)
+        .maybeSingle()
+
+      if (!currentApplicationError && currentApplication?.status === decision) {
+        finishTeacherReview()
+        return
+      }
+
       setMessage('Xəta: təsdiq gözləyən müraciət tapılmadı.')
       loadData()
       return
     }
 
-    if (!error && decision === 'approved' && application?.user_id) {
-      const fullName = `${application.name || ''} ${application.surname || ''}`.trim()
-      const { error: profileUpdateError } = await supabase.from('profiles').upsert({
-        user_id: application.user_id,
-        full_name: fullName || application.email,
-        role: 'instructor',
-      })
-
-      setMessage(profileUpdateError ? `Müraciət təsdiqləndi, amma profil rolu yenilənmədi: ${profileUpdateError.message}` : 'Müəllim müraciəti təsdiqləndi.')
-      loadData()
-      return
-    }
-
-    setMessage(decision === 'approved' ? 'Müəllim müraciəti təsdiqləndi.' : 'Müraciət rədd edildi.')
-    loadData()
+    finishTeacherReview()
   }
 
   if (!canAdmin) {
