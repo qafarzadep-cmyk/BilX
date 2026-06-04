@@ -1,6 +1,12 @@
 import { Resend } from 'resend'
 
-const resendApiKey = import.meta.env.VITE_RESEND_API_KEY
+const resendApiKey = process.env.RESEND_API_KEY
+
+function verifyRequest(req) {
+  const secret = process.env.WEBHOOK_SECRET
+  if (!secret) return false
+  return req.headers['x-webhook-secret'] === secret
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -11,19 +17,36 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;')
 }
 
-export async function sendWelcomeEmail({ name, email }) {
-  if (!resendApiKey) {
-    throw new Error('VITE_RESEND_API_KEY is missing.')
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
   }
 
-  const firstName = escapeHtml(name || 'dost')
-  const resend = new Resend(resendApiKey)
+  if (!verifyRequest(req)) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
 
-  return resend.emails.send({
-    from: 'Bil-X <no-reply@bilx.org>',
-    to: email,
-    subject: `Bil-X-ə xoş gəldiniz, ${name || 'dost'}! 🎉`,
-    html: `
+  if (!resendApiKey) {
+    res.status(500).json({ error: 'RESEND_API_KEY is missing.' })
+    return
+  }
+
+  const { to, name } = req.body || {}
+  if (!to) {
+    res.status(400).json({ error: 'Missing required fields' })
+    return
+  }
+
+  try {
+    const firstName = escapeHtml(name || 'dost')
+    const resend = new Resend(resendApiKey)
+    await resend.emails.send({
+      from: 'Bil-X <no-reply@bilx.org>',
+      to,
+      subject: `Bil-X-ə xoş gəldiniz, ${name || 'dost'}! 🎉`,
+      html: `
       <!doctype html>
       <html lang="az">
         <head>
@@ -76,7 +99,10 @@ export async function sendWelcomeEmail({ name, email }) {
         </body>
       </html>
     `,
-  })
-}
+    })
 
-export default sendWelcomeEmail
+    res.status(200).json({ ok: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}

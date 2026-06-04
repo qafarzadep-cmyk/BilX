@@ -1,20 +1,20 @@
-import azFlag from './assets/Flag_of_Azerbaijan_Flat_Round.png'
-import ruFlag from './assets/Flag_of_Russia_Flat_Round.png'
-import enFlag from './assets/Flag_of_United_States_Flat_Round.png'
+import azFlag from './assets/Flag_of_Azerbaijan_Flat_Round.webp'
+import ruFlag from './assets/Flag_of_Russia_Flat_Round.webp'
+import enFlag from './assets/Flag_of_United_States_Flat_Round.webp'
 import { useLanguage } from './i18n'
 
 const languages = [
-  { code: 'az', label: 'AZ', flag: azFlag, alt: 'Azərbaycan bayrağı' },
-  { code: 'ru', label: 'RU', flag: ruFlag, alt: 'Rusiya bayrağı' },
-  { code: 'en', label: 'ENG', flag: enFlag, alt: 'ABŞ bayrağı' },
+  { code: 'az', label: 'AZ', flag: azFlag, altKey: 'flagAz' },
+  { code: 'ru', label: 'RU', flag: ruFlag, altKey: 'flagRu' },
+  { code: 'en', label: 'ENG', flag: enFlag, altKey: 'flagEn' },
 ]
 
 function LanguageSelector() {
-  const { language, setLanguage } = useLanguage()
+  const { language, setLanguage, t } = useLanguage()
 
   return (
     <div
-      aria-label="Dil seçimi"
+      aria-label={t('languageSelect')}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -68,7 +68,11 @@ function LanguageSelector() {
           >
             <img
               src={item.flag}
-              alt={item.alt}
+              alt={t(item.altKey)}
+              width={16}
+              height={16}
+              loading="lazy"
+              decoding="async"
               style={{
                 width: '16px',
                 height: '16px',

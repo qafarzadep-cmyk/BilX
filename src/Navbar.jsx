@@ -1,6 +1,8 @@
-import { BookOpen, LogOut, Search, Shield, User, Video } from 'lucide-react'
+import { Bell, BookOpen, LogOut, Search, Shield, User, Video } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import LanguageSelector from './LanguageSelector'
+import { useLanguage } from './i18n'
 import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
@@ -13,7 +15,12 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const [applicationMessage, setApplicationMessage] = useState('')
   const [applicationMessageType, setApplicationMessageType] = useState('error')
   const [applicationLoading, setApplicationLoading] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
   const menuRef = useRef(null)
+  const notificationRef = useRef(null)
+  const { t } = useLanguage()
   const role = profile?.role || 'student'
   const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Bil-X'
   const firstLetter = name.charAt(0).toUpperCase()
@@ -21,19 +28,53 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const isTeacherMode = location.pathname.startsWith('/instructor') || location.pathname.startsWith('/edit-course')
 
   const roleLabel = isAdmin(user)
-    ? 'Admin kimi daxil oldunuz'
+    ? t('roleAdmin')
     : isTeacherMode
-      ? 'Müəllim kimi daxil oldunuz'
-      : 'Tələbə kimi daxil oldunuz'
+      ? t('roleInstructor')
+      : t('roleStudent')
 
   useEffect(() => {
     function closeOnOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) setOpen(false)
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) setNotificationsOpen(false)
     }
 
     document.addEventListener('mousedown', closeOnOutside)
     return () => document.removeEventListener('mousedown', closeOnOutside)
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadNotifications() {
+      if (!user) return
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(8)
+
+      if (mounted) setNotifications(data || [])
+    }
+
+    loadNotifications()
+    return () => {
+      mounted = false
+    }
+  }, [user])
+
+  const unreadCount = notifications.filter((item) => !item.is_read).length
+
+  const markAllNotificationsRead = async () => {
+    if (!user || unreadCount === 0) return
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+    setNotifications((items) => items.map((item) => ({ ...item, is_read: true })))
+  }
 
   const go = (path) => {
     setOpen(false)
@@ -53,7 +94,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     if (!user) return
 
     if (!applicationForm.name.trim() || !applicationForm.surname.trim() || !applicationForm.phone.trim()) {
-      setApplicationMessage('Bütün sahələri doldurun.')
+      setApplicationMessage(t('fillAllFields'))
       setApplicationMessageType('error')
       return
     }
@@ -72,15 +113,21 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     if (error) {
       const alreadySubmitted = error.message?.toLowerCase().includes('duplicate') || error.code === '23505'
       if (alreadySubmitted) {
-        setApplicationMessage('Müraciətiniz artıq göndərilib və təsdiq gözləyir.')
+        setApplicationMessage(t('applicationAlreadySent'))
         setApplicationMessageType('success')
       } else {
-        setApplicationMessage(`Xəta: ${error.message}`)
+        setApplicationMessage(`${t('errorOccurred')}${error.message}`)
         setApplicationMessageType('error')
       }
     } else {
-      setApplicationMessage('Müraciətiniz uğurla göndərildi. Admin təsdiqindən sonra müəllim paneli açılacaq.')
+      setApplicationMessage(t('applicationSent'))
       setApplicationMessageType('success')
+      const applicantName = `${applicationForm.name.trim()} ${applicationForm.surname.trim()}`.trim()
+      await supabase.rpc('notify_admin', {
+        p_title: t('adminNewTeacherTitle'),
+        p_body: t('adminNewTeacherBody').replace('{name}', applicantName),
+        p_link: '/admin',
+      })
     }
 
     setApplicationLoading(false)
@@ -117,26 +164,69 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     }
   }
 
+  const searchValue = onSearchChange ? search : searchTerm
+  const handleSearchInput = (value) => {
+    if (onSearchChange) onSearchChange(value)
+    else setSearchTerm(value)
+  }
+  const runSearch = () => {
+    // On pages that don't own the course list, jump to the home page with the
+    // query so the search always produces results.
+    if (!onSearchChange) {
+      navigate(`/?q=${encodeURIComponent((searchTerm || '').trim())}`)
+    }
+  }
+
   return (
     <nav className="top-nav">
       <button className="logo-button" onClick={() => navigate('/')}>Bil-X</button>
-      <button className="nav-text-button" type="button" onClick={() => navigate(user ? '/profile' : '/register')}>Üzv ol</button>
 
       <div className="nav-search">
         <Search size={18} />
         <input
           type="search"
-          placeholder="Kurs axtar..."
-          value={search}
-          onChange={(event) => onSearchChange?.(event.target.value)}
+          placeholder={t('search')}
+          value={searchValue}
+          onChange={(event) => handleSearchInput(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') runSearch() }}
         />
       </div>
 
       <div className="nav-actions">
-        <button className="nav-text-button nav-wide-link" type="button" onClick={() => navigate(user ? '/profile' : '/register')}>Bil-X-də öyrən</button>
-        <button className="nav-text-button nav-wide-link" type="button" onClick={handleTeachClick}>Bil-X-də öyrət</button>
+        <button className="nav-text-button nav-wide-link" type="button" onClick={() => navigate(user ? '/profile' : '/register')}>{t('learnOnBilx')}</button>
+        <button className="nav-text-button nav-wide-link" type="button" onClick={handleTeachClick}>{t('teachOnBilx')}</button>
+        <LanguageSelector />
         {user ? (
           <>
+            <div ref={notificationRef} className="notification-menu">
+              <button className="icon-button" type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-label={t('notifications')}>
+                <Bell size={18} />
+                {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+              </button>
+              {notificationsOpen && (
+                <div className="dropdown-menu notification-dropdown">
+                  <div className="dropdown-header">
+                    <strong>{t('notifications')}</strong>
+                    {unreadCount > 0 && (
+                      <button type="button" className="text-button" onClick={markAllNotificationsRead}>{t('markAllRead')}</button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="empty-box">{t('noNotifications')}</div>
+                  ) : notifications.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={item.is_read ? 'notification-item' : 'notification-item unread'}
+                      onClick={() => item.link ? navigate(item.link) : null}
+                    >
+                      <strong>{item.title}</strong>
+                      {item.body && <span>{item.body}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="nav-role-stack">
               <span className="nav-role-pill">{roleLabel}</span>
               {!isAdmin(user) && !isInstructor && (
@@ -145,17 +235,17 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                   className="nav-switch-button"
                   onClick={openApplicationForm}
                 >
-                  Müəllim olmaq üçün müraciət et
+                  {t('applyToTeach')}
                 </button>
               )}
               {!isAdmin(user) && isInstructor && (
                 <button type="button" className="nav-switch-button" onClick={handleModeSwitch}>
-                  {isTeacherMode ? 'Tələbə panelinə keç' : 'Müəllim panelinə keç'}
+                  {isTeacherMode ? t('switchToStudentPanel') : t('switchToTeacherPanel')}
                 </button>
               )}
               {isAdmin(user) && (
                 <button type="button" className="nav-switch-button" onClick={handleLogoutClick}>
-                  Çıxış
+                  {t('logout')}
                 </button>
               )}
             </div>
@@ -171,28 +261,32 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                   </div>
                   {!isAdmin(user) && (
                     <>
-                      <button type="button" onClick={() => go('/profile')}><User size={16} /> Profil</button>
-                      <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> Mənim kurslarım</button>
+                      <button type="button" onClick={() => go('/profile')}><User size={16} /> {t('profileLabel')}</button>
+                      <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> {t('myCoursesTitle')}</button>
+                      <button type="button" onClick={() => go('/inbox')}><BookOpen size={16} /> {t('inbox')}</button>
                     </>
                   )}
                   {role === 'instructor' && (
                     <>
-                      <button type="button" onClick={() => go('/instructor')}><Video size={16} /> Müəllim paneli</button>
-                      <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> Tələbə panelinə keç</button>
+                      <button type="button" onClick={() => go('/instructor')}><Video size={16} /> {t('teacherPanel')}</button>
+                      <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> {t('switchToStudentPanel')}</button>
                     </>
                   )}
                   {isAdmin(user) && (
-                    <button type="button" onClick={() => go('/admin')}><Shield size={16} /> Admin paneli</button>
+                    <>
+                      <button type="button" onClick={() => go('/admin')}><Shield size={16} /> {t('adminPanel')}</button>
+                      <button type="button" onClick={() => go('/inbox')}><BookOpen size={16} /> {t('inbox')}</button>
+                    </>
                   )}
-                  <button type="button" className="danger-menu-item" onClick={handleLogoutClick}><LogOut size={16} /> Çıxış</button>
+                  <button type="button" className="danger-menu-item" onClick={handleLogoutClick}><LogOut size={16} /> {t('logout')}</button>
                 </div>
               )}
             </div>
           </>
         ) : (
           <div className="auth-actions">
-            <button className="outline-button auth-login-button" onClick={() => navigate('/login')}>Giriş</button>
-            <button className="primary-button auth-register-button" onClick={() => navigate('/register')}>Qeydiyyat</button>
+            <button className="outline-button auth-login-button" onClick={() => navigate('/login')}>{t('login')}</button>
+            <button className="primary-button auth-register-button" onClick={() => navigate('/register')}>{t('register')}</button>
           </div>
         )}
       </div>
@@ -200,22 +294,22 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setApplicationOpen(false)}>
           <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="teacher-application-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
-              <h2 id="teacher-application-title">Müəllim müraciəti</h2>
+              <h2 id="teacher-application-title">{t('applicationTitle')}</h2>
               <button type="button" className="modal-close-button" onClick={() => setApplicationOpen(false)}>x</button>
             </div>
             <form className="form-panel" onSubmit={submitTeacherApplication}>
               {applicationMessage && (
                 <div className={applicationMessageType === 'success' ? 'success-box' : 'error-box'}>{applicationMessage}</div>
               )}
-              <label>Ad</label>
+              <label>{t('fullName')}</label>
               <input value={applicationForm.name} onChange={(event) => setApplicationForm({ ...applicationForm, name: event.target.value })} required />
-              <label>Soyad</label>
+              <label>{t('surname')}</label>
               <input value={applicationForm.surname} onChange={(event) => setApplicationForm({ ...applicationForm, surname: event.target.value })} required />
-              <label>Qeydiyyat e-poçtu</label>
+              <label>{t('applicationEmail')}</label>
               <input value={user.email || ''} readOnly />
-              <label>Telefon nömrəsi</label>
+              <label>{t('applicationPhone')}</label>
               <input type="tel" value={applicationForm.phone} onChange={(event) => setApplicationForm({ ...applicationForm, phone: event.target.value })} required />
-              <button className="approve-button full" disabled={applicationLoading}>{applicationLoading ? 'Göndərilir...' : 'Müraciəti göndər'}</button>
+              <button className="approve-button full" disabled={applicationLoading}>{applicationLoading ? t('applicationSubmitting') : t('applicationSubmit')}</button>
             </form>
           </div>
         </div>

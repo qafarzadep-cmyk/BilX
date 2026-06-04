@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
+import { useLanguage } from './i18n'
+import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function EditCourse({ user, profile, handleLogout }) {
@@ -18,6 +20,7 @@ function EditCourse({ user, profile, handleLogout }) {
     price: initialCourse?.price || '',
   })
   const [message, setMessage] = useState('')
+  const { t } = useLanguage()
 
   useEffect(() => {
     if (!courseId) {
@@ -47,11 +50,21 @@ function EditCourse({ user, profile, handleLogout }) {
       .eq('id', course.id)
 
     if (error) {
-      setMessage(`Xəta: ${error.message}`)
+      setMessage(`${t('errorOccurred')}${error.message}`)
       return
     }
     setCourse({ ...course, ...form })
-    setMessage('Dəyişikliklər yadda saxlandı.')
+    setMessage(t('changesSaved'))
+  }
+
+  // Per workflow.md 3.3: only the admin may edit a course. Teachers request
+  // changes via Inbox instead.
+  if (!isAdmin(user)) {
+    return (
+      <div className="page centered-page">
+        <div className="empty-box compact">{t('adminNoAccess')}</div>
+      </div>
+    )
   }
 
   if (!course) return null
@@ -63,20 +76,20 @@ function EditCourse({ user, profile, handleLogout }) {
       <main className="content-shell edit-course-shell">
         {message && <div className="notice-box">{message}</div>}
         <section className="panel-card form-panel">
-          <h1>Kursu redaktə et</h1>
-          {instructorName && <p className="muted">Müəllim: {instructorName}</p>}
-          <label>Kurs adı</label>
+          <h1>{t('editCourseTitle')}</h1>
+          {instructorName && <p className="muted">{t('instructorLabel')}: {instructorName}</p>}
+          <label>{t('courseTitle')}</label>
           <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
-          <label>Təsvir</label>
+          <label>{t('courseDescription')}</label>
           <textarea rows={5} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
-          <label>Qiymət (AZN)</label>
+          <label>{t('priceAzN')}</label>
           <input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
-          <button className="primary-button full" onClick={save}>Dəyişiklikləri yadda saxla</button>
+          <button className="primary-button full" onClick={save}>{t('saveChanges')}</button>
         </section>
 
         <section className="panel-card">
-          <h2>Dərslər</h2>
-          {videos.length === 0 ? <p className="muted">Bu kursda hələ dərs yoxdur.</p> : videos.map((video, index) => (
+          <h2>{t('lessonsTitle')}</h2>
+          {videos.length === 0 ? <p className="muted">{t('noLessons')}</p> : videos.map((video, index) => (
             <div key={video.id} className="lesson-row"><span>{index + 1}</span>{video.title}</div>
           ))}
         </section>

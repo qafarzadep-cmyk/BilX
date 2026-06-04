@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
+import { useLanguage } from './i18n'
 import { supabase } from './supabase'
 
 function ResetPassword() {
@@ -14,6 +15,7 @@ function ResetPassword() {
   const [ready, setReady] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('error')
+  const { t } = useLanguage()
 
   const showMessage = (text, type = 'error') => {
     setMessage(text)
@@ -30,7 +32,7 @@ function ResetPassword() {
       if (session) {
         setReady(true)
       } else {
-        showMessage('Şifrə yeniləmə linki etibarsızdır və ya vaxtı bitib. Yenidən link göndərin.')
+        showMessage(t('resetLinkInvalid'))
       }
     }
 
@@ -38,18 +40,18 @@ function ResetPassword() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [t])
 
   const updatePassword = async (event) => {
     event.preventDefault()
 
     if (password.length < 6) {
-      showMessage('Yeni şifrə ən azı 6 simvol olmalıdır.')
+      showMessage(t('passwordMinError'))
       return
     }
 
     if (password !== confirmPassword) {
-      showMessage('Şifrələr eyni deyil.')
+      showMessage(t('passwordsMismatch'))
       return
     }
 
@@ -63,7 +65,7 @@ function ResetPassword() {
       return
     }
 
-    showMessage('Şifrəniz yeniləndi. İndi yeni şifrə ilə daxil ola bilərsiniz.', 'success')
+    showMessage(t('passwordUpdated'), 'success')
     await supabase.auth.signOut()
     setTimeout(() => navigate('/login', { replace: true }), 1000)
   }
@@ -73,17 +75,18 @@ function ResetPassword() {
       <Navbar />
       <main className="auth-shell">
         <form className="auth-card-clean" onSubmit={updatePassword}>
-          <p className="auth-kicker">Bil-X hesabı</p>
-          <h1>Yeni şifrə yarat</h1>
-          <p className="auth-subtitle">E-poçtdakı linklə gəldikdən sonra hesabınız üçün yeni şifrə yazın.</p>
+          <button type="button" className="auth-brand" onClick={() => navigate('/')}>Bil-X</button>
+          <p className="auth-kicker">{t('accountLabel')}</p>
+          <h1>{t('resetTitle')}</h1>
+          <p className="auth-subtitle">{t('resetSubtitle')}</p>
 
           {message && <div className={messageType === 'success' ? 'success-box' : 'error-box'}>{message}</div>}
 
-          <label>Yeni şifrə</label>
+          <label>{t('newPassword')}</label>
           <div className="password-input-wrap">
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="Ən azı 6 simvol"
+              placeholder={t('passwordMin')}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={!ready || loading}
@@ -93,19 +96,19 @@ function ResetPassword() {
               type="button"
               className="password-eye-button"
               onClick={() => setShowPassword((value) => !value)}
-              aria-label={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
-              title={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+              title={showPassword ? t('hidePassword') : t('showPassword')}
               disabled={!ready || loading}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
-          <label>Yeni şifrəni təkrar yazın</label>
+          <label>{t('confirmPassword')}</label>
           <div className="password-input-wrap">
             <input
               type={showConfirmPassword ? 'text' : 'password'}
-              placeholder="Şifrəni təkrar yazın"
+              placeholder={t('confirmPasswordPlaceholder')}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               disabled={!ready || loading}
@@ -115,8 +118,8 @@ function ResetPassword() {
               type="button"
               className="password-eye-button"
               onClick={() => setShowConfirmPassword((value) => !value)}
-              aria-label={showConfirmPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
-              title={showConfirmPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              aria-label={showConfirmPassword ? t('hidePassword') : t('showPassword')}
+              title={showConfirmPassword ? t('hidePassword') : t('showPassword')}
               disabled={!ready || loading}
             >
               {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -124,11 +127,11 @@ function ResetPassword() {
           </div>
 
           <button className="primary-button full" disabled={!ready || loading}>
-            {loading ? 'Yenilənir...' : 'Şifrəni yenilə'}
+            {loading ? t('loading') : t('resetPassword')}
           </button>
 
           <p className="auth-footer">
-            Link işləmirsə <button type="button" onClick={() => navigate('/login')}>yenisini göndərin</button>
+            {t('resetLinkHelp')} <button type="button" onClick={() => navigate('/login')}>{t('login')}</button>
           </p>
         </form>
       </main>

@@ -94,6 +94,7 @@ drop policy if exists "profiles_read_own_or_admin" on public.profiles;
 drop policy if exists "profiles_read_public_course_instructors" on public.profiles;
 drop policy if exists "profiles_insert_own" on public.profiles;
 drop policy if exists "profiles_update_own_or_admin" on public.profiles;
+drop policy if exists "profiles_admin_update_all" on public.profiles;
 drop policy if exists "courses_public_read_approved" on public."Courses";
 drop policy if exists "courses_instructor_read_own" on public."Courses";
 drop policy if exists "courses_admin_read_all" on public."Courses";
@@ -127,14 +128,19 @@ create policy "profiles_read_public_course_instructors"
     )
   );
 
+-- New profiles may only be created for oneself and only as a student.
+-- Promotion to instructor happens exclusively through the admin review RPC
+-- (see teacher_applications.sql), never by self-insert.
 create policy "profiles_insert_own"
   on public.profiles for insert
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() and role = 'student');
 
-create policy "profiles_update_own_or_admin"
+-- Role changes (and any profile mutation) are admin-only so a user cannot
+-- escalate their own role to 'instructor' by updating their profile row.
+create policy "profiles_admin_update_all"
   on public.profiles for update
-  using (user_id = auth.uid() or lower(coalesce(auth.jwt() ->> 'email', '')) = 'qafarzadep@gmail.com')
-  with check (user_id = auth.uid() or lower(coalesce(auth.jwt() ->> 'email', '')) = 'qafarzadep@gmail.com');
+  using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'qafarzadep@gmail.com')
+  with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'qafarzadep@gmail.com');
 
 create policy "courses_public_read_approved"
   on public."Courses" for select
@@ -168,9 +174,9 @@ create policy "videos_read_for_owner_or_enrolled"
     exists (select 1 from public."Courses" c where c.id = videos.course_id and c.instructor_id = auth.uid())
     or exists (
       select 1 from public.enrollments e
-      where e.course_id = videos.course_id
+      where e.course_id::text = videos.course_id::text
         and coalesce(e.status, 'active') = 'active'
-        and (e.user_id = auth.uid()::text or lower(e.user_id) = lower(coalesce(auth.jwt() ->> 'email', '')))
+        and (e.user_id::text = auth.uid()::text or lower(e.user_id::text) = lower(coalesce(auth.jwt() ->> 'email', '')))
     )
     or lower(coalesce(auth.jwt() ->> 'email', '')) = 'qafarzadep@gmail.com'
   );
@@ -195,7 +201,7 @@ create policy "enrollments_admin_all"
 
 create policy "enrollments_student_read_own"
   on public.enrollments for select
-  using (user_id = auth.uid()::text or lower(user_id) = lower(coalesce(auth.jwt() ->> 'email', '')));
+  using (user_id::text = auth.uid()::text or lower(user_id::text) = lower(coalesce(auth.jwt() ->> 'email', '')));
 
 create policy "progress_student_all_own"
   on public.video_progress for all

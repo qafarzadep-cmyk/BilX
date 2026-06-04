@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
+import { useLanguage } from './i18n'
 import { supabase } from './supabase'
 
 function StudentProfile({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const [enrollments, setEnrollments] = useState([])
   const [progress, setProgress] = useState([])
+  const [discoverCourses, setDiscoverCourses] = useState([])
+  const [discoverLoading, setDiscoverLoading] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { t } = useLanguage()
 
   useEffect(() => {
     let mounted = true
@@ -66,12 +70,39 @@ function StudentProfile({ user, profile, handleLogout }) {
     [progress]
   )
 
+  useEffect(() => {
+    let mounted = true
+
+    async function loadDiscoverCourses() {
+      if (!user || loading || courses.length > 0) return
+
+      setDiscoverLoading(true)
+      const { data } = await supabase
+        .from('Courses')
+        .select('*')
+        .eq('is_published', true)
+        .order('id', { ascending: false })
+        .limit(8)
+
+      const coursesWithAuthors = await attachCourseAuthorNames(data || [])
+      if (mounted) {
+        setDiscoverCourses(coursesWithAuthors)
+        setDiscoverLoading(false)
+      }
+    }
+
+    loadDiscoverCourses()
+    return () => {
+      mounted = false
+    }
+  }, [courses.length, loading, user])
+
   if (!user) {
     return (
       <div className="page centered-page">
         <div className="empty-box compact">
-          <h2>Zəhmət olmasa daxil olun</h2>
-          <button className="primary-button" onClick={() => navigate('/login')}>Daxil ol</button>
+          <h2>{t('pleaseLogin')}</h2>
+          <button className="primary-button" onClick={() => navigate('/login')}>{t('loginToContinue')}</button>
         </div>
       </div>
     )
@@ -83,21 +114,21 @@ function StudentProfile({ user, profile, handleLogout }) {
       <main className="dashboard-shell">
         <section className="dashboard-header">
           <div>
-            <h1>Salam, {profile?.full_name || user.user_metadata?.full_name || user.email}</h1>
-            <p>Kurslarınıza buradan davam edin.</p>
+            <h1>{t('hello')}, {profile?.full_name || user.user_metadata?.full_name || user.email}</h1>
+            <p>{t('continueLearning')}</p>
           </div>
-          <button className="primary-button" onClick={() => navigate('/')}>Kurs tap</button>
+          <button className="primary-button" onClick={() => navigate('/')}>{t('findCourse')}</button>
         </section>
 
         <section className="panel-card">
           <div className="section-heading">
-            <h2>Mənim kurslarım</h2>
+            <h2>{t('myCoursesTitle')}</h2>
           </div>
 
           {loading ? (
-            <p className="muted">Yüklənir...</p>
+            <p className="muted">{t('loading')}</p>
           ) : courses.length === 0 ? (
-            <div className="empty-box">Hələ aktiv kursunuz yoxdur.</div>
+            <div className="empty-box">{t('noActiveCourses')}</div>
           ) : (
             <div className="course-grid">
               {courses.map((course) => {
@@ -107,17 +138,29 @@ function StudentProfile({ user, profile, handleLogout }) {
                 const instructorName = getCourseAuthorName(course)
 
                 return (
-                  <article key={course.id} className="course-card" onClick={() => navigate(`/course/${course.id}`, { state: { course } })}>
-                    <img src={course.thumbnail_url || '/ortuksekli.jpg'} alt={course.title} />
+                  <article
+                    key={course.id}
+                    className="course-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        navigate(`/course/${course.id}`, { state: { course } })
+                      }
+                    }}
+                  >
+                    <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
                     <div className="course-card-body">
                       <h3>{course.title}</h3>
                       {course.description && <p>{course.description}</p>}
                       {instructorName && <small className="course-instructor">{instructorName}</small>}
-                      <strong>{Number(course.price) > 0 ? `${course.price} AZN` : 'Pulsuz'}</strong>
-                      <p>{videos.length} dərs</p>
+                      <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                      <p>{videos.length} {t('courseLessons')}</p>
                       <div className="progress-bar"><span style={{ width: `${percent}%` }} /></div>
-                      <small>{percent}% tamamlandı</small>
-                      <button className="primary-button full">Davam et</button>
+                      <small>{percent}% {t('completedPercent')}</small>
+                      <button className="primary-button full">{t('continueButton')}</button>
                     </div>
                   </article>
                 )
@@ -125,6 +168,51 @@ function StudentProfile({ user, profile, handleLogout }) {
             </div>
           )}
         </section>
+
+        {courses.length === 0 && (
+          <section className="panel-card">
+            <div className="section-heading">
+              <h2>{t('discoverCoursesTitle')}</h2>
+              <p>{t('discoverCoursesSubtitle')}</p>
+            </div>
+
+            {discoverLoading ? (
+              <p className="muted">{t('loading')}</p>
+            ) : discoverCourses.length === 0 ? (
+              <div className="empty-box">{t('noPublicCourses')}</div>
+            ) : (
+              <div className="course-grid">
+                {discoverCourses.map((course) => {
+                  const instructorName = getCourseAuthorName(course)
+
+                  return (
+                    <article
+                      key={course.id}
+                      className="course-card"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          navigate(`/course/${course.id}`, { state: { course } })
+                        }
+                      }}
+                    >
+                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                      <div className="course-card-body">
+                        <h3>{course.title}</h3>
+                        {course.description && <p>{course.description}</p>}
+                        {instructorName && <small className="course-instructor">{instructorName}</small>}
+                        <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   )

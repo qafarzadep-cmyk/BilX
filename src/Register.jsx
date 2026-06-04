@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { Eye, EyeOff } from 'lucide-react'
 import Navbar from './Navbar'
 import { appUrl } from './appUrl'
+import { useLanguage } from './i18n'
 import { supabase } from './supabase'
 
 function Register() {
@@ -15,6 +16,7 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const { t } = useLanguage()
 
   const showMessage = (text) => {
     setMessage(text)
@@ -50,7 +52,7 @@ function Register() {
     }
 
     if (!data.user || data.user.identities?.length === 0) {
-      showMessage('Bu e-poçt artıq qeydiyyatdan keçib.')
+      showMessage(t('emailAlreadyRegistered'))
       setLoading(false)
       return
     }
@@ -69,12 +71,12 @@ function Register() {
 
     if (data.session) {
       await supabase.auth.signOut()
-      toast.error('E-poçt təsdiqi aktiv deyil. Admin Supabase-də e-poçt təsdiqini aktiv etməlidir.')
+      toast.error(t('emailConfirmDisabled'))
       setLoading(false)
       return
     }
 
-    toast.success('E-poçt ünvanınıza təsdiq məktubu göndərdik. Zəhmət olmasa e-poçtunuzu yoxlayın!')
+    toast.success(t('verifyEmailSent'))
     setLoading(false)
   }
 
@@ -83,47 +85,48 @@ function Register() {
       <Navbar />
       <main className="auth-shell">
         <form className="auth-card-clean" onSubmit={handleRegister}>
-          <p className="auth-kicker">Bil-X hesabı</p>
-          <h1>Qeydiyyat</h1>
-          <p className="auth-subtitle">Bil-X hesabı yaradın və tələbə kimi kurslara başlayın.</p>
+          <button type="button" className="auth-brand" onClick={() => navigate('/')}>Bil-X</button>
+          <p className="auth-kicker">{t('accountLabel')}</p>
+          <h1>{t('registerTitle')}</h1>
+          <p className="auth-subtitle">{t('registerSubtitle')}</p>
 
           {message && <div className="error-box">{message}</div>}
 
-          <label>Ad</label>
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Emily" required />
+          <label>{t('fullName')}</label>
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('firstNamePlaceholder')} required />
 
-          <label>Soyad</label>
-          <input value={surname} onChange={(event) => setSurname(event.target.value)} placeholder="Smith" required />
+          <label>{t('surname')}</label>
+          <input value={surname} onChange={(event) => setSurname(event.target.value)} placeholder={t('surnamePlaceholder')} required />
 
-          <label>E-poçt</label>
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="numune@bilx.az" required />
+          <label>{t('email')}</label>
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t('emailPlaceholder')} required />
 
-          <label>Şifrə</label>
+          <label>{t('password')}</label>
           <div className="password-input-wrap">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Ən azı 6 simvol"
+              placeholder={t('passwordMin')}
               required
             />
             <button
               type="button"
               className="password-eye-button"
               onClick={() => setShowPassword((value) => !value)}
-              aria-label={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
-              title={showPassword ? 'Şifrəni gizlət' : 'Şifrəni göstər'}
+              aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+              title={showPassword ? t('hidePassword') : t('showPassword')}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
           <button className="primary-button full" disabled={loading}>
-            {loading ? 'Yaradılır...' : 'Hesab yarat'}
+            {loading ? t('loading') : t('registerAction')}
           </button>
 
           <p className="auth-footer">
-            Hesabınız var? <button type="button" onClick={() => navigate('/login')}>Giriş</button>
+            {t('hasAccount')} <button type="button" onClick={() => navigate('/login')}>{t('login')}</button>
           </p>
         </form>
       </main>

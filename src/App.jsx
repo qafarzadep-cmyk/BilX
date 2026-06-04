@@ -1,23 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
-import { Route, Routes, useNavigate } from 'react-router-dom'
+import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom'
+import { BookOpen, Clock3, PlayCircle, Video } from 'lucide-react'
+import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import CoursePage from './CoursePage'
 import EditCourse from './EditCourse'
 import InstructorDashboard from './InstructorDashboard'
+import Inbox from './Inbox'
 import Login from './Login'
 import Navbar from './Navbar'
 import Register from './Register'
 import ResetPassword from './ResetPassword'
 import StudentProfile from './StudentProfile'
-import heroCover from './assets/bilx-hero-cover.png'
+import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
+import { useLanguage } from './i18n'
 import { ensureProfile, fallbackProfile } from './profileApi'
 import { supabase } from './supabase'
+
+const HOME_VALUES = [
+  [Video, 'valueVideoTitle', 'valueVideoText'],
+  [BookOpen, 'valueLangTitle', 'valueLangText'],
+  [Clock3, 'valueAccessTitle', 'valueAccessText'],
+  [PlayCircle, 'valueDeviceTitle', 'valueDeviceText'],
+]
+
+const HOME_STEPS = [
+  ['1', 'step1Title', 'step1Text'],
+  ['2', 'step2Title', 'step2Text'],
+  ['3', 'step3Title', 'step3Text'],
+]
 
 function Home({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const courseRowRef = useRef(null)
-  const [search, setSearch] = useState('')
+  const coursesRef = useRef(null)
+  const dragState = useRef({ down: false, startX: 0, scrollLeft: 0, moved: false })
+  const { t } = useLanguage()
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [courses, setCourses] = useState([])
   const [loadingCourses, setLoadingCourses] = useState(true)
 
@@ -31,10 +52,16 @@ function Home({ user, profile, handleLogout }) {
         .eq('is_published', true)
         .order('id', { ascending: false })
 
-      const coursesWithAuthors = await attachCourseAuthorNames(data || [])
+      const list = data || []
+      // Show courses immediately — they already carry instructor_name. Only do
+      // the extra profiles lookup (and re-render) if some names are missing.
       if (mounted) {
-        setCourses(coursesWithAuthors)
+        setCourses(list)
         setLoadingCourses(false)
+      }
+      if (list.some((course) => !getCourseAuthorName(course))) {
+        const enriched = await attachCourseAuthorNames(list)
+        if (mounted) setCourses(enriched)
       }
     }
 
@@ -44,15 +71,72 @@ function Home({ user, profile, handleLogout }) {
     }
   }, [])
 
+  // Reveal-on-scroll motion (disabled gracefully where unsupported / reduced-motion).
+  useEffect(() => {
+    const elements = Array.from(document.querySelectorAll('.reveal:not(.in)'))
+    if (elements.length === 0) return undefined
+    if (!('IntersectionObserver' in window)) {
+      elements.forEach((el) => el.classList.add('in'))
+      return undefined
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.12 }
+    )
+    elements.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [loadingCourses, courses.length])
+
   const filteredCourses = courses.filter((course) =>
     `${course.title || ''} ${course.description || ''}`.toLowerCase().includes(search.toLowerCase())
   )
+  // Only highlight a "Featured" shelf when there are enough courses for it to be
+  // meaningful — otherwise it just repeats the grid. Hidden while searching.
+  const showFeatured = !search.trim() && filteredCourses.length > 6
+  const featuredCourses = filteredCourses.slice(0, 8)
 
   const scrollCourses = (direction) => {
-    courseRowRef.current?.scrollBy({
-      left: direction * 300,
-      behavior: 'smooth',
-    })
+    courseRowRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' })
+  }
+  const scrollToCourses = () => coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const goTeach = () => navigate(user ? '/instructor' : '/register')
+  const openCourse = (course) => navigate(`/course/${course.id}`, { state: { course } })
+  const onCourseKeyDown = (event, course) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openCourse(course)
+    }
+  }
+
+  // Drag-to-scroll the featured row with a mouse (touch uses native scrolling).
+  const onRowPointerDown = (event) => {
+    if (event.pointerType !== 'mouse') return
+    const el = courseRowRef.current
+    if (!el) return
+    dragState.current = { down: true, startX: event.pageX, scrollLeft: el.scrollLeft, moved: false }
+  }
+  const onRowPointerMove = (event) => {
+    if (event.pointerType !== 'mouse' || !dragState.current.down) return
+    const el = courseRowRef.current
+    if (!el) return
+    const dx = event.pageX - dragState.current.startX
+    if (Math.abs(dx) > 4) dragState.current.moved = true
+    el.scrollLeft = dragState.current.scrollLeft - dx
+  }
+  const endRowDrag = () => {
+    dragState.current.down = false
+  }
+  const openFeatured = (course) => {
+    // Ignore the click that ends a drag so dragging doesn't navigate.
+    if (dragState.current.moved) return
+    openCourse(course)
   }
 
   return (
@@ -66,56 +150,186 @@ function Home({ user, profile, handleLogout }) {
       />
 
       <section className="home-hero">
-        <img className="home-hero-image" src={heroCover} alt="" aria-hidden="true" />
-        <div className="home-hero-content">
-          <h1>Bil-X ilə öyrənməyə başla</h1>
-          <p>Azərbaycan dilində video kurslar.</p>
+        <span className="home-hero-grid" aria-hidden="true" />
+        <span className="home-hero-blob blob-1" aria-hidden="true" />
+        <span className="home-hero-blob blob-2" aria-hidden="true" />
+        <div className="home-hero-content reveal">
+          <span className="home-hero-badge">{t('heroBadge')}</span>
+          <h1>{t('homeHeroTitle')}</h1>
+          <p>{t('homeHeroSubtitle')}</p>
+          <div className="home-hero-cta">
+            <button className="primary-button large" onClick={scrollToCourses}>{t('heroBrowse')} →</button>
+            <button className="outline-button large" onClick={goTeach}>{t('heroBecomeInstructor')}</button>
+          </div>
+          <div className="home-hero-stats">
+            <div><strong>{courses.length}+</strong><span>{t('coursesTitle')}</span></div>
+            <div><strong>∞</strong><span>{t('valueAccessTitle')}</span></div>
+            <div><strong>★</strong><span>{t('valueVideoTitle')}</span></div>
+          </div>
         </div>
       </section>
 
-      <main className="content-shell">
-        {loadingCourses ? null : filteredCourses.length === 0 ? null : (
-          <section className="home-course-section" aria-label="Kurslar">
-            <div className="home-course-header">
-              <h2>Kurslar</h2>
-              <div className="home-course-arrows">
-                <button type="button" aria-label="Sola sürüşdür" onClick={() => scrollCourses(-1)}>←</button>
-                <button type="button" aria-label="Sağa sürüşdür" onClick={() => scrollCourses(1)}>→</button>
-              </div>
-            </div>
+      <section className="home-values reveal" aria-label={t('coursesTitle')}>
+        {HOME_VALUES.map(([Icon, titleKey, textKey]) => (
+          <div className="home-value-card" key={titleKey}>
+            <span className="home-value-icon"><Icon size={22} /></span>
+            <strong>{t(titleKey)}</strong>
+            <p>{t(textKey)}</p>
+          </div>
+        ))}
+      </section>
 
-            <div className="home-course-carousel">
-              <button className="home-course-side-arrow left" type="button" aria-label="Sola sürüşdür" onClick={() => scrollCourses(-1)}>←</button>
-              <div className="home-course-row" ref={courseRowRef}>
+      <main className="content-shell" ref={coursesRef}>
+        {loadingCourses ? (
+          <section className="home-course-section" aria-label={t('coursesTitle')} aria-busy="true">
+            <div className="home-course-header">
+              <h2>{t('featuredTitle')}</h2>
+            </div>
+            <div className="home-course-row">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="home-course-card skeleton-card">
+                  <div className="skeleton skeleton-thumb" />
+                  <div className="skeleton skeleton-line" />
+                  <div className="skeleton skeleton-line short" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : filteredCourses.length === 0 ? (
+          <section className="home-course-section" aria-label={t('coursesTitle')}>
+            <div className="home-course-header">
+              <h2>{t('coursesTitle')}</h2>
+            </div>
+            <p className="search-empty">{search.trim() ? t('noSearchResults') : t('noPublicCourses')}</p>
+          </section>
+        ) : (
+          <>
+            {showFeatured && (
+            <section className="home-course-section reveal" aria-label={t('featuredTitle')}>
+              <div className="home-course-header">
+                <h2>{t('featuredTitle')}</h2>
+                <div className="home-course-arrows">
+                  <button type="button" aria-label={t('scrollLeft')} onClick={() => scrollCourses(-1)}>←</button>
+                  <button type="button" aria-label={t('scrollRight')} onClick={() => scrollCourses(1)}>→</button>
+                </div>
+              </div>
+
+              <div className="home-course-carousel">
+                <button className="home-course-side-arrow left" type="button" aria-label={t('scrollLeft')} onClick={() => scrollCourses(-1)}>←</button>
+                <div
+                  className="home-course-row is-draggable"
+                  ref={courseRowRef}
+                  onPointerDown={onRowPointerDown}
+                  onPointerMove={onRowPointerMove}
+                  onPointerUp={endRowDrag}
+                  onPointerLeave={endRowDrag}
+                >
+                  {featuredCourses.map((course) => {
+                    const instructorName = getCourseAuthorName(course)
+                    const hasThumbnail = Boolean(course.thumbnail_url)
+
+                    return (
+                      <article
+                        key={course.id}
+                        className="home-course-card"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openFeatured(course)}
+                        onKeyDown={(event) => onCourseKeyDown(event, course)}
+                      >
+                        {hasThumbnail ? (
+                          <img className="home-course-thumb" src={course.thumbnail_url} alt={course.title} draggable={false} />
+                        ) : (
+                          <div className="home-course-thumb home-course-thumb-empty" aria-hidden="true">📚</div>
+                        )}
+                        <div className="home-course-card-body">
+                          <h3>{course.title}</h3>
+                          {instructorName && <small className="home-course-instructor">{instructorName}</small>}
+                          <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+                <button className="home-course-side-arrow right" type="button" aria-label={t('scrollRight')} onClick={() => scrollCourses(1)}>→</button>
+              </div>
+            </section>
+            )}
+
+            <section className="home-grid-section reveal" aria-label={t('allCoursesTitle')}>
+              <div className="section-heading">
+                <h2>{showFeatured ? t('allCoursesTitle') : t('coursesTitle')}</h2>
+                <p>{t('allCoursesSubtitle')}</p>
+              </div>
+              <div className="course-grid">
                 {filteredCourses.map((course) => {
                   const instructorName = getCourseAuthorName(course)
-                  const hasThumbnail = Boolean(course.thumbnail_url)
 
                   return (
                     <article
                       key={course.id}
-                      className="home-course-card"
-                      onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                      className="course-card"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openCourse(course)}
+                      onKeyDown={(event) => onCourseKeyDown(event, course)}
                     >
-                      {hasThumbnail ? (
-                        <img className="home-course-thumb" src={course.thumbnail_url} alt={course.title} />
-                      ) : (
-                        <div className="home-course-thumb home-course-thumb-empty" aria-hidden="true">📚</div>
-                      )}
-                      <div className="home-course-card-body">
+                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                      <div className="course-card-body">
                         <h3>{course.title}</h3>
-                        {instructorName && <small className="home-course-instructor">{instructorName}</small>}
-                        <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : 'Pulsuz'}</strong>
+                        {course.description && <p>{course.description}</p>}
+                        {instructorName && <small className="course-instructor">{instructorName}</small>}
+                        <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
                       </div>
                     </article>
                   )
                 })}
               </div>
-              <button className="home-course-side-arrow right" type="button" aria-label="Sağa sürüşdür" onClick={() => scrollCourses(1)}>→</button>
-            </div>
-          </section>
+            </section>
+          </>
         )}
+
+        <section className="home-how reveal">
+          <h2>{t('howItWorksTitle')}</h2>
+          <div className="home-how-steps">
+            {HOME_STEPS.map(([num, titleKey, textKey]) => (
+              <div className="home-how-step" key={num}>
+                <span className="home-how-num">{num}</span>
+                <strong>{t(titleKey)}</strong>
+                <p>{t(textKey)}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="home-teach-band reveal">
+          <div>
+            <h2>{t('instructorBandTitle')}</h2>
+            <p>{t('instructorBandText')}</p>
+          </div>
+          <button className="primary-button large" onClick={goTeach}>{t('heroBecomeInstructor')}</button>
+        </section>
       </main>
+
+      <footer className="home-footer">
+        <div className="home-footer-inner">
+          <div className="home-footer-brand">
+            <strong>Bil-X</strong>
+            <p>{t('footerTagline')}</p>
+          </div>
+          <div className="home-footer-col">
+            <h4>{t('footerLinksTitle')}</h4>
+            <button type="button" onClick={scrollToCourses}>{t('coursesTitle')}</button>
+            <button type="button" onClick={() => navigate('/login')}>{t('login')}</button>
+            <button type="button" onClick={() => navigate('/register')}>{t('register')}</button>
+          </div>
+          <div className="home-footer-col">
+            <h4>{t('footerContactTitle')}</h4>
+            <a href={getWhatsAppUrl()} target="_blank" rel="noreferrer">WhatsApp: {WHATSAPP_PHONE_DISPLAY}</a>
+          </div>
+        </div>
+        <div className="home-footer-bottom">{t('footerRights')}</div>
+      </footer>
     </div>
   )
 }
@@ -125,6 +339,7 @@ function App() {
   const [profile, setProfile] = useState(null)
   const [loggingOut, setLoggingOut] = useState(false)
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   useEffect(() => {
     let mounted = true
@@ -186,23 +401,101 @@ function App() {
     }
 
     loadProfile()
-    const profileRefreshTimer = setInterval(loadProfile, 10000)
 
     return () => {
       mounted = false
-      clearInterval(profileRefreshTimer)
     }
   }, [user, loggingOut])
 
+  // Single active session: if this device's stored token no longer matches the
+  // one in the database (because the account logged in elsewhere), log out.
+  useEffect(() => {
+    if (!user) return undefined
+    let active = true
+
+    const kick = () => {
+      if (!active) return
+      active = false
+      localStorage.removeItem('bilx-session-token')
+      localStorage.removeItem('bilx-session-at')
+      // Local scope: this device only — must NOT revoke the new device's session.
+      supabase.auth.signOut({ scope: 'local' }).finally(() => {
+        setUser(null)
+        setProfile(null)
+        navigate('/login', { replace: true })
+        toast.error(t('sessionKicked'))
+      })
+    }
+
+    const enforce = (dbToken) => {
+      // Don't kick during the post-login grace window — the token is still
+      // settling, and the device that just logged in must not kick itself.
+      const setAt = Number(localStorage.getItem('bilx-session-at') || 0)
+      if (Date.now() - setAt < 8000) return
+      const myToken = localStorage.getItem('bilx-session-token')
+      if (dbToken && myToken && dbToken !== myToken) kick()
+    }
+
+    const check = async () => {
+      const { data } = await supabase
+        .from('user_sessions')
+        .select('session_token')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (active) enforce(data?.session_token)
+    }
+
+    // Heartbeat: keep last_active fresh, scoped to this device's token so a
+    // kicked device (token no longer matches) writes nothing.
+    const heartbeat = async () => {
+      const myToken = localStorage.getItem('bilx-session-token')
+      if (!myToken || !active) return
+      await supabase
+        .from('user_sessions')
+        .update({ last_active: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('session_token', myToken)
+    }
+
+    check()
+    heartbeat()
+    const heartbeatTimer = setInterval(heartbeat, 120000)
+    const onFocus = () => {
+      check()
+      heartbeat()
+    }
+    window.addEventListener('focus', onFocus)
+
+    const channel = supabase
+      .channel(`session-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_sessions', filter: `user_id=eq.${user.id}` },
+        (payload) => enforce(payload.new?.session_token)
+      )
+      .subscribe()
+
+    return () => {
+      active = false
+      clearInterval(heartbeatTimer)
+      window.removeEventListener('focus', onFocus)
+      supabase.removeChannel(channel)
+    }
+  }, [user, navigate, t])
+
   const handleLogout = async () => {
     setLoggingOut(true)
-    const { error } = await supabase.auth.signOut()
+    localStorage.removeItem('bilx-session-token')
+    localStorage.removeItem('bilx-session-at')
+    // Local scope: log out only this device, not the account's other sessions.
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
     if (error) {
       console.error('Could not sign out from Supabase:', error)
     }
     setUser(null)
     setProfile(null)
     navigate('/', { replace: true })
+    if (!error) toast.success(t('loggedOut'))
     setTimeout(() => setLoggingOut(false), 300)
   }
 
@@ -217,6 +510,7 @@ function App() {
       <Route path="/course" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/instructor" element={<InstructorDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/inbox" element={<Inbox user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/edit-course" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/edit-course/:id" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
     </Routes>

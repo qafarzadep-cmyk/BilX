@@ -13,6 +13,13 @@ create table if not exists public.teacher_applications (
   reviewed_at timestamptz
 );
 
+-- Add any canonical columns missing from an older teacher_applications table.
+-- The admin review RPC writes reviewed_at, so it must exist.
+alter table public.teacher_applications
+  add column if not exists status text not null default 'pending',
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists reviewed_at timestamptz;
+
 create unique index if not exists teacher_applications_one_pending_per_user
   on public.teacher_applications (user_id)
   where status = 'pending';
@@ -146,6 +153,25 @@ create trigger create_profile_after_signup
   for each row execute function public.create_profile_for_new_user();
 
 -- Courses and lesson management must require an approved instructor profile.
+-- The role check goes through a SECURITY DEFINER function rather than an inline
+-- subquery on profiles. A profiles policy reads Courses, so an inline profiles
+-- check inside a Courses policy would recurse (Courses -> profiles -> Courses).
+-- A definer function bypasses RLS on profiles and breaks that loop.
+create or replace function public.is_approved_instructor()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where user_id = auth.uid() and role = 'instructor'
+  );
+$$;
+
+grant execute on function public.is_approved_instructor() to authenticated, anon;
+
 drop policy if exists "courses_public_read_approved" on public."Courses";
 drop policy if exists "courses_instructor_read_own" on public."Courses";
 drop policy if exists "courses_admin_read_all" on public."Courses";
@@ -161,7 +187,7 @@ create policy "courses_instructor_read_own"
   on public."Courses" for select
   using (
     instructor_id = auth.uid()
-    and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.role = 'instructor')
+    and public.is_approved_instructor()
   );
 
 create policy "courses_admin_read_all"
@@ -172,18 +198,18 @@ create policy "courses_instructor_insert_own"
   on public."Courses" for insert
   with check (
     instructor_id = auth.uid()
-    and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.role = 'instructor')
+    and public.is_approved_instructor()
   );
 
 create policy "courses_instructor_update_own"
   on public."Courses" for update
   using (
     instructor_id = auth.uid()
-    and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.role = 'instructor')
+    and public.is_approved_instructor()
   )
   with check (
     instructor_id = auth.uid()
-    and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.role = 'instructor')
+    and public.is_approved_instructor()
   );
 
 create policy "courses_admin_update_all"
@@ -198,10 +224,10 @@ drop policy if exists "videos_delete_for_course_owner" on public.videos;
 create policy "videos_insert_for_course_owner"
   on public.videos for insert
   with check (
-    exists (
+    public.is_approved_instructor()
+    and exists (
       select 1
       from public."Courses" c
-      join public.profiles p on p.user_id = auth.uid() and p.role = 'instructor'
       where c.id = videos.course_id
         and c.instructor_id = auth.uid()
     )
@@ -210,19 +236,19 @@ create policy "videos_insert_for_course_owner"
 create policy "videos_update_for_course_owner"
   on public.videos for update
   using (
-    exists (
+    public.is_approved_instructor()
+    and exists (
       select 1
       from public."Courses" c
-      join public.profiles p on p.user_id = auth.uid() and p.role = 'instructor'
       where c.id = videos.course_id
         and c.instructor_id = auth.uid()
     )
   )
   with check (
-    exists (
+    public.is_approved_instructor()
+    and exists (
       select 1
       from public."Courses" c
-      join public.profiles p on p.user_id = auth.uid() and p.role = 'instructor'
       where c.id = videos.course_id
         and c.instructor_id = auth.uid()
     )
@@ -231,10 +257,10 @@ create policy "videos_update_for_course_owner"
 create policy "videos_delete_for_course_owner"
   on public.videos for delete
   using (
-    exists (
+    public.is_approved_instructor()
+    and exists (
       select 1
       from public."Courses" c
-      join public.profiles p on p.user_id = auth.uid() and p.role = 'instructor'
       where c.id = videos.course_id
         and c.instructor_id = auth.uid()
     )

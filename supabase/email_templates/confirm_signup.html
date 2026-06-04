@@ -1,0 +1,37 @@
+<!--
+  Branded "Confirm signup" email for Bil-X.
+
+  Paste this into: Supabase Dashboard -> Authentication -> Email Templates ->
+  "Confirm signup" -> Message body (HTML). Suggested subject:
+    Bil-X-ə xoş gəldiniz — e-poçtunuzu təsdiqləyin
+
+  {{ .ConfirmationURL }} is a Supabase template variable, filled in per user.
+  This replaces the separate welcome email (no custom endpoint, no spam vector).
+-->
+<!doctype html>
+<html lang="az">
+  <body style="margin:0;background:#f5f7fb;font-family:Arial,Helvetica,sans-serif;color:#171923;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e6e9f2;">
+          <tr><td style="padding:34px 34px 18px;">
+            <h1 style="margin:0;font-size:28px;line-height:1.2;color:#111827;">Bil-X-ə xoş gəldiniz! 🎉</h1>
+            <p style="margin:20px 0 0;font-size:16px;line-height:1.7;color:#374151;">
+              Qeydiyyatınızı tamamlamaq üçün aşağıdakı düyməyə klikləyin. Təsdiqdən sonra platformadakı video kurslara baxa və öyrənməyə başlaya bilərsiniz.
+            </p>
+          </td></tr>
+          <tr><td style="padding:16px 34px 24px;">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#863bff;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:15px 24px;border-radius:12px;">E-poçtu təsdiqlə →</a>
+          </td></tr>
+          <tr><td style="padding:0 34px 28px;font-size:13px;line-height:1.6;color:#6b7280;">
+            Əgər düymə işləmirsə, bu linki brauzerə kopyalayın:<br />
+            <a href="{{ .ConfirmationURL }}" style="color:#863bff;word-break:break-all;">{{ .ConfirmationURL }}</a>
+          </td></tr>
+          <tr><td style="padding:22px 34px;background:#111827;color:#d1d5db;font-size:13px;line-height:1.6;">
+            Hörmətlə, Bil-X komandası | <a href="https://bilx.org" style="color:#ffffff;text-decoration:none;">bilx.org</a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

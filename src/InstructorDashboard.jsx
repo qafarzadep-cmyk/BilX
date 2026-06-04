@@ -1,9 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ExternalLink, Link, Trash2, Upload } from 'lucide-react'
+import { Eye, EyeOff, ExternalLink, Link, Trash2, Upload } from 'lucide-react'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
+import { useLanguage } from './i18n'
 import { supabase } from './supabase'
+
+function getCourseStatus(course) {
+  if (!course) return 'pending'
+  if (course.status) return course.status
+  return course.is_published ? 'approved' : 'pending'
+}
+
+function getCourseStatusLabel(status) {
+  if (status === 'approved') return 'courseStatusApproved'
+  if (status === 'rejected') return 'courseStatusRejected'
+  if (status === 'draft') return 'courseStatusDraft'
+  return 'courseStatusPending'
+}
 
 function InstructorDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
@@ -18,6 +32,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [thumbnailFile, setThumbnailFile] = useState(null)
   const [lessonTitle, setLessonTitle] = useState('')
   const [lessonDuration, setLessonDuration] = useState('')
+  const [lessonIsFree, setLessonIsFree] = useState(false)
   const [lessonSource, setLessonSource] = useState('youtube')
   const [lessonUrl, setLessonUrl] = useState('')
   const [lessonFile, setLessonFile] = useState(null)
@@ -25,6 +40,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('notice')
+  const { t } = useLanguage()
 
   const selectedCourse = useMemo(
     () => courses.find((course) => String(course.id) === String(selectedCourseId)),
@@ -52,7 +68,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       .order('id', { ascending: false })
 
     if (courseError) {
-      showMessage(`Kurslar yüklənmədi: ${courseError.message}`, 'error')
+      showMessage(`${t('coursesLoadFailed')}${courseError.message}`, 'error')
       return
     }
 
@@ -64,9 +80,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCourses(nextCourses)
 
     const tabCourses = activeTab === 'approved'
-      ? nextCourses.filter((course) => course.is_published)
+      ? nextCourses.filter((course) => getCourseStatus(course) === 'approved' || course.is_published)
       : activeTab === 'pending'
-        ? nextCourses.filter((course) => !course.is_published)
+        ? nextCourses.filter((course) => getCourseStatus(course) !== 'approved')
         : nextCourses
     const selectedStillExists = tabCourses.some((course) => String(course.id) === String(selectedCourseId))
     if (!selectedStillExists) {
@@ -87,7 +103,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       .order('order_index', { ascending: true })
 
     if (videoError) {
-      showMessage(`Dərslər yüklənmədi: ${videoError.message}`, 'error')
+      showMessage(`${t('lessonsLoadFailed')}${videoError.message}`, 'error')
       return
     }
 
@@ -101,14 +117,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }, [user])
 
   useEffect(() => {
-    if (user && role !== 'instructor') {
-      navigate('/profile', { replace: true })
-    }
-  }, [user, role, navigate])
-
-  useEffect(() => {
     const nextTab = ['new', 'approved', 'pending'].includes(urlTab) ? urlTab : 'new'
     if (nextTab !== activeTab) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(nextTab)
     }
   }, [urlTab, activeTab])
@@ -117,11 +128,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     if (activeTab === 'new' || courses.length === 0) return
 
     const tabCourses = activeTab === 'approved'
-      ? courses.filter((course) => course.is_published)
-      : courses.filter((course) => !course.is_published)
+      ? courses.filter((course) => getCourseStatus(course) === 'approved' || course.is_published)
+      : courses.filter((course) => getCourseStatus(course) !== 'approved')
     const selectedStillVisible = tabCourses.some((course) => String(course.id) === String(selectedCourseId))
 
     if (!selectedStillVisible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCourseId(tabCourses[0] ? String(tabCourses[0].id) : '')
     }
   }, [activeTab, courses, selectedCourseId])
@@ -138,9 +150,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     })
 
     if (error) {
-      throw new Error(
-        `${bucket} yüklənmədi: ${error.message}. Supabase Storage-da "${bucket}" bucket-inin mövcud olduğunu və giriş etmiş istifadəçilərə yükləmə icazəsi verdiyini yoxlayın.`
-      )
+      const message = t('uploadFailed')
+        .replace('{bucket}', bucket)
+        .replace('{error}', error.message)
+      throw new Error(message)
     }
 
     return supabase.storage.from(bucket).getPublicUrl(fileName).data.publicUrl
@@ -148,7 +161,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
   const createCourse = async () => {
     if (!user || !form.title.trim() || !form.description.trim() || !form.price) {
-      showMessage('Bütün kurs sahələrini doldurun.', 'error')
+      showMessage(t('fillCourseFields'), 'error')
       return
     }
 
@@ -168,6 +181,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
           instructor_name: instructorName,
           thumbnail_url: thumbnailUrl,
           is_published: false,
+          status: 'draft',
         })
         .select()
         .single()
@@ -182,6 +196,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
             instructor_id: user.id,
             thumbnail_url: thumbnailUrl,
             is_published: false,
+            status: 'draft',
           })
           .select()
           .single()
@@ -195,10 +210,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setThumbnailFile(null)
       setSelectedCourseId(String(data.id))
       setInstructorTab('pending')
-      showMessage('Kurs yaradıldı. İndi dərslər əlavə edə bilərsiniz.', 'success')
+      showMessage(t('courseCreatedAddLessons'), 'success')
       await loadData(user)
     } catch (error) {
-      showMessage(`Xəta: ${error.message}`, 'error')
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -206,28 +221,28 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
   const addLesson = async () => {
     if (!selectedCourseId) {
-      showMessage('Əvvəlcə kurs yaradın və ya mövcud kurs seçin.', 'error')
+      showMessage(t('selectOrCreateCourse'), 'error')
       setInstructorTab('new')
       return
     }
 
     if (!lessonTitle.trim()) {
-      showMessage('Dərs adı yazın.', 'error')
+      showMessage(t('enterLessonTitle'), 'error')
       return
     }
 
     if (lessonSource === 'youtube' && !lessonUrl.trim()) {
-      showMessage('YouTube linki daxil edin.', 'error')
+      showMessage(t('enterYoutubeLink'), 'error')
       return
     }
 
     if (lessonSource === 'upload' && !lessonFile) {
-      showMessage('Video faylı seçin və ya YouTube link rejiminə keçin.', 'error')
+      showMessage(t('selectVideoOrYoutube'), 'error')
       return
     }
 
     setLoading(true)
-    showMessage(lessonSource === 'upload' ? 'Video yüklənir...' : 'Dərs əlavə olunur...')
+    showMessage(lessonSource === 'upload' ? t('uploadingVideo') : t('addingLesson'))
 
     try {
       const videoUrl = lessonSource === 'youtube'
@@ -239,6 +254,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         title: lessonTitle.trim(),
         video_url: videoUrl,
         order_index: courseVideos.length + 1,
+        // The first lesson of a course is always a free preview (workflow 1.1);
+        // for the rest, honour the instructor's checkbox.
+        is_free: courseVideos.length === 0 ? true : lessonIsFree,
       }
 
       if (lessonDuration.trim()) {
@@ -260,10 +278,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setLessonDuration('')
       setLessonUrl('')
       setLessonFile(null)
-      showMessage('Dərs əlavə edildi.', 'success')
+      setLessonIsFree(false)
+      showMessage(t('lessonAdded'), 'success')
       await loadData(user)
     } catch (error) {
-      showMessage(`Xəta: ${error.message}`, 'error')
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -273,31 +292,46 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const { error } = await supabase.from('videos').delete().eq('id', videoId)
 
     if (error) {
-      showMessage(`Xəta: ${error.message}`, 'error')
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
       return
     }
 
-    showMessage('Dərs silindi.', 'success')
+    showMessage(t('lessonDeleted'), 'success')
+    await loadData(user)
+  }
+
+  const toggleFreeLesson = async (videoId, nextValue) => {
+    const { error } = await supabase
+      .from('videos')
+      .update({ is_free: nextValue })
+      .eq('id', videoId)
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+
+    showMessage(nextValue ? t('previewEnabled') : t('previewDisabled'), 'success')
     await loadData(user)
   }
 
   const submitCourse = async () => {
     if (!selectedCourseId || courseVideos.length === 0) {
-      showMessage('Kursu təqdim etmək üçün ən azı bir dərs əlavə edin.', 'error')
+      showMessage(t('submitNeedsLesson'), 'error')
       return
     }
 
     const { error } = await supabase
       .from('Courses')
-      .update({ is_published: false })
+      .update({ is_published: false, status: 'pending' })
       .eq('id', selectedCourseId)
 
     if (error) {
-      showMessage(`Xəta: ${error.message}`, 'error')
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
       return
     }
 
-    showMessage('Kurs admin təsdiqi üçün göndərildi.', 'success')
+    showMessage(t('courseSubmitted'), 'success')
     await loadData(user)
   }
 
@@ -305,27 +339,57 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     return (
       <div className="page centered-page">
         <div className="empty-box compact">
-          <h2>Müəllim paneli üçün daxil olun</h2>
-          <button className="primary-button" onClick={() => navigate('/login')}>Giriş</button>
+          <h2>{t('teacherPanel')}</h2>
+          <button className="primary-button" onClick={() => navigate('/login')}>{t('login')}</button>
         </div>
       </div>
     )
   }
 
-  if (role !== 'instructor') return null
+  // Wait for the profile to load before deciding — avoids a flash redirect for
+  // instructors whose role hasn't arrived yet.
+  if (!profile) {
+    return (
+      <div className="page centered-page">
+        <div className="empty-box compact">{t('loading')}</div>
+      </div>
+    )
+  }
 
-  const approvedCourses = courses.filter((course) => course.is_published)
-  const pendingCourses = courses.filter((course) => !course.is_published)
+  // A logged-in non-instructor sees a clear prompt instead of being bounced.
+  if (role !== 'instructor') {
+    return (
+      <div className="page">
+        <Navbar user={user} profile={profile} onLogout={handleLogout} />
+        <div className="centered-page">
+          <div className="empty-box compact">
+            <h2>{t('teacherPanel')}</h2>
+            <p className="muted">{t('notInstructorYet')}</p>
+            <button className="primary-button" onClick={() => navigate('/profile')}>{t('myCoursesTitle')}</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const approvedCourses = courses.filter((course) => getCourseStatus(course) === 'approved' || course.is_published)
+  const pendingCourses = courses.filter((course) => getCourseStatus(course) !== 'approved')
   const visibleCourses = activeTab === 'approved' ? approvedCourses : pendingCourses
   const selectedCourseIsVisible = visibleCourses.some((course) => String(course.id) === String(selectedCourseId))
   const visibleSelectedCourse = selectedCourseIsVisible ? selectedCourse : null
   const visibleCourseVideos = visibleSelectedCourse
     ? videos.filter((video) => String(video.course_id) === String(visibleSelectedCourse.id))
     : []
+  // Per workflow.md 3.3: teachers cannot edit/delete an approved course. They can
+  // only build (add lessons / submit) a course while it is still draft/pending;
+  // once approved it is read-only and changes go through the admin via Inbox.
+  const selectedCourseApproved = visibleSelectedCourse
+    ? (getCourseStatus(visibleSelectedCourse) === 'approved' || visibleSelectedCourse.is_published)
+    : false
   const instructorTabs = [
-    ['new', 'Yeni Kurs Yarat', null],
-    ['approved', 'Təsdiqlənmiş Kurslarım', approvedCourses.length],
-    ['pending', 'Təsdiq Gözləyən Kurslarım', pendingCourses.length],
+    ['new', t('newCourse'), null],
+    ['approved', t('approvedCourses'), approvedCourses.length],
+    ['pending', t('pendingCourses'), pendingCourses.length],
   ]
 
   const switchInstructorTab = (tabId) => {
@@ -346,7 +410,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
       <main className="admin-layout instructor-layout">
         <aside className="admin-sidebar instructor-sidebar">
-          <h1>Müəllim Paneli</h1>
+          <h1>{t('teacherPanel')}</h1>
           {instructorTabs.map(([id, label, count]) => (
             <button key={id} className={activeTab === id ? 'active' : ''} onClick={() => switchInstructorTab(id)}>
               <span>{label}</span>
@@ -359,7 +423,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         {activeTab === 'new' && (
           <section className="dashboard-header">
             <div>
-              <p>Kurs yaradın, dərs videoları əlavə edin və admin təsdiqinə göndərin.</p>
+              <p>{t('instructorHelp')}</p>
             </div>
           </section>
         )}
@@ -372,24 +436,24 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
         {activeTab === 'new' ? (
           <section className="panel-card form-panel">
-            <h2>Yeni kurs yarat</h2>
-            <label>Kurs adı</label>
-            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Məsələn: Python-a giriş" />
-            <label>Təsvir</label>
-            <textarea rows={5} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Tələbələrin nə öyrənəcəyini yazın..." />
-            <label>Qiymət (AZN)</label>
+            <h2>{t('newCourse')}</h2>
+            <label>{t('courseTitle')}</label>
+            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder={t('exampleCourseTitle')} />
+            <label>{t('courseDescription')}</label>
+            <textarea rows={5} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={t('exampleCourseDescription')} />
+            <label>{t('priceAzN')}</label>
             <input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
-            <label>Örtük şəkli</label>
+            <label>{t('coverImage')}</label>
             <input type="file" accept="image/*" onChange={(event) => setThumbnailFile(event.target.files[0])} />
-            <button className="primary-button full" onClick={createCourse} disabled={loading}>{loading ? 'Yaradılır...' : 'Kursu yarat'}</button>
+            <button className="primary-button full" onClick={createCourse} disabled={loading}>{loading ? t('loading') : t('createCourse')}</button>
           </section>
         ) : (
           <section className="studio-grid">
             <div className="panel-card">
-              <h2>{activeTab === 'approved' ? 'Təsdiqlənmiş Kurslarım' : 'Təsdiq Gözləyən Kurslarım'}</h2>
+              <h2>{activeTab === 'approved' ? t('approvedCourses') : t('pendingCourses')}</h2>
               {visibleCourses.length === 0 ? (
                 <div className="empty-box">
-                  {activeTab === 'approved' ? 'Hələ təsdiqlənmiş kursunuz yoxdur.' : 'Hazırda təsdiq gözləyən kursunuz yoxdur.'}
+                  {activeTab === 'approved' ? t('noApprovedCourses') : t('noPendingCourses')}
                 </div>
               ) : visibleCourses.map((course) => {
                 const instructorName = getCourseAuthorName(course)
@@ -397,15 +461,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 return (
                   <div key={course.id} className={String(course.id) === String(selectedCourseId) ? 'course-row active' : 'course-row'}>
                     <button type="button" className="course-row-main" onClick={() => setSelectedCourseId(String(course.id))}>
-                      <img src={course.thumbnail_url || '/ortuksekli.jpg'} alt={course.title} />
+                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
                       <span>
                         <strong>{course.title}</strong>
-                        {instructorName && <small>Müəllim: {instructorName}</small>}
-                        <small>{course.is_published ? 'Təsdiqlənib' : 'Gözləyir'} · {course.price} AZN · {videos.filter((video) => video.course_id === course.id).length} dərs</small>
+                        {instructorName && <small>{t('instructorLabel')}: {instructorName}</small>}
+                        <small>{t(getCourseStatusLabel(getCourseStatus(course)))} · {course.price} AZN · {videos.filter((video) => video.course_id === course.id).length} {t('courseLessons')}</small>
                       </span>
-                    </button>
-                    <button type="button" className="course-edit-button" onClick={() => navigate(`/edit-course/${course.id}`, { state: { course } })}>
-                      Dəyişiklik et
                     </button>
                   </div>
                 )
@@ -416,72 +477,115 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               <div className="panel-card form-panel">
                 <>
                   <h2>{visibleSelectedCourse.title}</h2>
-                  {getCourseAuthorName(visibleSelectedCourse) && <p className="muted">Müəllim: {getCourseAuthorName(visibleSelectedCourse)}</p>}
-                  <button className="outline-button full" onClick={() => navigate(`/edit-course/${visibleSelectedCourse.id}`, { state: { course: visibleSelectedCourse } })}>
-                    Dəyişiklik et
-                  </button>
+                  {getCourseAuthorName(visibleSelectedCourse) && <p className="muted">{t('instructorLabel')}: {getCourseAuthorName(visibleSelectedCourse)}</p>}
 
-                  <div className="lesson-manager">
-                    <div className="lesson-source-tabs" role="tablist" aria-label="Dərs videosu mənbəyi">
-                      <button
-                        type="button"
-                        className={lessonSource === 'youtube' ? 'active' : ''}
-                        onClick={() => setLessonSource('youtube')}
-                      >
-                        <Link size={16} /> YouTube linki
-                      </button>
-                      <button
-                        type="button"
-                        className={lessonSource === 'upload' ? 'active' : ''}
-                        onClick={() => setLessonSource('upload')}
-                      >
-                        <Upload size={16} /> Fayl yüklə
-                      </button>
-                    </div>
+                  {selectedCourseApproved ? (
+                    <>
+                      <div className="notice-box">{t('approvedCourseLockNote')}</div>
+                      <button className="outline-button full" onClick={() => navigate('/inbox')}>{t('messageAdmin')}</button>
 
-                    <label>Dərs adı</label>
-                    <input value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} placeholder={`${visibleCourseVideos.length + 1}. dərs adı`} />
-                    <label>Müddət</label>
-                    <input value={lessonDuration} onChange={(event) => setLessonDuration(event.target.value)} placeholder="Məsələn: 12:34" />
-
-                    {lessonSource === 'youtube' ? (
-                      <>
-                        <label>YouTube linki</label>
-                        <input value={lessonUrl} onChange={(event) => setLessonUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-                      </>
-                    ) : (
-                      <>
-                        <label>Video faylı</label>
-                        <input type="file" accept="video/*" onChange={(event) => setLessonFile(event.target.files[0] || null)} />
-                        <p className="muted">Fayl yükləməsi üçün Supabase Storage-da `videos` adlı public bucket və giriş etmiş istifadəçilər üçün upload icazəsi lazımdır. YouTube linkləri Storage olmadan işləyir.</p>
-                      </>
-                    )}
-                  </div>
-
-                  <button className="primary-button full" onClick={addLesson} disabled={loading}>
-                    {loading ? 'İşlənir...' : 'Dərs Əlavə et'}
-                  </button>
-                  <button className="dark-button full" onClick={submitCourse} disabled={visibleCourseVideos.length === 0}>Kursu təqdim et</button>
-
-                  <div className="lesson-list">
-                    {visibleCourseVideos.length === 0 ? <p className="muted">Bu kursda hələ dərs yoxdur.</p> : visibleCourseVideos.map((video, index) => (
-                      <div key={video.id} className="lesson-row managed-lesson-row">
-                        <span>{index + 1}</span>
-                        <div>
-                          <strong>{video.title}</strong>
-                          <small>{video.duration || 'Müddət yazılmayıb'}</small>
-                        </div>
-                        <div className="lesson-row-actions">
-                          <a className="icon-link-button" href={video.video_url} target="_blank" rel="noreferrer" aria-label="Dərs videosunu aç">
-                            <ExternalLink size={16} />
-                          </a>
-                          <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} aria-label="Dərsi sil">
-                            <Trash2 size={16} />
+                      <div className="lesson-list">
+                        {visibleCourseVideos.length === 0 ? <p className="muted">{t('noLessons')}</p> : visibleCourseVideos.map((video, index) => (
+                          <div key={video.id} className="lesson-row managed-lesson-row">
+                            <span>{index + 1}</span>
+                            <div>
+                              <strong>{video.title}</strong>
+                              <small>
+                                {video.duration || t('durationMissing')}
+                                {video.is_free ? ` · ${t('previewShort')}` : ''}
+                              </small>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="lesson-manager">
+                        <div className="lesson-source-tabs" role="tablist" aria-label={t('lessonSource')}>
+                          <button
+                            type="button"
+                            className={lessonSource === 'youtube' ? 'active' : ''}
+                            onClick={() => setLessonSource('youtube')}
+                          >
+                            <Link size={16} /> {t('youtubeLink')}
+                          </button>
+                          <button
+                            type="button"
+                            className={lessonSource === 'upload' ? 'active' : ''}
+                            onClick={() => setLessonSource('upload')}
+                          >
+                            <Upload size={16} /> {t('uploadFile')}
                           </button>
                         </div>
+
+                        <label>{t('lessonTitle')}</label>
+                        <input value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} placeholder={`${visibleCourseVideos.length + 1}. ${t('lessonTitle').toLowerCase()}`} />
+                        <label>{t('lessonDuration')}</label>
+                        <input value={lessonDuration} onChange={(event) => setLessonDuration(event.target.value)} placeholder={t('exampleLessonDuration')} />
+
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={lessonIsFree}
+                            onChange={(event) => setLessonIsFree(event.target.checked)}
+                            style={{ marginRight: '8px' }}
+                          />
+                          {t('previewLesson')}
+                        </label>
+
+                        {lessonSource === 'youtube' ? (
+                          <>
+                            <label>{t('youtubeLink')}</label>
+                            <input value={lessonUrl} onChange={(event) => setLessonUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+                          </>
+                        ) : (
+                          <>
+                            <label>{t('videoFile')}</label>
+                            <input type="file" accept="video/*" onChange={(event) => setLessonFile(event.target.files[0] || null)} />
+                            <p className="muted">{t('uploadHelp')}</p>
+                          </>
+                        )}
                       </div>
-                    ))}
-                  </div>
+
+                      <button className="primary-button full" onClick={addLesson} disabled={loading}>
+                        {loading ? t('loading') : t('addLesson')}
+                      </button>
+                      <button className="dark-button full" onClick={submitCourse} disabled={visibleCourseVideos.length === 0}>{t('submitCourse')}</button>
+
+                      <div className="lesson-list">
+                        {visibleCourseVideos.length === 0 ? <p className="muted">{t('noLessons')}</p> : visibleCourseVideos.map((video, index) => (
+                          <div key={video.id} className="lesson-row managed-lesson-row">
+                            <span>{index + 1}</span>
+                            <div>
+                              <strong>{video.title}</strong>
+                              <small>
+                                {video.duration || t('durationMissing')}
+                                {video.is_free ? ` · ${t('previewShort')}` : ''}
+                              </small>
+                            </div>
+                            <div className="lesson-row-actions">
+                              <button
+                                className="icon-link-button"
+                                type="button"
+                                onClick={() => toggleFreeLesson(video.id, !video.is_free)}
+                                aria-label={video.is_free ? t('previewClose') : t('previewOpen')}
+                                title={video.is_free ? t('previewClose') : t('previewOpen')}
+                              >
+                                {video.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                              <a className="icon-link-button" href={video.video_url} target="_blank" rel="noreferrer" aria-label={t('openLessonVideo')}>
+                                <ExternalLink size={16} />
+                              </a>
+                              <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} aria-label={t('deleteLesson')}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </>
               </div>
             )}

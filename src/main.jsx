@@ -11,7 +11,11 @@ createRoot(document.getElementById('root')).render(
     <LanguageProvider>
       <BrowserRouter>
         <App />
-        <Toaster position="top-right" toastOptions={{ duration: 5000 }} containerStyle={{ pointerEvents: 'none' }} toastOptions={{ duration: 5000, style: { pointerEvents: 'auto' } }} />
+        <Toaster
+          position="top-right"
+          containerStyle={{ pointerEvents: 'none' }}
+          toastOptions={{ duration: 5000, style: { pointerEvents: 'auto' } }}
+        />
       </BrowserRouter>
     </LanguageProvider>
   </StrictMode>
