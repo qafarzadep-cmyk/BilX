@@ -19,6 +19,11 @@ recreates all RLS policies (recursion-free), and creates all functions/triggers.
 supersedes everything in the "Canonical set" below. If it errors only on a non-numeric
 `enrollments.course_id` value, clean that data and re-run.
 
+> **Upgrading an existing DB for Bunny video hosting?** `reconcile.sql` already
+> includes it. If you only want the delta, run `add_bunny_video.sql` — it adds
+> `videos.bunny_video_id` / `videos.video_source` and makes `videos.video_url`
+> nullable (idempotent).
+
 ---
 
 ## Canonical set (equivalent to reconcile.sql, run in this order)

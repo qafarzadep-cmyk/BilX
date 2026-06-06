@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Circle, Clock3, ExternalLink, PlayCircle } from 'lucide-react'
+import { CheckCircle2, Circle, Clock3, ExternalLink, PlayCircle, Share2 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
@@ -86,6 +87,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const { t } = useLanguage()
   const playerFrameRef = useRef(null)
   const playerRef = useRef(null)
+  const bunnyFrameRef = useRef(null)
   const [course, setCourse] = useState(location.state?.course || null)
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
@@ -94,6 +96,10 @@ function CoursePage({ user, profile, handleLogout }) {
   const [loading, setLoading] = useState(true)
   const [requested, setRequested] = useState(false)
   const [activeVideoId, setActiveVideoId] = useState(null)
+  // Signed, short-lived Bunny embed URL for the lesson currently on screen.
+  const [signedUrl, setSignedUrl] = useState(null)
+  const [signedFor, setSignedFor] = useState(null)
+  const [signedError, setSignedError] = useState(false)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
   const [ratings, setRatings] = useState([])
@@ -122,6 +128,10 @@ function CoursePage({ user, profile, handleLogout }) {
     return source.map((item, index) => {
       const playable = playableById.get(String(item.id))
       const rawUrl = playable?.video_url || item.video_url || null
+      // Bunny lessons carry a GUID instead of a URL; it's only present on rows
+      // the viewer is allowed to read (free previews, or the full set once
+      // enrolled/owner/admin), so its presence doubles as the "unlocked" signal.
+      const bunnyId = playable?.bunny_video_id || null
       const embedUrl = rawUrl
         ? (isYouTubeUrl(rawUrl) ? toYouTubeEmbedUrl(rawUrl, index) : normalizeExternalUrl(rawUrl))
         : null
@@ -133,7 +143,8 @@ function CoursePage({ user, profile, handleLogout }) {
         order_index: item.order_index,
         source_url: rawUrl ? normalizeExternalUrl(rawUrl) : null,
         video_url: embedUrl,
-        locked: !rawUrl,
+        bunny_video_id: bunnyId,
+        locked: !rawUrl && !bunnyId,
       }
     })
   }, [lessonPreviews, videos, playableById, t])
@@ -401,6 +412,93 @@ function CoursePage({ user, profile, handleLogout }) {
     }
   }
 
+  // Bunny lessons play through a token-authenticated embed URL that must be
+  // minted server-side (after an access check). Resolve it for whichever lesson
+  // is on screen: the active lesson when enrolled, the preview otherwise.
+  const playerVideo = hasAccess ? activeVideo : previewLesson
+  const playerVideoId = playerVideo?.id
+  const playerBunnyId = playerVideo?.bunny_video_id
+  useEffect(() => {
+    if (!playerBunnyId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSignedUrl(null)
+      setSignedFor(null)
+      setSignedError(false)
+      return undefined
+    }
+
+    let cancelled = false
+    setSignedUrl(null)
+    setSignedError(false)
+
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers = { 'Content-Type': 'application/json' }
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const res = await fetch('/api/bunny-playback', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ videoId: playerVideoId }),
+        })
+        // Parse defensively — an empty/HTML body (e.g. functions not running)
+        // would otherwise throw and leave the player stuck on "loading".
+        const text = await res.text()
+        const data = text ? JSON.parse(text) : {}
+        if (cancelled) return
+        if (res.ok && data.url) {
+          setSignedUrl(data.url)
+          setSignedFor(String(playerVideoId))
+        } else {
+          setSignedError(true)
+        }
+      } catch {
+        if (!cancelled) setSignedError(true)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [playerVideoId, playerBunnyId])
+
+  // Auto-advance Bunny lessons. Bunny's embed speaks the Player.js protocol over
+  // postMessage; we subscribe to its "ended" event and roll to the next lesson —
+  // the same behaviour the YouTube iframe API gives us below.
+  useEffect(() => {
+    if (!hasAccess || !activeVideo?.bunny_video_id) return undefined
+    if (!signedUrl || signedFor !== String(activeVideo.id)) return undefined
+    const iframe = bunnyFrameRef.current
+    if (!iframe) return undefined
+
+    const subscribe = () => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({ context: 'player.js', version: '0.0.1', method: 'addEventListener', value: 'ended', listener: 'bilx-ended' }),
+        '*'
+      )
+    }
+
+    function handleMessage(event) {
+      if (event.source !== iframe.contentWindow) return
+      let data
+      try {
+        data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+      } catch {
+        return
+      }
+      if (!data || data.context !== 'player.js') return
+      // The player announces "ready" once it can take commands; subscribe then.
+      if (data.event === 'ready') subscribe()
+      else if (data.event === 'ended') playNext()
+    }
+
+    window.addEventListener('message', handleMessage)
+    // The player may already be ready (e.g. on lesson switch) — subscribe now too.
+    subscribe()
+
+    return () => window.removeEventListener('message', handleMessage)
+  }, [hasAccess, activeVideo?.id, activeVideo?.bunny_video_id, signedUrl, signedFor, playNext])
+
   useEffect(() => {
     if (!hasAccess || !activeVideo?.video_url || !isYouTubeUrl(activeVideo.video_url) || !playerFrameRef.current) return undefined
 
@@ -459,6 +557,31 @@ function CoursePage({ user, profile, handleLogout }) {
     window.open(getWhatsAppUrl(message), '_blank')
   }
 
+  const handleShare = async () => {
+    if (!course) return
+    const url = `${window.location.origin}/course/${course.id}`
+    // On mobile, the native share sheet (WhatsApp, Telegram, …) is the best UX.
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: course.title,
+          text: (course.description || course.title || '').slice(0, 160),
+          url,
+        })
+      } catch {
+        // User dismissed the share sheet — nothing to do.
+      }
+      return
+    }
+    // Desktop / unsupported: copy the link and confirm with a toast.
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success(t('linkCopied'))
+    } catch {
+      toast.error(t('copyFailed'))
+    }
+  }
+
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
 
@@ -476,6 +599,9 @@ function CoursePage({ user, profile, handleLogout }) {
               <span>{lessons.length} {t('courseLessons')}</span>
               <span>{t('lifetimeAccess')}</span>
             </div>
+            <button type="button" className="outline-button share-button" onClick={handleShare}>
+              <Share2 size={16} /> {t('shareCourse')}
+            </button>
           </div>
           <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
         </section>
@@ -485,7 +611,21 @@ function CoursePage({ user, profile, handleLogout }) {
           <section className="course-player-layout">
             <div className="course-player-main">
               <div className="youtube-player-shell">
-                {activeVideo?.video_url && isYouTubeUrl(activeVideo.video_url) ? (
+                {activeVideo?.bunny_video_id ? (
+                  signedUrl && signedFor === String(activeVideo.id) ? (
+                    <iframe
+                      key={activeVideo.id}
+                      ref={bunnyFrameRef}
+                      className="youtube-player"
+                      src={signedUrl}
+                      title={activeVideo.title}
+                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
+                  )
+                ) : activeVideo?.video_url && isYouTubeUrl(activeVideo.video_url) ? (
                   <iframe
                     key={activeVideo.id}
                     ref={playerFrameRef}
@@ -607,7 +747,19 @@ function CoursePage({ user, profile, handleLogout }) {
                 <div className="preview-player-block">
                   <p className="player-eyebrow">{t('coursePreview')}</p>
                   <div className="youtube-player-shell">
-                    {previewLesson.video_url && isYouTubeUrl(previewLesson.video_url) ? (
+                    {previewLesson.bunny_video_id ? (
+                      signedUrl && signedFor === String(previewLesson.id) ? (
+                        <iframe
+                          className="youtube-player"
+                          src={signedUrl}
+                          title={previewLesson.title}
+                          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
+                      )
+                    ) : previewLesson.video_url && isYouTubeUrl(previewLesson.video_url) ? (
                       <iframe
                         className="youtube-player"
                         src={getEmbedSrc(previewLesson.video_url)}

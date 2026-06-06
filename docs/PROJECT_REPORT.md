@@ -23,10 +23,11 @@ Instructors apply to teach, create courses, and submit them for admin approval. 
 Browser (React SPA)  ──HTTPS──>  Supabase
    │                               ├── Auth (email/password, JWT)
    │                               ├── Postgres + Row-Level Security  ← all access control
-   │                               ├── Storage (thumbnails, videos)
+   │                               ├── Storage (thumbnails)
    │                               ├── Realtime (single-session kick)
    │                               └── Edge Function: notify-email (Resend)
-   └──> Vercel serverless /api/* (legacy email helpers)
+   ├──> Vercel serverless /api/* (email helpers + Bunny presign/playback)
+   └──> Bunny Stream (direct TUS upload; token-authenticated embed playback)
 ```
 
 There is **no traditional backend**. The SPA talks to Supabase directly using the public anon key; **all authorization is enforced by Postgres Row-Level Security (RLS)**. Privileged operations that can't be expressed as plain RLS run through `SECURITY DEFINER` Postgres functions (RPCs).
@@ -47,7 +48,7 @@ Canonical schema lives in `supabase/reconcile.sql` (idempotent — safe to re-ru
 |-------|---------|-------------|
 | `profiles` | user role + display name | `user_id` (PK→auth.users), `role` (student/instructor), `full_name` |
 | `Courses` | courses | `id`, `title`, `price`, `instructor_id`, `instructor_name`, `is_published`, `status` (draft/pending/approved/rejected) |
-| `videos` | lessons | `id`, `course_id`, `title`, `video_url`, `order_index`, `is_free`, `duration` |
+| `videos` | lessons | `id`, `course_id`, `title`, `video_url` (legacy), `bunny_video_id`, `video_source`, `order_index`, `is_free`, `duration` |
 | `enrollments` | course access (email-keyed) | `user_id` **(text — email)**, `course_id`, `status` |
 | `video_progress` | watched flags | `user_id`, `video_id`, `watched` |
 | `requests` | WhatsApp access requests | `user_id`, `user_email`, `course_id`, `status` |
@@ -87,7 +88,9 @@ A signup trigger (`create_profile_for_new_user`) forces new users to `role = 'st
 Designed gradient hero (animated glow + dot grid, no stock photo), value highlights, **featured carousel** (shown only when there are enough courses) + **full grid**, "how it works" (the WhatsApp flow), instructor CTA, and a footer. Mouse drag-to-scroll on the carousel; scroll-reveal motion (respects `prefers-reduced-motion`).
 
 ### Course preview
-Lesson titles for published courses are exposed (URL-free) via the `lesson_previews` view, so prospective buyers see the full curriculum. The **first lesson is a free preview**: it's marked `is_free = true` (a one-time backfill in `reconcile.sql`, and `InstructorDashboard` auto-marks the first lesson free on creation), and the `videos` read policy exposes `is_free` lessons for published courses. (An earlier order-index-based RLS rule was dropped because a policy on `videos` that sub-queries `videos` causes infinite recursion.) Embedding-restricted YouTube videos degrade to a "Watch on YouTube" link.
+Lesson titles for published courses are exposed (URL-free) via the `lesson_previews` view, so prospective buyers see the full curriculum. The **first lesson is a free preview**: it's marked `is_free = true` (a one-time backfill in `reconcile.sql`, and `InstructorDashboard` auto-marks the first lesson free on creation), and the `videos` read policy exposes `is_free` lessons for published courses. (An earlier order-index-based RLS rule was dropped because a policy on `videos` that sub-queries `videos` causes infinite recursion.)
+
+**Video hosting (Bunny Stream).** Lessons are hosted on Bunny, referenced by `videos.bunny_video_id`. Two serverless endpoints bracket the lifecycle: `api/bunny-create-video.js` verifies the caller is an approved instructor, creates the Bunny video, and returns a short-lived TUS upload signature (the API key never reaches the browser, and the file never transits the function — it goes browser → Bunny directly); `api/bunny-playback.js` checks access (free preview → anyone, else enrolled/owner/admin) and returns a **signed, expiring embed URL**, which only works because **Token Authentication** is enabled on the library. Both endpoints use the Supabase **service role** to verify the JWT and read enrollment, since RLS's `auth.uid()` isn't available server-side. The `videos` row's `bunny_video_id` is only readable by clients RLS already allows (free previews, or the full set once enrolled/owner/admin), so its presence doubles as the per-lesson "unlocked" signal in `CoursePage`. Legacy YouTube/Storage lessons (`video_source = 'legacy'`, with a `video_url`) keep playing through the old YouTube-iframe / `<video>` path; embedding-restricted YouTube videos degrade to a "Watch on YouTube" link.
 
 ### Notifications
 - **In-app bell** (`notifications` table) for enroll/comment/rating/inbox/teacher events.
@@ -130,9 +133,10 @@ Branded sidebar (brand, active accent, account + logout), tabs for pending cours
 ---
 
 ## 9. Operational checklist
-1. Run `supabase/reconcile.sql` in the SQL editor (idempotent; re-run after pulling schema changes).
+1. Run `supabase/reconcile.sql` in the SQL editor (idempotent; re-run after pulling schema changes). For an existing DB, `add_bunny_video.sql` is the Bunny-only delta.
 2. Enable Realtime for `public.user_sessions`.
-3. Create public Storage buckets `thumbnails` and `videos`.
-4. Deploy `notify-email` and set its secrets; redeploy after changes.
-5. Set the "Confirm signup" email template (optional).
-6. Set env vars locally (`.env`) and in Vercel.
+3. Create a public Storage bucket `thumbnails` (lesson videos now live on Bunny).
+4. Create a Bunny Stream library; enable **Token Authentication**; set `BUNNY_API_KEY`, `BUNNY_LIBRARY_ID`, `BUNNY_CDN_HOSTNAME`, `BUNNY_TOKEN_AUTH_KEY` (+ `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) in Vercel.
+5. Deploy `notify-email` and set its secrets; redeploy after changes.
+6. Set the "Confirm signup" email template (optional).
+7. Set env vars locally (`.env`) and in Vercel.

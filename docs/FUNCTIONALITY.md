@@ -48,6 +48,10 @@ The product's defining constraint shapes most decisions: **payment is manual ove
 - **What:** Visitors can watch the **first lesson** (and any lesson the instructor marks free) of a published course; the rest show as locked. Full lesson titles are visible.
 - **Why:** A preview is a conversion driver — people buy what they can sample. Showing titles (without paid video URLs) lets buyers judge the curriculum. The first lesson is auto-free so **every** course has something to sample even if the instructor forgets to mark one.
 
+### Share a course
+- **What:** A "Share" button on each course page. On mobile it opens the native share sheet (`navigator.share` → WhatsApp/Telegram/etc.); on desktop it copies the course link to the clipboard with a confirmation toast. Shared links also **unfurl with a rich preview** (the course's own title, description, and thumbnail).
+- **Why:** Course pages are public, so the link itself is shareable, but a button (native share + copy fallback) is far better UX than asking people to copy the address bar. Rich previews matter because Bil-X is a client-rendered SPA: a link crawler would otherwise only see generic meta tags. `api/og-course.js` serves crawlers (matched by user-agent in `vercel.json`) a small HTML doc with per-course Open Graph tags, while real browsers fall through to the normal SPA untouched — and if the lookup ever fails, it degrades to valid generic tags, never a broken preview.
+
 ---
 
 ## 3. Student
@@ -80,6 +84,44 @@ The product's defining constraint shapes most decisions: **payment is manual ove
 
 ## 4. Instructor
 
+### End-to-end flow (at a glance)
+
+```
+1. Apply to teach
+   Student → "Müəllim ol" → modal (name, read-only email, required phone)
+   → admin notified.
+
+2. Get approved
+   Admin approves → role becomes "instructor" (atomic RPC)
+   → in-app + email "you're now an instructor".
+
+3. Create a course
+   Teacher panel → New course (title, description, price, cover image)
+   → cover uploads to Supabase Storage (thumbnails)
+   → course saved as status = draft.
+
+4. Add lessons (video → Bunny Stream)
+   For each lesson: title, optional duration, free-preview toggle, pick a video file.
+     a. Browser → POST /api/bunny-create-video  (verifies approved instructor,
+        creates the Bunny video, returns GUID + short-lived upload signature)
+     b. Browser → Bunny  (TUS resumable upload, live progress bar; the file never
+        passes through our server, the API key never reaches the browser)
+     c. Browser → Supabase  (insert videos row with bunny_video_id, order_index,
+        is_free — the FIRST lesson is auto-marked a free preview)
+
+5. Submit for approval
+   "Submit course" → status = pending. Admin reviews and approves/rejects.
+
+6. After approval → read-only
+   The instructor can no longer edit the course or its lessons; changes go through
+   the admin via Inbox. (Building is only allowed while draft/pending.)
+
+7. Ongoing
+   Email notifications on enrollments, ratings, comments, and inbox messages.
+```
+
+Playback (student side) mirrors step 4 in reverse: `CoursePage` → `POST /api/bunny-playback` → access check (free preview → anyone; else enrolled/owner/admin) → **signed, expiring** Bunny embed URL → the player auto-advances to the next lesson on "ended" (Player.js protocol over postMessage).
+
 ### Apply to teach
 - **What:** A student applies via a modal (name/surname prefilled, email read-only, **phone required**); the admin is notified.
 - **Why:** Instructors are vetted, not self-serve, to keep course quality and trust. **Phone is required** so the admin can contact them directly (consistent with the WhatsApp-first model). Email is locked to the account's email to avoid impersonation.
@@ -89,8 +131,12 @@ The product's defining constraint shapes most decisions: **payment is manual ove
 - **Why:** The atomic RPC prevents half-applied state (status updated but role not). The notification tells them they can now start teaching.
 
 ### Create course + add lessons + submit
-- **What:** Instructors create a course (title, description, price, thumbnail), add lessons (YouTube link or uploaded file, optional duration, free-preview toggle), then submit for approval (status → pending).
-- **Why:** This is the content pipeline. YouTube **or** upload covers instructors who host their own videos and those who upload directly. Submit-for-approval keeps the admin in control of what goes public.
+- **What:** Instructors create a course (title, description, price, thumbnail), add lessons (video file → **Bunny Stream**, optional duration, free-preview toggle), then submit for approval (status → pending).
+- **Why:** This is the content pipeline. Submit-for-approval keeps the admin in control of what goes public.
+
+### Video hosting on Bunny Stream
+- **What:** Lesson videos upload **directly from the browser to Bunny** over a resumable (TUS) upload with a live progress bar. The flow is: the dashboard calls `/api/bunny-create-video` (which verifies the caller is an approved instructor, creates the Bunny video, and returns a short-lived **upload signature**); the browser then streams the file straight to Bunny; finally the Bunny video GUID is saved to `videos.bunny_video_id`. Playback uses `/api/bunny-playback`, which checks access (free preview → anyone; otherwise enrolled/owner/admin) and returns a **signed, expiring embed URL**.
+- **Why:** Two hard constraints shaped this. (1) Serverless request bodies are capped at ~4.5 MB, so a multi-hundred-MB video **cannot** be proxied through a function — the browser must talk to Bunny directly, and the API key must stay server-side, hence the presigned-upload split. (2) A plain Bunny embed URL is public; with **Token Authentication** on the library and per-request signed URLs minted only after an access check, a paid lesson can't be watched (or shared) without server authorization — the same protection the platform's access control depends on. Legacy YouTube/Storage lessons (`video_source = 'legacy'`) still play through the old path so nothing breaks.
 
 ### Approved courses are read-only to the instructor
 - **What:** Once a course is approved, the instructor can't edit it or its lessons; they're told to message the admin for changes. (While draft/pending they can still build it.)

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, ExternalLink, Link, Trash2, Upload } from 'lucide-react'
+import { Eye, EyeOff, Trash2 } from 'lucide-react'
+import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
@@ -33,9 +34,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [lessonTitle, setLessonTitle] = useState('')
   const [lessonDuration, setLessonDuration] = useState('')
   const [lessonIsFree, setLessonIsFree] = useState(false)
-  const [lessonSource, setLessonSource] = useState('youtube')
-  const [lessonUrl, setLessonUrl] = useState('')
   const [lessonFile, setLessonFile] = useState(null)
+  const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -219,6 +219,30 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
   }
 
+  // Pushes the file bytes straight to Bunny over a resumable (TUS) upload using
+  // the presigned credentials from /api/bunny-create-video. The Bunny API key is
+  // never exposed here; we only ever hold a short-lived signature.
+  const uploadToBunny = (file, presign) => new Promise((resolve, reject) => {
+    const upload = new tus.Upload(file, {
+      endpoint: 'https://video.bunnycdn.com/tusupload',
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      headers: {
+        AuthorizationSignature: presign.signature,
+        AuthorizationExpire: String(presign.expire),
+        VideoId: presign.videoId,
+        LibraryId: String(presign.libraryId),
+      },
+      metadata: {
+        filetype: file.type || 'video/mp4',
+        title: file.name || 'lesson',
+      },
+      onError: reject,
+      onProgress: (sent, total) => setUploadPercent(total ? Math.round((sent / total) * 100) : 0),
+      onSuccess: resolve,
+    })
+    upload.start()
+  })
+
   const addLesson = async () => {
     if (!selectedCourseId) {
       showMessage(t('selectOrCreateCourse'), 'error')
@@ -231,28 +255,49 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       return
     }
 
-    if (lessonSource === 'youtube' && !lessonUrl.trim()) {
-      showMessage(t('enterYoutubeLink'), 'error')
-      return
-    }
-
-    if (lessonSource === 'upload' && !lessonFile) {
-      showMessage(t('selectVideoOrYoutube'), 'error')
+    if (!lessonFile) {
+      showMessage(t('selectVideoFile'), 'error')
       return
     }
 
     setLoading(true)
-    showMessage(lessonSource === 'upload' ? t('uploadingVideo') : t('addingLesson'))
+    setUploadPercent(0)
+    showMessage(t('uploadingVideo'))
 
     try {
-      const videoUrl = lessonSource === 'youtube'
-        ? lessonUrl.trim()
-        : await uploadPublicFile('videos', lessonFile, `lesson-${selectedCourseId}`)
+      // 1. Authenticate the request with the current session's token.
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+      if (!accessToken) throw new Error(t('sessionExpired'))
 
+      // 2. Create the Bunny video and get a presigned upload.
+      const createRes = await fetch('/api/bunny-create-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ title: lessonTitle.trim() }),
+      })
+      // Parse defensively: if the serverless function isn't running (e.g. plain
+      // `vite dev`, which doesn't serve api/*), the body is empty/HTML, not JSON.
+      const raw = await createRes.text()
+      let presign = {}
+      try {
+        presign = raw ? JSON.parse(raw) : {}
+      } catch {
+        presign = {}
+      }
+      if (!createRes.ok || !presign.videoId) {
+        throw new Error(presign.error || t('videoServiceUnavailable'))
+      }
+
+      // 3. Upload the file directly to Bunny (with a live progress bar).
+      await uploadToBunny(lessonFile, presign)
+
+      // 4. Save the lesson, referencing the Bunny video.
       const lessonPayload = {
         course_id: Number(selectedCourseId),
         title: lessonTitle.trim(),
-        video_url: videoUrl,
+        bunny_video_id: presign.videoId,
+        video_source: 'bunny',
         order_index: courseVideos.length + 1,
         // The first lesson of a course is always a free preview (workflow 1.1);
         // for the rest, honour the instructor's checkbox.
@@ -276,7 +321,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
       setLessonTitle('')
       setLessonDuration('')
-      setLessonUrl('')
       setLessonFile(null)
       setLessonIsFree(false)
       showMessage(t('lessonAdded'), 'success')
@@ -285,6 +329,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
     } finally {
       setLoading(false)
+      setUploadPercent(0)
     }
   }
 
@@ -502,23 +547,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   ) : (
                     <>
                       <div className="lesson-manager">
-                        <div className="lesson-source-tabs" role="tablist" aria-label={t('lessonSource')}>
-                          <button
-                            type="button"
-                            className={lessonSource === 'youtube' ? 'active' : ''}
-                            onClick={() => setLessonSource('youtube')}
-                          >
-                            <Link size={16} /> {t('youtubeLink')}
-                          </button>
-                          <button
-                            type="button"
-                            className={lessonSource === 'upload' ? 'active' : ''}
-                            onClick={() => setLessonSource('upload')}
-                          >
-                            <Upload size={16} /> {t('uploadFile')}
-                          </button>
-                        </div>
-
                         <label>{t('lessonTitle')}</label>
                         <input value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} placeholder={`${visibleCourseVideos.length + 1}. ${t('lessonTitle').toLowerCase()}`} />
                         <label>{t('lessonDuration')}</label>
@@ -534,22 +562,20 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           {t('previewLesson')}
                         </label>
 
-                        {lessonSource === 'youtube' ? (
-                          <>
-                            <label>{t('youtubeLink')}</label>
-                            <input value={lessonUrl} onChange={(event) => setLessonUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-                          </>
-                        ) : (
-                          <>
-                            <label>{t('videoFile')}</label>
-                            <input type="file" accept="video/*" onChange={(event) => setLessonFile(event.target.files[0] || null)} />
-                            <p className="muted">{t('uploadHelp')}</p>
-                          </>
+                        <label>{t('videoFile')}</label>
+                        <input type="file" accept="video/*" disabled={loading} onChange={(event) => setLessonFile(event.target.files[0] || null)} />
+                        <p className="muted">{t('bunnyUploadHelp')}</p>
+
+                        {loading && uploadPercent > 0 && (
+                          <div className="upload-progress">
+                            <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
+                            <small>{t('uploadingVideo')} {uploadPercent}%</small>
+                          </div>
                         )}
                       </div>
 
                       <button className="primary-button full" onClick={addLesson} disabled={loading}>
-                        {loading ? t('loading') : t('addLesson')}
+                        {loading ? (uploadPercent > 0 ? `${uploadPercent}%` : t('loading')) : t('addLesson')}
                       </button>
                       <button className="dark-button full" onClick={submitCourse} disabled={visibleCourseVideos.length === 0}>{t('submitCourse')}</button>
 
@@ -574,9 +600,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               >
                                 {video.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
                               </button>
-                              <a className="icon-link-button" href={video.video_url} target="_blank" rel="noreferrer" aria-label={t('openLessonVideo')}>
-                                <ExternalLink size={16} />
-                              </a>
                               <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} aria-label={t('deleteLesson')}>
                                 <Trash2 size={16} />
                               </button>

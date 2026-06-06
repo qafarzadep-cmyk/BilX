@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://odaruqrhphvzjzafujpk.supabase.co https://i.ytimg.com; font-src 'self' data:; connect-src 'self' https://odaruqrhphvzjzafujpk.supabase.co wss://odaruqrhphvzjzafujpk.supabase.co; media-src 'self' blob: data: https://odaruqrhphvzjzafujpk.supabase.co; frame-src https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://odaruqrhphvzjzafujpk.supabase.co https://i.ytimg.com; font-src 'self' data:; connect-src 'self' https://odaruqrhphvzjzafujpk.supabase.co wss://odaruqrhphvzjzafujpk.supabase.co https://video.bunnycdn.com; media-src 'self' blob: data: https://odaruqrhphvzjzafujpk.supabase.co; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://iframe.mediadelivery.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         },
         {
           "key": "X-Frame-Options",
@@ -27,6 +27,17 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/course/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|WhatsApp|Telegram|Slackbot|Slack-ImgProxy|LinkedInBot|Discordbot|Googlebot|bingbot|Applebot|redditbot|Pinterest|vkShare|SkypeUriPreview|Viber|Line|Embedly|Iframely).*"
+        }
+      ],
+      "destination": "/api/og-course?id=:id"
+    },
     { "source": "/(.*)", "destination": "/" }
   ]
 }

@@ -290,12 +290,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const application = teacherApplications.find((item) => item.id === applicationId)
     const finishTeacherReview = async () => {
       if (decision === 'approved' && application?.user_id) {
-        const fullName = `${application.name || ''} ${application.surname || ''}`.trim()
-        const { error: profileUpdateError } = await supabase.from('profiles').upsert({
-          user_id: application.user_id,
-          full_name: fullName || application.email,
-          role: 'instructor',
-        })
+        // The role → instructor update is done server-side by the SECURITY
+        // DEFINER RPC above (admin_review_teacher_application); we must NOT write
+        // the profile row from the client — RLS only lets a user edit their own
+        // profile, so an admin upsert here fails. (In the legacy no-RPC fallback,
+        // profileApi derives the instructor role from the approved application.)
 
         // Congratulate the new instructor: in-app + email.
         await supabase.rpc('create_notification', {
@@ -312,7 +311,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
           })
         }
 
-        setMessage(profileUpdateError ? `${t('adminTeacherProfileUpdateFailed')}${profileUpdateError.message}` : t('adminTeacherApproved'))
+        setMessage(t('adminTeacherApproved'))
         loadData()
         return
       }

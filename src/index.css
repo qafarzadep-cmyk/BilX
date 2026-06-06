@@ -834,6 +834,22 @@ button {
   color: #e5e7eb;
 }
 
+.course-hero .share-button {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.course-hero .share-button:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: #fff;
+}
+
 .course-hero img {
   width: 100%;
   min-height: 280px;
@@ -1282,6 +1298,32 @@ button {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid #eef0f2;
+}
+
+.upload-progress {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.upload-progress .upload-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #eef0f2;
+  overflow: hidden;
+}
+
+.upload-progress .upload-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #863bff, #6d28d9);
+  transition: width 0.2s ease;
+}
+
+.upload-progress small {
+  color: #6b7280;
+  font-size: 13px;
 }
 
 .lesson-source-tabs {
