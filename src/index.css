@@ -1032,6 +1032,60 @@ button {
   overflow-y: auto;
 }
 
+.curriculum-section + .curriculum-section,
+.locked-curriculum-section + .locked-curriculum-section {
+  border-top: 1px solid #d1d7dc;
+}
+
+.curriculum-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #f7f9fa;
+}
+
+.curriculum-section-heading strong {
+  color: #1c1d1f;
+  line-height: 1.35;
+}
+
+.curriculum-section-heading small {
+  flex: 0 0 auto;
+  color: #6a6f73;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.course-certificate-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 14px 16px;
+  color: #fff;
+  background: #171923;
+}
+
+.course-certificate-card svg {
+  color: #a78bfa;
+}
+
+.course-certificate-card div {
+  display: grid;
+  gap: 3px;
+}
+
+.course-certificate-card small {
+  color: #d1d5db;
+}
+
+.course-certificate-card button {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 .course-lesson-item {
   width: 100%;
   min-height: 74px;
@@ -1298,6 +1352,180 @@ button {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid #eef0f2;
+}
+
+.section-manager {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f7f9fa;
+}
+
+.section-manager h3 {
+  margin: 0 0 12px;
+}
+
+.section-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.section-create-row .outline-button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.section-editor-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.section-editor-card {
+  overflow: hidden;
+  border: 1px solid #d1d7dc;
+  border-radius: 8px;
+}
+
+.section-editor-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  background: #f7f9fa;
+}
+
+.section-editor-heading small {
+  color: #6a6f73;
+  font-weight: 800;
+}
+
+.section-editor-card .lesson-list {
+  margin: 0;
+  padding: 0 15px;
+}
+
+.certificate-shell {
+  width: min(1050px, calc(100% - 32px));
+  margin: 40px auto;
+}
+
+.certificate-document {
+  padding: 18px;
+  background: #f4f1ff;
+  box-shadow: 0 16px 50px rgba(17, 24, 39, 0.12);
+}
+
+.certificate-border {
+  min-height: 610px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border: 6px double #6d28d9;
+  padding: 48px;
+  text-align: center;
+  background: #fff;
+}
+
+.certificate-logo {
+  color: #1435c3;
+  font-size: 32px;
+  font-weight: 950;
+}
+
+.certificate-award {
+  color: #6d28d9;
+}
+
+.certificate-kicker {
+  margin: 0;
+  color: #6d28d9;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.certificate-border h1 {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: clamp(36px, 6vw, 64px);
+}
+
+.certificate-border h2 {
+  margin: 0;
+  color: #1435c3;
+  font-size: clamp(24px, 4vw, 38px);
+}
+
+.certificate-border p {
+  margin: 0;
+  font-size: 17px;
+}
+
+.certificate-meta {
+  display: grid;
+  gap: 7px;
+  margin-top: 20px;
+  color: #6a6f73;
+  font-size: 13px;
+}
+
+.certificate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.certificate-missing {
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .section-create-row {
+    grid-template-columns: 1fr;
+  }
+
+  .certificate-shell {
+    width: min(100% - 20px, 1050px);
+    margin: 18px auto;
+  }
+
+  .certificate-document {
+    padding: 8px;
+  }
+
+  .certificate-border {
+    min-height: 520px;
+    padding: 28px 18px;
+  }
+
+  .certificate-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media print {
+  .certificate-navigation,
+  .certificate-actions {
+    display: none !important;
+  }
+
+  .certificate-shell {
+    width: 100%;
+    margin: 0;
+  }
+
+  .certificate-document {
+    padding: 0;
+    box-shadow: none;
+  }
 }
 
 .upload-progress {

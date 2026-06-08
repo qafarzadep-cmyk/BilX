@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, PlayCircle, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FolderPlus, PlayCircle, Trash2 } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
@@ -28,6 +28,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const initialTab = ['new', 'approved', 'pending'].includes(urlTab) ? urlTab : 'new'
   const [courses, setCourses] = useState([])
   const [videos, setVideos] = useState([])
+  const [sections, setSections] = useState([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [form, setForm] = useState({ title: '', description: '', price: '' })
   const [thumbnailFile, setThumbnailFile] = useState(null)
@@ -35,6 +36,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [lessonDuration, setLessonDuration] = useState('')
   const [lessonIsFree, setLessonIsFree] = useState(false)
   const [lessonFile, setLessonFile] = useState(null)
+  const [selectedSectionId, setSelectedSectionId] = useState('')
+  const [sectionTitle, setSectionTitle] = useState('')
   const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [loading, setLoading] = useState(false)
@@ -92,15 +95,18 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const ids = nextCourses.map((course) => course.id)
     if (ids.length === 0) {
       setVideos([])
+      setSections([])
       setInstructorTab('new')
       return
     }
 
-    const { data: videoData, error: videoError } = await supabase
-      .from('videos')
-      .select('*')
-      .in('course_id', ids)
-      .order('order_index', { ascending: true })
+    const [
+      { data: videoData, error: videoError },
+      { data: sectionData, error: sectionError },
+    ] = await Promise.all([
+      supabase.from('videos').select('*').in('course_id', ids).order('order_index', { ascending: true }),
+      supabase.from('course_sections').select('*').in('course_id', ids).order('order_index', { ascending: true }),
+    ])
 
     if (videoError) {
       showMessage(`${t('lessonsLoadFailed')}${videoError.message}`, 'error')
@@ -108,6 +114,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
 
     setVideos(videoData || [])
+    setSections(sectionError ? [] : sectionData || [])
   }
 
   useEffect(() => {
@@ -206,9 +213,16 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
       if (error) throw error
 
+      const { data: firstSection } = await supabase
+        .from('course_sections')
+        .insert({ course_id: data.id, title: 'Section 1', order_index: 1 })
+        .select()
+        .single()
+
       setForm({ title: '', description: '', price: '' })
       setThumbnailFile(null)
       setSelectedCourseId(String(data.id))
+      setSelectedSectionId(firstSection ? String(firstSection.id) : '')
       setInstructorTab('pending')
       showMessage(t('courseCreatedAddLessons'), 'success')
       await loadData(user)
@@ -260,6 +274,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       return
     }
 
+    const currentSections = sections.filter((section) => String(section.course_id) === String(selectedCourseId))
+    const selectedSection = currentSections.find((section) => String(section.id) === String(selectedSectionId))
+    const targetSectionId = selectedSection?.id || currentSections[0]?.id
+    if (!targetSectionId) {
+      showMessage(t('createSectionFirst'), 'error')
+      return
+    }
+
     setLoading(true)
     setUploadPercent(0)
     showMessage(t('uploadingVideo'))
@@ -298,6 +320,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         title: lessonTitle.trim(),
         bunny_video_id: presign.videoId,
         video_source: 'bunny',
+        section_id: Number(targetSectionId),
         order_index: courseVideos.length + 1,
         // The first lesson of a course is always a free preview (workflow 1.1);
         // for the rest, honour the instructor's checkbox.
@@ -331,6 +354,35 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setLoading(false)
       setUploadPercent(0)
     }
+  }
+
+  const createSection = async () => {
+    if (!selectedCourseId) {
+      showMessage(t('selectOrCreateCourse'), 'error')
+      return
+    }
+
+    const courseSections = sections.filter((section) => String(section.course_id) === String(selectedCourseId))
+    const nextIndex = courseSections.length + 1
+    const { data, error } = await supabase
+      .from('course_sections')
+      .insert({
+        course_id: Number(selectedCourseId),
+        title: sectionTitle.trim() || `Section ${nextIndex}`,
+        order_index: nextIndex,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+
+    setSectionTitle('')
+    setSelectedSectionId(String(data.id))
+    showMessage(t('sectionCreated'), 'success')
+    await loadData(user)
   }
 
   const deleteLesson = async (videoId) => {
@@ -425,6 +477,19 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const visibleCourseVideos = visibleSelectedCourse
     ? videos.filter((video) => String(video.course_id) === String(visibleSelectedCourse.id))
     : []
+  const visibleCourseSections = visibleSelectedCourse
+    ? sections.filter((section) => String(section.course_id) === String(visibleSelectedCourse.id))
+    : []
+  const effectiveSections = visibleCourseSections.length > 0
+    ? visibleCourseSections
+    : [{ id: 'legacy', course_id: visibleSelectedCourse?.id, title: 'Section 1', order_index: 1 }]
+  const validSelectedSectionId = visibleCourseSections.some((section) => String(section.id) === String(selectedSectionId))
+    ? selectedSectionId
+    : visibleCourseSections[0]?.id || ''
+  const getSectionLabel = (section, index) => {
+    const numbered = `${t('sectionLabel')} ${index + 1}`
+    return section.title && section.title !== `Section ${index + 1}` ? `${numbered}: ${section.title}` : numbered
+  }
   // Per workflow.md 3.3: teachers cannot edit/delete an approved course. They can
   // only build (add lessons / submit) a course while it is still draft/pending;
   // once approved it is read-only and changes go through the admin via Inbox.
@@ -564,7 +629,32 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     </>
                   ) : (
                     <>
+                      <div className="section-manager">
+                        <h3>{t('courseSections')}</h3>
+                        <div className="section-create-row">
+                          <input
+                            value={sectionTitle}
+                            onChange={(event) => setSectionTitle(event.target.value)}
+                            placeholder={t('sectionTitlePlaceholder')}
+                          />
+                          <button className="outline-button" type="button" onClick={createSection}>
+                            <FolderPlus size={16} /> {t('addSection')}
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="lesson-manager">
+                        <label>{t('sectionLabel')}</label>
+                        <select
+                          value={validSelectedSectionId}
+                          onChange={(event) => setSelectedSectionId(event.target.value)}
+                        >
+                          {visibleCourseSections.map((section, index) => (
+                            <option key={section.id} value={section.id}>
+                              {getSectionLabel(section, index)}
+                            </option>
+                          ))}
+                        </select>
                         <label>{t('lessonTitle')}</label>
                         <input value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} placeholder={`${visibleCourseVideos.length + 1}. ${t('lessonTitle').toLowerCase()}`} />
                         <label>{t('lessonDuration')}</label>
@@ -597,44 +687,59 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       </button>
                       <button className="dark-button full" onClick={submitCourse} disabled={visibleCourseVideos.length === 0}>{t('submitCourse')}</button>
 
-                      <div className="lesson-list">
-                        {visibleCourseVideos.length === 0 ? <p className="muted">{t('noLessons')}</p> : visibleCourseVideos.map((video, index) => (
-                          <div key={video.id} className="lesson-row managed-lesson-row">
-                            <span>{index + 1}</span>
-                            <div>
-                              <strong>{video.title}</strong>
-                              <small>
-                                {video.duration || t('durationMissing')}
-                                {video.is_free ? ` · ${t('previewShort')}` : ''}
-                              </small>
-                            </div>
-                            <div className="lesson-row-actions">
-                              <button
-                                className="icon-link-button"
-                                type="button"
-                                onClick={() => navigate(`/course/${visibleSelectedCourse.id}`, {
-                                  state: { course: visibleSelectedCourse, videoId: video.id },
-                                })}
-                                aria-label={t('playLesson')}
-                                title={t('playLesson')}
-                              >
-                                <PlayCircle size={16} />
-                              </button>
-                              <button
-                                className="icon-link-button"
-                                type="button"
-                                onClick={() => toggleFreeLesson(video.id, !video.is_free)}
-                                aria-label={video.is_free ? t('previewClose') : t('previewOpen')}
-                                title={video.is_free ? t('previewClose') : t('previewOpen')}
-                              >
-                                {video.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
-                              </button>
-                              <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} aria-label={t('deleteLesson')}>
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="section-editor-list">
+                        {effectiveSections.map((section, sectionIndex) => {
+                          const sectionVideos = visibleCourseVideos.filter((video) => (
+                            section.id === 'legacy' ? true : String(video.section_id) === String(section.id)
+                          ))
+                          return (
+                            <section className="section-editor-card" key={section.id}>
+                              <div className="section-editor-heading">
+                                <strong>{getSectionLabel(section, sectionIndex)}</strong>
+                                <small>{sectionVideos.length} {t('courseLessons')}</small>
+                              </div>
+                              <div className="lesson-list">
+                                {sectionVideos.length === 0 ? <p className="muted">{t('noLessonsInSection')}</p> : sectionVideos.map((video, lessonIndex) => (
+                                  <div key={video.id} className="lesson-row managed-lesson-row">
+                                    <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
+                                    <div>
+                                      <strong>{video.title}</strong>
+                                      <small>
+                                        {video.duration || t('durationMissing')}
+                                        {video.is_free ? ` · ${t('previewShort')}` : ''}
+                                      </small>
+                                    </div>
+                                    <div className="lesson-row-actions">
+                                      <button
+                                        className="icon-link-button"
+                                        type="button"
+                                        onClick={() => navigate(`/course/${visibleSelectedCourse.id}`, {
+                                          state: { course: visibleSelectedCourse, videoId: video.id },
+                                        })}
+                                        aria-label={t('playLesson')}
+                                        title={t('playLesson')}
+                                      >
+                                        <PlayCircle size={16} />
+                                      </button>
+                                      <button
+                                        className="icon-link-button"
+                                        type="button"
+                                        onClick={() => toggleFreeLesson(video.id, !video.is_free)}
+                                        aria-label={video.is_free ? t('previewClose') : t('previewOpen')}
+                                        title={video.is_free ? t('previewClose') : t('previewOpen')}
+                                      >
+                                        {video.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
+                                      </button>
+                                      <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} aria-label={t('deleteLesson')}>
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )
+                        })}
                       </div>
                     </>
                   )}

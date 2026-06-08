@@ -3,6 +3,7 @@ import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom'
 import { BookOpen, Clock3, PlayCircle, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
+import CertificatePage from './CertificatePage'
 import CoursePage from './CoursePage'
 import EditCourse from './EditCourse'
 import InstructorDashboard from './InstructorDashboard'
@@ -509,6 +510,7 @@ function App() {
       <Route path="/profile" element={<StudentProfile user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/certificate/:code" element={<CertificatePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/instructor" element={<InstructorDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/inbox" element={<Inbox user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/edit-course" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />

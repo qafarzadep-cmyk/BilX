@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Circle, Clock3, ExternalLink, PlayCircle, Share2 } from 'lucide-react'
+import { Award, CheckCircle2, Circle, Clock3, ExternalLink, PlayCircle, Share2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -80,6 +80,21 @@ function normalizeExternalUrl(url) {
   return `https://${trimmed}`
 }
 
+function durationToSeconds(value) {
+  const parts = String(value || '').split(':').map(Number)
+  if (parts.some(Number.isNaN)) return 0
+  return parts.reduce((total, part) => total * 60 + part, 0)
+}
+
+function formatSectionDuration(seconds, t) {
+  if (!seconds) return ''
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.ceil((seconds % 3600) / 60)
+  return hours > 0
+    ? `${hours}${t('hourShort')} ${minutes}${t('minuteShort')}`
+    : `${minutes}${t('minuteShort')}`
+}
+
 function CoursePage({ user, profile, handleLogout }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -91,8 +106,11 @@ function CoursePage({ user, profile, handleLogout }) {
   const [course, setCourse] = useState(location.state?.course || null)
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
+  const [sections, setSections] = useState([])
   const [progress, setProgress] = useState([])
   const [hasAccess, setHasAccess] = useState(false)
+  const [isEnrolled, setIsEnrolled] = useState(false)
+  const [certificateLoading, setCertificateLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [requested, setRequested] = useState(false)
   const [activeVideoId, setActiveVideoId] = useState(null)
@@ -140,6 +158,7 @@ function CoursePage({ user, profile, handleLogout }) {
         title: item.title || t(placeholderLessons[index % placeholderLessons.length].titleKey),
         duration: item.duration || placeholderLessons[index % placeholderLessons.length].duration,
         is_free: item.is_free,
+        section_id: item.section_id || playable?.section_id || null,
         order_index: item.order_index,
         source_url: rawUrl ? normalizeExternalUrl(rawUrl) : null,
         video_url: embedUrl,
@@ -163,6 +182,34 @@ function CoursePage({ user, profile, handleLogout }) {
   )
   const completedCount = lessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
   const completionPercent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0
+  const curriculumSections = useMemo(() => {
+    const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+    const effective = orderedSections.length > 0
+      ? orderedSections
+      : [{ id: 'default', title: 'Section 1', order_index: 1 }]
+
+    return effective.map((section, sectionIndex) => {
+      const sectionLessons = lessons.filter((lesson) => {
+        if (section.id === 'default') return true
+        if (!lesson.section_id && sectionIndex === 0) return true
+        return String(lesson.section_id) === String(section.id)
+      })
+      const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
+      const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
+      const numberedTitle = `${t('sectionLabel')} ${sectionIndex + 1}`
+      const defaultTitle = `Section ${sectionIndex + 1}`
+
+      return {
+        ...section,
+        displayTitle: section.title && section.title !== defaultTitle
+          ? `${numberedTitle}: ${section.title}`
+          : numberedTitle,
+        lessons: sectionLessons,
+        completed,
+        duration: formatSectionDuration(duration, t),
+      }
+    }).filter((section) => section.lessons.length > 0 || sections.length > 0)
+  }, [lessons, sections, t, watchedIds])
   const ratingAverage = ratings.length
     ? Math.round((ratings.reduce((sum, item) => sum + (item.rating || 0), 0) / ratings.length) * 10) / 10
     : 0
@@ -197,15 +244,17 @@ function CoursePage({ user, profile, handleLogout }) {
         setCourse(currentCourse)
       }
 
-      const [{ data: videoData }, { data: previewData }] = await Promise.all([
+      const [{ data: videoData }, { data: previewData }, { data: sectionData }] = await Promise.all([
         supabase.from('videos').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('lesson_previews').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
+        supabase.from('course_sections').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
       ])
 
       const sortedVideos = videoData || []
       if (mounted) {
         setVideos(sortedVideos)
         setLessonPreviews(previewData || [])
+        setSections(sectionData || [])
         setActiveVideoId(location.state?.videoId || sortedVideos[0]?.id || null)
       }
 
@@ -217,6 +266,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (adminPreview) {
         if (mounted) {
           setHasAccess(true)
+          setIsEnrolled(false)
           setProgress([])
           setLoading(false)
         }
@@ -226,6 +276,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (currentCourse?.instructor_id === user.id) {
         if (mounted) {
           setHasAccess(true)
+          setIsEnrolled(false)
           setProgress([])
           setLoading(false)
         }
@@ -252,6 +303,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
       if (mounted) {
         setHasAccess(access)
+        setIsEnrolled(access)
         setProgress(progressData)
         setLoading(false)
       }
@@ -591,6 +643,19 @@ function CoursePage({ user, profile, handleLogout }) {
     }
   }
 
+  const openCertificate = async () => {
+    if (!course || completionPercent < 100 || !isEnrolled) return
+    setCertificateLoading(true)
+    const { data, error } = await supabase.rpc('issue_course_certificate', { p_course_id: course.id })
+    setCertificateLoading(false)
+
+    if (error || !data?.verification_code) {
+      toast.error(error?.message || t('certificateError'))
+      return
+    }
+    navigate(`/certificate/${data.verification_code}`)
+  }
+
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
 
@@ -671,6 +736,27 @@ function CoursePage({ user, profile, handleLogout }) {
             </div>
 
             <aside className="course-lesson-panel">
+              {isEnrolled && (
+                <div className="course-certificate-card">
+                  <Award size={24} />
+                  <div>
+                    <strong>{t('courseCertificate')}</strong>
+                    <small>
+                      {completionPercent === 100
+                        ? t('certificateReady')
+                        : t('certificateProgress').replace('{completed}', completedCount).replace('{total}', lessons.length)}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={completionPercent < 100 || certificateLoading}
+                    onClick={openCertificate}
+                  >
+                    {certificateLoading ? t('loading') : t('getCertificate')}
+                  </button>
+                </div>
+              )}
               <div className="lesson-panel-header">
                 <div>
                   <h2>{t('courseContent')}</h2>
@@ -682,26 +768,37 @@ function CoursePage({ user, profile, handleLogout }) {
                 <span style={{ width: `${completionPercent}%` }} />
               </div>
               <div className="course-lesson-list">
-                {lessons.map((video, index) => {
-                  const isActive = String(video.id) === String(activeVideo?.id)
-                  const isWatched = watchedIds.has(String(video.id))
+                {curriculumSections.map((section, sectionIndex) => (
+                  <section className="curriculum-section" key={section.id}>
+                    <div className="curriculum-section-heading">
+                      <strong>{section.displayTitle}</strong>
+                      <small>
+                        {section.completed}/{section.lessons.length}
+                        {section.duration ? ` | ${section.duration}` : ''}
+                      </small>
+                    </div>
+                    {section.lessons.map((video, lessonIndex) => {
+                      const isActive = String(video.id) === String(activeVideo?.id)
+                      const isWatched = watchedIds.has(String(video.id))
 
-                  return (
-                    <button
-                      key={video.id}
-                      className={isActive ? 'course-lesson-item active' : 'course-lesson-item'}
-                      onClick={() => setActiveVideoId(video.id)}
-                    >
-                      <span className="lesson-status">
-                        {isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
-                      </span>
-                      <span className="lesson-copy">
-                        <strong>{index + 1}. {video.title}</strong>
-                        <small><Clock3 size={14} /> {video.duration}</small>
-                      </span>
-                    </button>
-                  )
-                })}
+                      return (
+                        <button
+                          key={video.id}
+                          className={isActive ? 'course-lesson-item active' : 'course-lesson-item'}
+                          onClick={() => setActiveVideoId(video.id)}
+                        >
+                          <span className="lesson-status">
+                            {isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
+                          </span>
+                          <span className="lesson-copy">
+                            <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
+                            <small><Clock3 size={14} /> {video.duration}</small>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </section>
+                ))}
               </div>
             </aside>
           </section>
@@ -795,12 +892,20 @@ function CoursePage({ user, profile, handleLogout }) {
                 {t('whatsappPurchaseHint')}
               </p>
               <h3>{t('lessonListTitle')}</h3>
-              {lessons.length === 0 ? <p className="muted">{t('lessonsSoon')}</p> : lessons.map((video, index) => (
-                <div key={video.id} className="locked-lesson">
-                  <span>{index + 1}</span>
-                  {video.title}
-                  <small>{previewLessons.some((lesson) => String(lesson.id) === String(video.id)) ? t('coursePreview') : t('locked')}</small>
-                </div>
+              {lessons.length === 0 ? <p className="muted">{t('lessonsSoon')}</p> : curriculumSections.map((section, sectionIndex) => (
+                <section className="locked-curriculum-section" key={section.id}>
+                  <div className="curriculum-section-heading">
+                    <strong>{section.displayTitle}</strong>
+                    <small>{section.lessons.length} {t('courseLessons')}{section.duration ? ` | ${section.duration}` : ''}</small>
+                  </div>
+                  {section.lessons.map((video, lessonIndex) => (
+                    <div key={video.id} className="locked-lesson">
+                      <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
+                      {video.title}
+                      <small>{previewLessons.some((lesson) => String(lesson.id) === String(video.id)) ? t('coursePreview') : t('locked')}</small>
+                    </div>
+                  ))}
+                </section>
               ))}
             </div>
             <aside className="panel-card sticky-panel">
