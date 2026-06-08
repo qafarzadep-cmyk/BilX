@@ -44,6 +44,16 @@ export default async function handler(req, res) {
     return
   }
 
+  const requester = createClient(config.url, config.serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+  const { data: adminCheck, error: adminCheckError } = await requester.rpc('is_admin')
+  if (adminCheckError) {
+    res.status(500).json({ error: 'Admin authorization could not be checked.' })
+    return
+  }
+
   const { data: course, error: courseError } = await admin
     .from('Courses')
     .select('id, instructor_id, is_published, status')
@@ -58,8 +68,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
-  const requesterIsAdmin = adminEmail && user.email?.toLowerCase() === adminEmail
+  const requesterIsAdmin = adminCheck === true
   const requesterOwnsDraft = (
     course.instructor_id === user.id
     && course.is_published !== true
