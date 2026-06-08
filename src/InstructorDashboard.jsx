@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, PlayCircle, Trash2 } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
@@ -523,6 +523,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 <>
                   <h2>{visibleSelectedCourse.title}</h2>
                   {getCourseAuthorName(visibleSelectedCourse) && <p className="muted">{t('instructorLabel')}: {getCourseAuthorName(visibleSelectedCourse)}</p>}
+                  <button
+                    className="outline-button full"
+                    type="button"
+                    onClick={() => navigate(`/course/${visibleSelectedCourse.id}`, { state: { course: visibleSelectedCourse } })}
+                  >
+                    <PlayCircle size={16} /> {t('previewCourse')}
+                  </button>
 
                   {selectedCourseApproved ? (
                     <>
@@ -539,9 +546,20 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 {video.duration || t('durationMissing')}
                                 {video.is_free ? ` · ${t('previewShort')}` : ''}
                               </small>
-                            </div>
-                          </div>
-                        ))}
+                             </div>
+                             <button
+                               className="icon-link-button"
+                               type="button"
+                               onClick={() => navigate(`/course/${visibleSelectedCourse.id}`, {
+                                 state: { course: visibleSelectedCourse, videoId: video.id },
+                               })}
+                               aria-label={t('playLesson')}
+                               title={t('playLesson')}
+                             >
+                               <PlayCircle size={16} />
+                             </button>
+                           </div>
+                         ))}
                       </div>
                     </>
                   ) : (
@@ -591,6 +609,17 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               </small>
                             </div>
                             <div className="lesson-row-actions">
+                              <button
+                                className="icon-link-button"
+                                type="button"
+                                onClick={() => navigate(`/course/${visibleSelectedCourse.id}`, {
+                                  state: { course: visibleSelectedCourse, videoId: video.id },
+                                })}
+                                aria-label={t('playLesson')}
+                                title={t('playLesson')}
+                              >
+                                <PlayCircle size={16} />
+                              </button>
                               <button
                                 className="icon-link-button"
                                 type="button"

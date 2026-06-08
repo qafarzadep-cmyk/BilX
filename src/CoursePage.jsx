@@ -206,7 +206,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (mounted) {
         setVideos(sortedVideos)
         setLessonPreviews(previewData || [])
-        setActiveVideoId(sortedVideos[0]?.id || null)
+        setActiveVideoId(location.state?.videoId || sortedVideos[0]?.id || null)
       }
 
       if (!user) {
@@ -215,6 +215,15 @@ function CoursePage({ user, profile, handleLogout }) {
       }
 
       if (adminPreview) {
+        if (mounted) {
+          setHasAccess(true)
+          setProgress([])
+          setLoading(false)
+        }
+        return
+      }
+
+      if (currentCourse?.instructor_id === user.id) {
         if (mounted) {
           setHasAccess(true)
           setProgress([])
@@ -252,7 +261,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [adminPreview, courseId, navigate, user])
+  }, [adminPreview, courseId, location.state?.videoId, navigate, user])
 
   useEffect(() => {
     let mounted = true

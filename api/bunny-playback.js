@@ -8,11 +8,11 @@ import { createClient } from '@supabase/supabase-js'
 // the library, the embed cannot be viewed without a URL signed here, so a shared
 // link is useless once it expires.
 
-function getAdminClient() {
+function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false } })
+  return { url, key }
 }
 
 function signEmbedUrl({ libraryId, videoId, tokenKey, expires }) {
@@ -61,11 +61,14 @@ export default async function handler(req, res) {
     return
   }
 
-  const admin = getAdminClient()
-  if (!admin) {
+  const supabaseConfig = getSupabaseConfig()
+  if (!supabaseConfig) {
     res.status(500).json({ error: 'Supabase service role is not configured.' })
     return
   }
+  const admin = createClient(supabaseConfig.url, supabaseConfig.key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
 
   const rowId = req.body?.videoId
   if (!rowId) {
@@ -105,7 +108,10 @@ export default async function handler(req, res) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
   let user = null
   if (token) {
-    const { data } = await admin.auth.getUser(token)
+    const authClient = createClient(supabaseConfig.url, supabaseConfig.key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+    const { data } = await authClient.auth.getUser(token)
     user = data?.user || null
   }
 
