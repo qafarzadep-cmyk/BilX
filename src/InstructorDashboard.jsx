@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, FolderPlus, PlayCircle, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Eye, EyeOff, FolderPlus, PlayCircle, Trash2 } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
@@ -444,6 +444,21 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     await loadData(user)
   }
 
+  const moveLesson = async (videoId, direction) => {
+    const { error } = await supabase.rpc('reorder_my_lesson', {
+      p_video_id: videoId,
+      p_direction: direction,
+    })
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+
+    showMessage(t('lessonOrderUpdated'), 'success')
+    await loadData(user)
+  }
+
   const deleteCourse = async () => {
     if (!visibleSelectedCourse || selectedCourseApproved) return
     if (!window.confirm(t('instructorConfirmDeleteCourse'))) return
@@ -810,6 +825,26 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       </small>
                                     </div>
                                     <div className="lesson-row-actions">
+                                      <button
+                                        className="icon-link-button"
+                                        type="button"
+                                        onClick={() => moveLesson(video.id, -1)}
+                                        disabled={lessonIndex === 0}
+                                        aria-label={t('moveLessonUp')}
+                                        title={t('moveLessonUp')}
+                                      >
+                                        <ArrowUp size={16} />
+                                      </button>
+                                      <button
+                                        className="icon-link-button"
+                                        type="button"
+                                        onClick={() => moveLesson(video.id, 1)}
+                                        disabled={lessonIndex === sectionVideos.length - 1}
+                                        aria-label={t('moveLessonDown')}
+                                        title={t('moveLessonDown')}
+                                      >
+                                        <ArrowDown size={16} />
+                                      </button>
                                       <button
                                         className="icon-link-button"
                                         type="button"
