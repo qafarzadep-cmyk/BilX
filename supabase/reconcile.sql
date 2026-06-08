@@ -631,11 +631,8 @@ create policy "courses_admin_update_all"
 create policy "videos_read_for_owner_or_enrolled"
   on public.videos for select
   using (
-    -- Preview lessons are readable by everyone (incl. logged-out visitors) for
-    -- publicly listed courses. "Preview" = any lesson with is_free = true. The
-    -- backfill below marks each course's first lesson free, so every published
-    -- course has a playable preview. (We must NOT sub-query public.videos here —
-    -- a policy on videos that reads videos recurses infinitely.)
+    -- Only lessons explicitly marked is_free by the instructor are public.
+    -- The dedicated course trailer lives separately in course_trailers.
     (
       videos.is_free = true
       and exists (select 1 from public."Courses" c where c.id = videos.course_id and c.is_published = true)
@@ -878,22 +875,6 @@ from (
   where order_index is null or order_index = 0
 ) ranked
 where v.id = ranked.id;
-
--- Mark each course's first lesson (by order_index, then id) as a free preview,
--- but only for courses that don't already have a free lesson — so an instructor's
--- explicit choice is preserved and every course still has a playable preview.
-update public.videos v
-set is_free = true
-from (
-  select distinct on (course_id) id
-  from public.videos
-  order by course_id, coalesce(order_index, 2147483647), id
-) firsts
-where v.id = firsts.id
-  and not exists (
-    select 1 from public.videos other
-    where other.course_id = v.course_id and other.is_free = true
-  );
 
 -- ---------------------------------------------------------------------------
 -- 10. Normalize enrollments to email-keyed (issue #11). The admin grants access

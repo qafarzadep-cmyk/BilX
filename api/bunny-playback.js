@@ -85,8 +85,28 @@ export default async function handler(req, res) {
   }
 
   const rowId = req.body?.videoId
-  if (!rowId) {
-    res.status(400).json({ error: 'Missing videoId' })
+  const trailerCourseId = req.body?.trailerCourseId
+  if (!rowId && !trailerCourseId) {
+    res.status(400).json({ error: 'Missing videoId or trailerCourseId' })
+    return
+  }
+
+  if (trailerCourseId) {
+    const { data: trailer, error: trailerError } = await client
+      .from('course_trailers')
+      .select('course_id, bunny_video_id')
+      .eq('course_id', trailerCourseId)
+      .maybeSingle()
+
+    if (trailerError || !trailer?.bunny_video_id) {
+      res.status(404).json({ error: 'Course preview not found' })
+      return
+    }
+
+    const expires = Math.floor(Date.now() / 1000) + 3 * 60 * 60
+    res.status(200).json({
+      url: signEmbedUrl({ libraryId, videoId: trailer.bunny_video_id, tokenKey, expires }),
+    })
     return
   }
 

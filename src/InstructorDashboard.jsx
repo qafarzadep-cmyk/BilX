@@ -29,6 +29,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [courses, setCourses] = useState([])
   const [videos, setVideos] = useState([])
   const [sections, setSections] = useState([])
+  const [trailers, setTrailers] = useState([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [form, setForm] = useState({ title: '', description: '', price: '' })
   const [thumbnailFile, setThumbnailFile] = useState(null)
@@ -36,6 +37,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [lessonDuration, setLessonDuration] = useState('')
   const [lessonIsFree, setLessonIsFree] = useState(false)
   const [lessonFile, setLessonFile] = useState(null)
+  const [trailerFile, setTrailerFile] = useState(null)
+  const [trailerTitle, setTrailerTitle] = useState('')
   const [selectedSectionId, setSelectedSectionId] = useState('')
   const [sectionTitle, setSectionTitle] = useState('')
   const [uploadPercent, setUploadPercent] = useState(0)
@@ -50,6 +53,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     [courses, selectedCourseId]
   )
   const courseVideos = videos.filter((video) => String(video.course_id) === String(selectedCourseId))
+  const selectedTrailer = trailers.find((trailer) => String(trailer.course_id) === String(selectedCourseId))
 
   const showMessage = (text, type = 'notice') => {
     setMessage(text)
@@ -96,6 +100,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     if (ids.length === 0) {
       setVideos([])
       setSections([])
+      setTrailers([])
       setInstructorTab('new')
       return
     }
@@ -103,9 +108,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const [
       { data: videoData, error: videoError },
       { data: sectionData, error: sectionError },
+      { data: trailerData, error: trailerError },
     ] = await Promise.all([
       supabase.from('videos').select('*').in('course_id', ids).order('order_index', { ascending: true }),
       supabase.from('course_sections').select('*').in('course_id', ids).order('order_index', { ascending: true }),
+      supabase.from('course_trailers').select('*').in('course_id', ids),
     ])
 
     if (videoError) {
@@ -115,6 +122,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     setVideos(videoData || [])
     setSections(sectionError ? [] : sectionData || [])
+    setTrailers(trailerError ? [] : trailerData || [])
   }
 
   useEffect(() => {
@@ -257,6 +265,68 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     upload.start()
   })
 
+  const createBunnyVideo = async (title) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.access_token
+    if (!accessToken) throw new Error(t('sessionExpired'))
+
+    const createRes = await fetch('/api/bunny-create-video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ title }),
+    })
+    const raw = await createRes.text()
+    let presign
+    try {
+      presign = raw ? JSON.parse(raw) : {}
+    } catch {
+      presign = {}
+    }
+    if (!createRes.ok || !presign.videoId) {
+      throw new Error(presign.error || t('videoServiceUnavailable'))
+    }
+    return presign
+  }
+
+  const uploadTrailer = async () => {
+    if (!selectedCourseId) {
+      showMessage(t('selectOrCreateCourse'), 'error')
+      return
+    }
+    if (!trailerFile) {
+      showMessage(t('selectVideoFile'), 'error')
+      return
+    }
+
+    setLoading(true)
+    setUploadPercent(0)
+    showMessage(t('uploadingVideo'))
+
+    try {
+      const title = trailerTitle.trim() || t('courseTrailer')
+      const presign = await createBunnyVideo(title)
+      await uploadToBunny(trailerFile, presign)
+
+      const { error } = await supabase.from('course_trailers').upsert({
+        course_id: Number(selectedCourseId),
+        bunny_video_id: presign.videoId,
+        title,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'course_id' })
+      if (error) throw error
+
+      setTrailerFile(null)
+      setTrailerTitle('')
+      showMessage(t('trailerUploaded'), 'success')
+      await loadData(user)
+    } catch (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+    } finally {
+      setLoading(false)
+      setUploadPercent(0)
+    }
+  }
+
   const addLesson = async () => {
     if (!selectedCourseId) {
       showMessage(t('selectOrCreateCourse'), 'error')
@@ -287,34 +357,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     showMessage(t('uploadingVideo'))
 
     try {
-      // 1. Authenticate the request with the current session's token.
-      const { data: { session } } = await supabase.auth.getSession()
-      const accessToken = session?.access_token
-      if (!accessToken) throw new Error(t('sessionExpired'))
+      // 1. Create the Bunny video and get a presigned upload.
+      const presign = await createBunnyVideo(lessonTitle.trim())
 
-      // 2. Create the Bunny video and get a presigned upload.
-      const createRes = await fetch('/api/bunny-create-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ title: lessonTitle.trim() }),
-      })
-      // Parse defensively: if the serverless function isn't running (e.g. plain
-      // `vite dev`, which doesn't serve api/*), the body is empty/HTML, not JSON.
-      const raw = await createRes.text()
-      let presign = {}
-      try {
-        presign = raw ? JSON.parse(raw) : {}
-      } catch {
-        presign = {}
-      }
-      if (!createRes.ok || !presign.videoId) {
-        throw new Error(presign.error || t('videoServiceUnavailable'))
-      }
-
-      // 3. Upload the file directly to Bunny (with a live progress bar).
+      // 2. Upload the file directly to Bunny (with a live progress bar).
       await uploadToBunny(lessonFile, presign)
 
-      // 4. Save the lesson, referencing the Bunny video.
+      // 3. Save the lesson, referencing the Bunny video.
       const lessonPayload = {
         course_id: Number(selectedCourseId),
         title: lessonTitle.trim(),
@@ -322,9 +371,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         video_source: 'bunny',
         section_id: Number(targetSectionId),
         order_index: courseVideos.length + 1,
-        // The first lesson of a course is always a free preview (workflow 1.1);
-        // for the rest, honour the instructor's checkbox.
-        is_free: courseVideos.length === 0 ? true : lessonIsFree,
+        is_free: lessonIsFree,
       }
 
       if (lessonDuration.trim()) {
@@ -439,6 +486,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const submitCourse = async () => {
     if (!selectedCourseId || courseVideos.length === 0) {
       showMessage(t('submitNeedsLesson'), 'error')
+      return
+    }
+    if (!selectedTrailer) {
+      showMessage(t('submitNeedsTrailer'), 'error')
       return
     }
 
@@ -656,6 +707,28 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <button className="danger-button full" type="button" onClick={deleteCourse}>
                         <Trash2 size={16} /> {t('deleteUnapprovedCourse')}
                       </button>
+                      <div className="section-manager trailer-manager">
+                        <h3>{t('courseTrailer')}</h3>
+                        <p className="muted">
+                          {selectedTrailer ? t('trailerReady') : t('trailerHelp')}
+                        </p>
+                        <label>{t('trailerTitle')}</label>
+                        <input
+                          value={trailerTitle}
+                          onChange={(event) => setTrailerTitle(event.target.value)}
+                          placeholder={t('trailerTitlePlaceholder')}
+                        />
+                        <label>{t('trailerVideo')}</label>
+                        <input
+                          type="file"
+                          accept="video/*"
+                          disabled={loading}
+                          onChange={(event) => setTrailerFile(event.target.files[0] || null)}
+                        />
+                        <button className="outline-button full" type="button" disabled={loading} onClick={uploadTrailer}>
+                          <PlayCircle size={16} /> {selectedTrailer ? t('replaceTrailer') : t('uploadTrailer')}
+                        </button>
+                      </div>
                       <div className="section-manager">
                         <h3>{t('courseSections')}</h3>
                         <div className="section-create-row">
@@ -712,7 +785,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <button className="primary-button full" onClick={addLesson} disabled={loading}>
                         {loading ? (uploadPercent > 0 ? `${uploadPercent}%` : t('loading')) : t('addLesson')}
                       </button>
-                      <button className="dark-button full" onClick={submitCourse} disabled={visibleCourseVideos.length === 0}>{t('submitCourse')}</button>
+                      <button className="dark-button full" onClick={submitCourse} disabled={visibleCourseVideos.length === 0 || !selectedTrailer}>{t('submitCourse')}</button>
 
                       <div className="section-editor-list">
                         {effectiveSections.map((section, sectionIndex) => {

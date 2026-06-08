@@ -63,7 +63,7 @@ grant select on public.profiles to anon, authenticated;
 
 -- Public catalog behavior:
 -- - Visitors can see approved/published course rows.
--- - Visitors can see only the first lesson video for a published course as a preview.
+-- - Visitors can see only lessons explicitly marked as free previews.
 -- - Enrolled students, course owners, and the admin keep their broader access
 --   through the existing videos_read_for_owner_or_enrolled policy.
 

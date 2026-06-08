@@ -107,6 +107,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
   const [sections, setSections] = useState([])
+  const [trailer, setTrailer] = useState(null)
+  const [activePreviewId, setActivePreviewId] = useState('trailer')
   const [progress, setProgress] = useState([])
   const [hasAccess, setHasAccess] = useState(false)
   const [isEnrolled, setIsEnrolled] = useState(false)
@@ -169,12 +171,21 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [lessonPreviews, videos, playableById, t])
 
   const activeVideo = lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
-  // Anything the viewer can play without enrolling is a preview — that's the
-  // free-marked lessons plus the course's first lesson (see videos RLS).
+  // Public lesson previews are explicitly selected by the instructor.
   const previewLessons = !hasAccess && lessons.length > 0
     ? lessons.filter((lesson) => !lesson.locked)
     : []
-  const previewLesson = previewLessons[0] || null
+  const trailerVideo = trailer ? {
+    id: `trailer-${trailer.course_id}`,
+    title: trailer.title || t('courseTrailer'),
+    bunny_video_id: trailer.bunny_video_id,
+    is_trailer: true,
+  } : null
+  const publicPreviewVideo = (
+    activePreviewId === 'trailer'
+      ? trailerVideo
+      : previewLessons.find((lesson) => String(lesson.id) === String(activePreviewId))
+  ) || trailerVideo || previewLessons[0] || null
   const activeLessonIndex = lessons.findIndex((video) => String(video.id) === String(activeVideo?.id))
   const watchedIds = useMemo(
     () => new Set(progress.filter((item) => item.watched).map((item) => String(item.video_id))),
@@ -244,10 +255,16 @@ function CoursePage({ user, profile, handleLogout }) {
         setCourse(currentCourse)
       }
 
-      const [{ data: videoData }, { data: previewData }, { data: sectionData }] = await Promise.all([
+      const [
+        { data: videoData },
+        { data: previewData },
+        { data: sectionData },
+        { data: trailerData },
+      ] = await Promise.all([
         supabase.from('videos').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('lesson_previews').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('course_sections').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
+        supabase.from('course_trailers').select('*').eq('course_id', courseId).maybeSingle(),
       ])
 
       const sortedVideos = videoData || []
@@ -255,6 +272,8 @@ function CoursePage({ user, profile, handleLogout }) {
         setVideos(sortedVideos)
         setLessonPreviews(previewData || [])
         setSections(sectionData || [])
+        setTrailer(trailerData || null)
+        setActivePreviewId(trailerData ? 'trailer' : '')
         setActiveVideoId(location.state?.videoId || sortedVideos[0]?.id || null)
       }
 
@@ -476,7 +495,7 @@ function CoursePage({ user, profile, handleLogout }) {
   // Bunny lessons play through a token-authenticated embed URL that must be
   // minted server-side (after an access check). Resolve it for whichever lesson
   // is on screen: the active lesson when enrolled, the preview otherwise.
-  const playerVideo = hasAccess ? activeVideo : previewLesson
+  const playerVideo = hasAccess ? activeVideo : publicPreviewVideo
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
   useEffect(() => {
@@ -500,7 +519,11 @@ function CoursePage({ user, profile, handleLogout }) {
         const res = await fetch('/api/bunny-playback', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ videoId: playerVideoId }),
+          body: JSON.stringify(
+            playerVideo?.is_trailer
+              ? { trailerCourseId: courseId }
+              : { videoId: playerVideoId }
+          ),
         })
         // Parse defensively — an empty/HTML body (e.g. functions not running)
         // would otherwise throw and leave the player stuck on "loading".
@@ -521,7 +544,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [playerVideoId, playerBunnyId])
+  }, [courseId, playerVideo?.is_trailer, playerVideoId, playerBunnyId])
 
   // Auto-advance Bunny lessons. Bunny's embed speaks the Player.js protocol over
   // postMessage; we subscribe to its "ended" event and roll to the next lesson —
@@ -849,41 +872,66 @@ function CoursePage({ user, profile, handleLogout }) {
         ) : (
           <section className="purchase-grid">
             <div className="panel-card">
-              {previewLesson && (
+              {publicPreviewVideo && (
                 <div className="preview-player-block">
-                  <p className="player-eyebrow">{t('coursePreview')}</p>
+                  <p className="player-eyebrow">
+                    {publicPreviewVideo.is_trailer ? t('courseTrailer') : t('freeLessonPreview')}
+                  </p>
                   <div className="youtube-player-shell">
-                    {previewLesson.bunny_video_id ? (
-                      signedUrl && signedFor === String(previewLesson.id) ? (
+                    {publicPreviewVideo.bunny_video_id ? (
+                      signedUrl && signedFor === String(publicPreviewVideo.id) ? (
                         <iframe
                           className="youtube-player"
                           src={signedUrl}
-                          title={previewLesson.title}
+                          title={publicPreviewVideo.title}
                           allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                           allowFullScreen
                         />
                       ) : (
                         <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
                       )
-                    ) : previewLesson.video_url && isYouTubeUrl(previewLesson.video_url) ? (
+                    ) : publicPreviewVideo.video_url && isYouTubeUrl(publicPreviewVideo.video_url) ? (
                       <iframe
                         className="youtube-player"
-                        src={getEmbedSrc(previewLesson.video_url)}
-                        title={previewLesson.title}
+                        src={getEmbedSrc(publicPreviewVideo.video_url)}
+                        title={publicPreviewVideo.title}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
                       />
-                    ) : previewLesson.video_url ? (
-                      <video controls src={previewLesson.video_url} className="youtube-player">
+                    ) : publicPreviewVideo.video_url ? (
+                      <video controls src={publicPreviewVideo.video_url} className="youtube-player">
                         {t('videoNotSupported')}
                       </video>
                     ) : null}
                   </div>
-                  <h2>{previewLesson.title}</h2>
-                  {previewLesson.source_url && isYouTubeUrl(previewLesson.video_url) && (
-                    <a className="outline-button" href={previewLesson.source_url} target="_blank" rel="noreferrer">
+                  <h2>{publicPreviewVideo.title}</h2>
+                  {publicPreviewVideo.source_url && isYouTubeUrl(publicPreviewVideo.video_url) && (
+                    <a className="outline-button" href={publicPreviewVideo.source_url} target="_blank" rel="noreferrer">
                       <ExternalLink size={16} /> {t('watchOnYoutube')}
                     </a>
+                  )}
+                  {(trailerVideo || previewLessons.length > 0) && (
+                    <div className="public-preview-picker">
+                      {trailerVideo && (
+                        <button
+                          type="button"
+                          className={activePreviewId === 'trailer' ? 'active' : ''}
+                          onClick={() => setActivePreviewId('trailer')}
+                        >
+                          <PlayCircle size={17} /> {t('courseTrailer')}
+                        </button>
+                      )}
+                      {previewLessons.map((lesson) => (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          className={String(activePreviewId) === String(lesson.id) ? 'active' : ''}
+                          onClick={() => setActivePreviewId(lesson.id)}
+                        >
+                          <PlayCircle size={17} /> {lesson.title}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
