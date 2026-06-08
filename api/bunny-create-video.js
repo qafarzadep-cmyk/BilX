@@ -8,39 +8,62 @@ import { createClient } from '@supabase/supabase-js'
 
 const BUNNY_API_BASE = 'https://video.bunnycdn.com'
 
-function getAdminClient() {
+function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false } })
+  return { url, key }
 }
 
 // Only an approved instructor (or the admin) may create Bunny videos — otherwise
 // anyone with a login could spawn uploads and run up the bill.
-async function resolveInstructor(admin, token) {
-  const { data, error } = await admin.auth.getUser(token)
-  if (error || !data?.user) return null
+async function resolveInstructor(config, token) {
+  const authClient = createClient(config.url, config.key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const { data, error: authError } = await authClient.auth.getUser(token)
+  if (authError || !data?.user) {
+    return { user: null, reason: 'auth', error: authError }
+  }
+
   const user = data.user
 
   const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase()
-  if (adminEmail && user.email?.toLowerCase() === adminEmail) return user
+  if (adminEmail && user.email?.toLowerCase() === adminEmail) {
+    return { user, reason: 'admin' }
+  }
 
-  const { data: profile } = await admin
+  // Use the verified user's JWT for authorization checks. This keeps the role
+  // lookup aligned with the same RLS rules that power the instructor dashboard.
+  const userClient = createClient(config.url, config.key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+
+  const { data: profile, error: profileError } = await userClient
     .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .maybeSingle()
-  if (profile?.role === 'instructor') return user
+  if (profile?.role === 'instructor') {
+    return { user, reason: 'profile' }
+  }
 
-  const { data: application } = await admin
+  const { data: application, error: applicationError } = await userClient
     .from('teacher_applications')
     .select('id')
     .eq('user_id', user.id)
     .eq('status', 'approved')
     .limit(1)
-  if ((application || []).length > 0) return user
+  if ((application || []).length > 0) {
+    return { user, reason: 'application' }
+  }
 
-  return null
+  return {
+    user: null,
+    reason: 'role',
+    error: profileError || applicationError || null,
+  }
 }
 
 export default async function handler(req, res) {
@@ -56,8 +79,8 @@ export default async function handler(req, res) {
     return
   }
 
-  const admin = getAdminClient()
-  if (!admin) {
+  const supabaseConfig = getSupabaseConfig()
+  if (!supabaseConfig) {
     res.status(500).json({ error: 'Supabase service role is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).' })
     return
   }
@@ -69,9 +92,18 @@ export default async function handler(req, res) {
     return
   }
 
-  const user = await resolveInstructor(admin, token)
-  if (!user) {
-    res.status(403).json({ error: 'Forbidden' })
+  const instructor = await resolveInstructor(supabaseConfig, token)
+  if (!instructor.user) {
+    console.error('Bunny upload authorization failed', {
+      reason: instructor.reason,
+      code: instructor.error?.code,
+      status: instructor.error?.status,
+      message: instructor.error?.message,
+    })
+    const error = instructor.reason === 'auth'
+      ? 'Your login session could not be verified. Please sign out and sign in again.'
+      : 'Your instructor approval could not be verified.'
+    res.status(403).json({ error })
     return
   }
 
