@@ -375,10 +375,16 @@ function App() {
     }
 
     window.addEventListener('focus', refreshProfile)
+    const handleProfileUpdated = (event) => {
+      if (!mounted || !event.detail) return
+      setProfile((current) => ({ ...current, ...event.detail }))
+    }
+    window.addEventListener('bilx-profile-updated', handleProfileUpdated)
 
     return () => {
       mounted = false
       window.removeEventListener('focus', refreshProfile)
+      window.removeEventListener('bilx-profile-updated', handleProfileUpdated)
       listener.subscription.unsubscribe()
     }
   }, [loggingOut, navigate])

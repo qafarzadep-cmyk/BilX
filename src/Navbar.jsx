@@ -1,4 +1,4 @@
-import { Bell, BookOpen, LogOut, Search, Shield, User, Video } from 'lucide-react'
+import { Bell, BookOpen, LogOut, Pencil, Search, Shield, User, Video } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
@@ -15,6 +15,10 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const [applicationMessage, setApplicationMessage] = useState('')
   const [applicationMessageType, setApplicationMessageType] = useState('error')
   const [applicationLoading, setApplicationLoading] = useState(false)
+  const [nameEditorOpen, setNameEditorOpen] = useState(false)
+  const [displayName, setDisplayName] = useState('')
+  const [nameMessage, setNameMessage] = useState('')
+  const [nameLoading, setNameLoading] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -87,6 +91,45 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     setApplicationMessage('')
     setApplicationMessageType('error')
     setApplicationOpen(true)
+  }
+
+  const openNameEditor = () => {
+    setOpen(false)
+    setDisplayName(profile?.full_name || user?.user_metadata?.full_name || '')
+    setNameMessage('')
+    setNameEditorOpen(true)
+  }
+
+  const submitDisplayName = async (event) => {
+    event.preventDefault()
+    if (!user) return
+
+    const cleanName = displayName.trim().replace(/\s+/g, ' ')
+    if (cleanName.length < 2 || cleanName.length > 100) {
+      setNameMessage(t('nameLengthError'))
+      return
+    }
+
+    setNameLoading(true)
+    setNameMessage('')
+
+    const { data, error } = await supabase.rpc('update_my_display_name', {
+      p_full_name: cleanName,
+    })
+
+    if (error) {
+      setNameMessage(`${t('errorOccurred')}${error.message}`)
+      setNameLoading(false)
+      return
+    }
+
+    const updatedProfile = Array.isArray(data) ? data[0] : data
+    await supabase.auth.updateUser({ data: { full_name: cleanName } })
+    window.dispatchEvent(new CustomEvent('bilx-profile-updated', {
+      detail: updatedProfile || { ...profile, user_id: user.id, full_name: cleanName },
+    }))
+    setNameLoading(false)
+    setNameEditorOpen(false)
   }
 
   const submitTeacherApplication = async (event) => {
@@ -278,6 +321,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                       <button type="button" onClick={() => go('/inbox')}><BookOpen size={16} /> {t('inbox')}</button>
                     </>
                   )}
+                  <button type="button" onClick={openNameEditor}><Pencil size={16} /> {t('changeName')}</button>
                   <button type="button" className="danger-menu-item" onClick={handleLogoutClick}><LogOut size={16} /> {t('logout')}</button>
                 </div>
               )}
@@ -310,6 +354,31 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
               <label>{t('applicationPhone')}</label>
               <input type="tel" value={applicationForm.phone} onChange={(event) => setApplicationForm({ ...applicationForm, phone: event.target.value })} required />
               <button className="approve-button full" disabled={applicationLoading}>{applicationLoading ? t('applicationSubmitting') : t('applicationSubmit')}</button>
+            </form>
+          </div>
+        </div>
+      )}
+      {nameEditorOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setNameEditorOpen(false)}>
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="display-name-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2 id="display-name-title">{t('changeName')}</h2>
+              <button type="button" className="modal-close-button" onClick={() => setNameEditorOpen(false)}>x</button>
+            </div>
+            <form className="form-panel" onSubmit={submitDisplayName}>
+              {nameMessage && <div className="error-box">{nameMessage}</div>}
+              <label htmlFor="display-name-input">{t('displayName')}</label>
+              <input
+                id="display-name-input"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                maxLength={100}
+                autoComplete="name"
+                required
+              />
+              <button className="primary-button full" disabled={nameLoading}>
+                {nameLoading ? t('saving') : t('saveName')}
+              </button>
             </form>
           </div>
         </div>
