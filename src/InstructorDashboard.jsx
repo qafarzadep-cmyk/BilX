@@ -397,6 +397,30 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     await loadData(user)
   }
 
+  const deleteCourse = async () => {
+    if (!visibleSelectedCourse || selectedCourseApproved) return
+    if (!window.confirm(t('instructorConfirmDeleteCourse'))) return
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const response = await fetch('/api/delete-course', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token || ''}`,
+      },
+      body: JSON.stringify({ courseId: visibleSelectedCourse.id }),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      showMessage(`${t('errorOccurred')}${result.error || t('courseDeleteFailed')}`, 'error')
+      return
+    }
+
+    setSelectedCourseId('')
+    showMessage(result.cleanupWarning ? t('courseDeletedCleanupWarning') : t('instructorCourseDeleted'), 'success')
+    await loadData(user)
+  }
+
   const toggleFreeLesson = async (videoId, nextValue) => {
     const { error } = await supabase
       .from('videos')
@@ -629,6 +653,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     </>
                   ) : (
                     <>
+                      <button className="danger-button full" type="button" onClick={deleteCourse}>
+                        <Trash2 size={16} /> {t('deleteUnapprovedCourse')}
+                      </button>
                       <div className="section-manager">
                         <h3>{t('courseSections')}</h3>
                         <div className="section-create-row">

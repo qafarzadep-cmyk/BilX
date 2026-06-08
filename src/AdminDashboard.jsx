@@ -148,12 +148,22 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
   const deleteCourse = async (courseId) => {
     if (!window.confirm(t('adminConfirmDeleteCourse'))) return
-    const { error } = await supabase
-      .from('Courses')
-      .delete()
-      .eq('id', courseId)
-    setMessage(error ? `${t('errorOccurred')}${error.message}` : t('adminCourseDeleted'))
-    if (!error) loadData()
+    const { data: { session } } = await supabase.auth.getSession()
+    const response = await fetch('/api/delete-course', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token || ''}`,
+      },
+      body: JSON.stringify({ courseId }),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setMessage(`${t('errorOccurred')}${result.error || t('courseDeleteFailed')}`)
+      return
+    }
+    setMessage(result.cleanupWarning ? t('courseDeletedCleanupWarning') : t('adminCourseDeleted'))
+    loadData()
   }
 
   const giveAccess = async () => {
