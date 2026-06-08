@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 
 function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const key = process.env.VITE_SUPABASE_ANON_KEY
   if (!url || !key) return null
   return { url, key }
 }
@@ -24,14 +24,14 @@ function signEmbedUrl({ libraryId, videoId, tokenKey, expires }) {
   return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?token=${token}&expires=${expires}&autoplay=true`
 }
 
-async function hasAccess(admin, user, video) {
+async function hasAccess(client, user, video) {
   if (!user) return false
 
   const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase()
   if (adminEmail && user.email?.toLowerCase() === adminEmail) return true
 
   // The course's own instructor can always preview their lessons.
-  const { data: course } = await admin
+  const { data: course } = await client
     .from('Courses')
     .select('instructor_id')
     .eq('id', video.course_id)
@@ -40,7 +40,7 @@ async function hasAccess(admin, user, video) {
 
   // Enrollment is keyed by the student's id OR email (see CoursePage/giveAccess).
   const keys = [user.id, user.email].filter(Boolean)
-  const { data: enrollments } = await admin
+  const { data: enrollments } = await client
     .from('enrollments')
     .select('status')
     .eq('course_id', video.course_id)
@@ -63,12 +63,26 @@ export default async function handler(req, res) {
 
   const supabaseConfig = getSupabaseConfig()
   if (!supabaseConfig) {
-    res.status(500).json({ error: 'Supabase service role is not configured.' })
+    res.status(500).json({ error: 'Supabase playback access is not configured.' })
     return
   }
-  const admin = createClient(supabaseConfig.url, supabaseConfig.key, {
+
+  const authHeader = req.headers.authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const client = createClient(supabaseConfig.url, supabaseConfig.key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
   })
+
+  let user = null
+  if (token) {
+    const { data, error: authError } = await client.auth.getUser(token)
+    if (authError) {
+      res.status(401).json({ error: 'Your login session could not be verified.' })
+      return
+    }
+    user = data?.user || null
+  }
 
   const rowId = req.body?.videoId
   if (!rowId) {
@@ -76,9 +90,9 @@ export default async function handler(req, res) {
     return
   }
 
-  // Look up the lesson with the service role (bypasses RLS) to learn its course,
-  // Bunny id, and whether it's a free preview.
-  const { data: video, error } = await admin
+  // RLS allows this row only for a free preview, the course owner/admin, or an
+  // enrolled student. The Bunny GUID never needs to be exposed publicly.
+  const { data: video, error } = await client
     .from('videos')
     .select('id, course_id, bunny_video_id, is_free')
     .eq('id', rowId)
@@ -103,19 +117,8 @@ export default async function handler(req, res) {
     return
   }
 
-  // Paid lessons require an authenticated, enrolled viewer.
-  const authHeader = req.headers.authorization || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  let user = null
-  if (token) {
-    const authClient = createClient(supabaseConfig.url, supabaseConfig.key, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-    const { data } = await authClient.auth.getUser(token)
-    user = data?.user || null
-  }
-
-  if (!(await hasAccess(admin, user, video))) {
+  // Paid lessons require an authenticated owner/admin or enrolled viewer.
+  if (!(await hasAccess(client, user, video))) {
     res.status(403).json({ error: 'No access to this lesson.' })
     return
   }
