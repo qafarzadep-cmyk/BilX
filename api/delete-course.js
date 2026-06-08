@@ -4,9 +4,9 @@ const BUNNY_API_BASE = 'https://video.bunnycdn.com'
 
 function getConfig() {
   const url = process.env.SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !serviceKey) return null
-  return { url, serviceKey }
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !anonKey) return null
+  return { url, anonKey }
 }
 
 export default async function handler(req, res) {
@@ -34,63 +34,28 @@ export default async function handler(req, res) {
     return
   }
 
-  const admin = createClient(config.url, config.serviceKey, {
+  const requester = createClient(config.url, config.anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   })
-  const { data: authData, error: authError } = await admin.auth.getUser(token)
+  const { data: authData, error: authError } = await requester.auth.getUser(token)
   const user = authData?.user
   if (authError || !user) {
     res.status(401).json({ error: 'Your login session could not be verified.' })
     return
   }
 
-  const requester = createClient(config.url, config.serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  })
-  const { data: adminCheck, error: adminCheckError } = await requester.rpc('is_admin')
-  if (adminCheckError) {
-    res.status(500).json({ error: 'Admin authorization could not be checked.' })
-    return
-  }
-
-  const { data: course, error: courseError } = await admin
-    .from('Courses')
-    .select('id, instructor_id, is_published, status')
-    .eq('id', courseId)
-    .maybeSingle()
-  if (courseError) {
-    res.status(500).json({ error: courseError.message })
-    return
-  }
-  if (!course) {
-    res.status(404).json({ error: 'Course not found.' })
-    return
-  }
-
-  const requesterIsAdmin = adminCheck === true
-  const requesterOwnsDraft = (
-    course.instructor_id === user.id
-    && course.is_published !== true
-    && course.status !== 'approved'
-  )
-  if (!requesterIsAdmin && !requesterOwnsDraft) {
-    res.status(403).json({ error: 'You cannot delete this course.' })
-    return
-  }
-
-  const { data: videos, error: videosError } = await admin
-    .from('videos')
-    .select('bunny_video_id')
-    .eq('course_id', courseId)
-  if (videosError) {
-    res.status(500).json({ error: videosError.message })
+  const { data: deletion, error: deletionError } = await requester
+    .rpc('delete_course_authorized', { p_course_id: courseId })
+  if (deletionError) {
+    const status = deletionError.message?.includes('cannot delete') ? 403 : 500
+    res.status(status).json({ error: deletionError.message })
     return
   }
 
   const bunnyApiKey = process.env.BUNNY_API_KEY
   const bunnyLibraryId = process.env.BUNNY_LIBRARY_ID
-  const bunnyVideoIds = (videos || []).map((video) => video.bunny_video_id).filter(Boolean)
+  const bunnyVideoIds = Array.isArray(deletion?.videoIds) ? deletion.videoIds.filter(Boolean) : []
   let cleanupFailures = []
 
   if (bunnyApiKey && bunnyLibraryId) {
@@ -108,22 +73,6 @@ export default async function handler(req, res) {
     cleanupFailures = cleanupResults.filter(Boolean)
   } else if (bunnyVideoIds.length > 0) {
     cleanupFailures = bunnyVideoIds
-  }
-
-  const { data: deleted, error: deleteError } = await admin
-    .from('Courses')
-    .delete()
-    .eq('id', courseId)
-    .select('id')
-    .maybeSingle()
-
-  if (deleteError) {
-    res.status(500).json({ error: deleteError.message })
-    return
-  }
-  if (!deleted) {
-    res.status(404).json({ error: 'Course was not deleted.' })
-    return
   }
 
   res.status(200).json({
