@@ -198,6 +198,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
 
     setLoading(true)
+    setUploadPercent(0)
     showMessage('')
 
     try {
@@ -302,6 +303,55 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     upload.start()
   })
 
+  const getVideoDuration = (file) => new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    const objectUrl = URL.createObjectURL(file)
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl)
+      video.removeAttribute('src')
+      video.load()
+    }
+
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      const duration = video.duration
+      cleanup()
+      if (!Number.isFinite(duration)) {
+        reject(new Error(t('videoDurationUnavailable')))
+        return
+      }
+      resolve(duration)
+    }
+    video.onerror = () => {
+      cleanup()
+      reject(new Error(t('videoDurationUnavailable')))
+    }
+    video.src = objectUrl
+  })
+
+  const selectTrailerFile = async (file, setter, input) => {
+    if (!file) {
+      setter(null)
+      return
+    }
+
+    try {
+      const duration = await getVideoDuration(file)
+      if (duration > 60.5) {
+        setter(null)
+        if (input) input.value = ''
+        showMessage(t('trailerTooLong'), 'error')
+        return
+      }
+      setter(file)
+      showMessage(t('trailerDurationAccepted'), 'success')
+    } catch (error) {
+      setter(null)
+      if (input) input.value = ''
+      showMessage(error.message, 'error')
+    }
+  }
+
   const createBunnyVideo = async (title) => {
     const { data: { session } } = await supabase.auth.getSession()
     const accessToken = session?.access_token
@@ -337,7 +387,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     setLoading(true)
     setUploadPercent(0)
-    showMessage(t('uploadingVideo'))
+    showMessage(t('preparingVideoUpload'))
 
     try {
       const title = trailerTitle.trim() || t('courseTrailer')
@@ -728,14 +778,26 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               placeholder={t('trailerTitlePlaceholder')}
             />
             <label>{t('trailerVideo')}</label>
-            <input type="file" accept="video/*" disabled={loading} onChange={(event) => setNewCourseTrailerFile(event.target.files[0] || null)} />
-            {loading && uploadPercent > 0 && (
+            <input
+              type="file"
+              accept="video/*"
+              disabled={loading}
+              onChange={(event) => selectTrailerFile(event.target.files[0] || null, setNewCourseTrailerFile, event.target)}
+            />
+            <p className="muted">{t('trailerMaxDuration')}</p>
+            {loading && newCourseTrailerFile && (
               <div className="upload-progress">
                 <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
-                <small>{t('uploadingVideo')} {uploadPercent}%</small>
+                <small>{uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} {uploadPercent}%</small>
               </div>
             )}
-            <button className="primary-button full" onClick={createCourse} disabled={loading}>{loading ? t('loading') : t('createCourse')}</button>
+            <button className="primary-button full" onClick={createCourse} disabled={loading}>
+              {loading && newCourseTrailerFile
+                ? `${uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} ${uploadPercent}%`
+                : loading
+                  ? t('loading')
+                  : t('createCourse')}
+            </button>
           </section>
         ) : (
           <section className="studio-grid">
@@ -859,10 +921,22 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           type="file"
                           accept="video/*"
                           disabled={loading}
-                          onChange={(event) => setTrailerFile(event.target.files[0] || null)}
+                          onChange={(event) => selectTrailerFile(event.target.files[0] || null, setTrailerFile, event.target)}
                         />
+                        <p className="muted">{t('trailerMaxDuration')}</p>
+                        {loading && trailerFile && (
+                          <div className="upload-progress">
+                            <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
+                            <small>{uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} {uploadPercent}%</small>
+                          </div>
+                        )}
                         <button className="outline-button full" type="button" disabled={loading} onClick={uploadTrailer}>
-                          <PlayCircle size={16} /> {selectedTrailer ? t('replaceTrailer') : t('uploadTrailer')}
+                          <PlayCircle size={16} />
+                          {loading && trailerFile
+                            ? `${uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} ${uploadPercent}%`
+                            : selectedTrailer
+                              ? t('replaceTrailer')
+                              : t('uploadTrailer')}
                         </button>
                       </div>
                       <div className="course-builder-heading">
