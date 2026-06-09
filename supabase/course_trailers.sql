@@ -11,6 +11,7 @@ create table if not exists public.course_trailers (
 
 grant select, insert, update, delete on public.course_trailers to authenticated;
 grant select on public.course_trailers to anon;
+grant select on public.course_trailers to service_role;
 
 alter table public.course_trailers enable row level security;
 
@@ -77,6 +78,66 @@ create policy "course_trailers_delete_owner"
         and c.status <> 'approved'
     )
   );
+
+-- Save a trailer only when the signed-in user owns the unapproved course.
+-- Using one database function avoids browser/RLS timing differences immediately
+-- after a new course is created.
+create or replace function public.save_my_course_trailer(
+  p_course_id bigint,
+  p_bunny_video_id text,
+  p_title text
+)
+returns public.course_trailers
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_course public."Courses"%rowtype;
+  saved_trailer public.course_trailers%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select * into target_course
+  from public."Courses"
+  where id = p_course_id;
+
+  if target_course.id is null then
+    raise exception 'Course not found';
+  end if;
+
+  if target_course.instructor_id <> auth.uid()
+    or target_course.is_published = true
+    or target_course.status = 'approved' then
+    raise exception 'You cannot change this course trailer';
+  end if;
+
+  insert into public.course_trailers (
+    course_id,
+    bunny_video_id,
+    title,
+    updated_at
+  )
+  values (
+    p_course_id,
+    p_bunny_video_id,
+    coalesce(nullif(trim(p_title), ''), 'Course preview'),
+    now()
+  )
+  on conflict (course_id) do update
+    set bunny_video_id = excluded.bunny_video_id,
+        title = excluded.title,
+        updated_at = now()
+  returning * into saved_trailer;
+
+  return saved_trailer;
+end;
+$$;
+
+revoke all on function public.save_my_course_trailer(bigint, text, text) from public;
+grant execute on function public.save_my_course_trailer(bigint, text, text) to authenticated;
 
 -- Include trailer Bunny ids in authorized course deletion cleanup.
 create or replace function public.delete_course_authorized(p_course_id bigint)

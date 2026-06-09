@@ -705,6 +705,11 @@ function CoursePage({ user, profile, handleLogout }) {
 
         {hasAccess ? (
           <>
+          {lessons.length === 0 ? (
+            <section className="panel-card empty-box">
+              {t('courseHasNoLessonsYet')}
+            </section>
+          ) : (
           <section className="course-player-layout">
             <div className="course-player-main">
               <div className="youtube-player-shell">
@@ -825,6 +830,7 @@ function CoursePage({ user, profile, handleLogout }) {
               </div>
             </aside>
           </section>
+          )}
           <section className="panel-card">
             <div className="section-heading">
               <h2>{t('courseRating')}</h2>

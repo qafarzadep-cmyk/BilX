@@ -245,21 +245,20 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         .select()
         .single()
 
-      let trailerUploadFailed = false
+      let trailerUploadError = ''
       if (newCourseTrailerFile) {
         try {
           const title = newCourseTrailerTitle.trim() || t('courseTrailer')
           const presign = await createBunnyVideo(title)
           await uploadToBunny(newCourseTrailerFile, presign)
-          const { error: trailerError } = await supabase.from('course_trailers').insert({
-            course_id: data.id,
-            bunny_video_id: presign.videoId,
+          await saveTrailerRecord({
+            courseId: data.id,
+            videoId: presign.videoId,
             title,
           })
-          if (trailerError) throw trailerError
         } catch (trailerError) {
           console.error('Course saved but trailer upload failed:', trailerError)
-          trailerUploadFailed = true
+          trailerUploadError = trailerError.message || t('videoServiceUnavailable')
         }
       }
 
@@ -270,7 +269,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setSelectedCourseId(String(data.id))
       setSelectedSectionId(firstSection ? String(firstSection.id) : '')
       setInstructorTab('pending')
-      showMessage(trailerUploadFailed ? t('courseSavedTrailerFailed') : t('courseCreatedAddLessons'), trailerUploadFailed ? 'error' : 'success')
+      showMessage(
+        trailerUploadError
+          ? t('courseSavedTrailerFailedDetail').replace('{error}', trailerUploadError)
+          : t('courseCreatedAddLessons'),
+        trailerUploadError ? 'error' : 'success'
+      )
       await loadData(user)
     } catch (error) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
@@ -375,6 +379,15 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     return presign
   }
 
+  const saveTrailerRecord = async ({ courseId, videoId, title }) => {
+    const { error } = await supabase.rpc('save_my_course_trailer', {
+      p_course_id: Number(courseId),
+      p_bunny_video_id: videoId,
+      p_title: title,
+    })
+    if (error) throw error
+  }
+
   const uploadTrailer = async () => {
     if (!selectedCourseId) {
       showMessage(t('selectOrCreateCourse'), 'error')
@@ -394,13 +407,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       const presign = await createBunnyVideo(title)
       await uploadToBunny(trailerFile, presign)
 
-      const { error } = await supabase.from('course_trailers').upsert({
-        course_id: Number(selectedCourseId),
-        bunny_video_id: presign.videoId,
+      await saveTrailerRecord({
+        courseId: selectedCourseId,
+        videoId: presign.videoId,
         title,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'course_id' })
-      if (error) throw error
+      })
 
       setTrailerFile(null)
       setTrailerTitle('')
