@@ -290,6 +290,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const upload = new tus.Upload(file, {
       endpoint: 'https://video.bunnycdn.com/tusupload',
       retryDelays: [0, 3000, 5000, 10000, 20000],
+      // A course author may reuse the same local file for another trailer or
+      // lesson. The default browser fingerprint would then try to resume an old
+      // Bunny upload URL with credentials for the new video and fail at 0%.
+      // Retries still work inside this upload instance.
+      storeFingerprintForResuming: false,
+      removeFingerprintOnSuccess: true,
+      uploadSize: file.size,
       headers: {
         AuthorizationSignature: presign.signature,
         AuthorizationExpire: String(presign.expire),
