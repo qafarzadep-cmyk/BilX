@@ -33,6 +33,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [form, setForm] = useState({ title: '', description: '', price: '' })
   const [thumbnailFile, setThumbnailFile] = useState(null)
+  const [newCourseTrailerTitle, setNewCourseTrailerTitle] = useState('')
+  const [newCourseTrailerFile, setNewCourseTrailerFile] = useState(null)
+  const [courseDetailsForm, setCourseDetailsForm] = useState({ title: '', description: '', price: '' })
+  const [courseThumbnailFile, setCourseThumbnailFile] = useState(null)
   const [lessonTitle, setLessonTitle] = useState('')
   const [lessonDuration, setLessonDuration] = useState('')
   const [lessonIsFree, setLessonIsFree] = useState(false)
@@ -54,6 +58,18 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   )
   const courseVideos = videos.filter((video) => String(video.course_id) === String(selectedCourseId))
   const selectedTrailer = trailers.find((trailer) => String(trailer.course_id) === String(selectedCourseId))
+
+  useEffect(() => {
+    if (!selectedCourse) return
+    // Keep the edit form aligned when the instructor selects another course.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCourseDetailsForm({
+      title: selectedCourse.title || '',
+      description: selectedCourse.description || '',
+      price: selectedCourse.price ?? '',
+    })
+    setCourseThumbnailFile(null)
+  }, [selectedCourse])
 
   const showMessage = (text, type = 'notice') => {
     setMessage(text)
@@ -158,6 +174,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     const ext = file.name.split('.').pop()
     const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9._-]/g, '-')
+    // eslint-disable-next-line react-hooks/purity
     const fileName = `${prefix}-${Date.now()}-${baseName}.${ext}`
     const { error } = await supabase.storage.from(bucket).upload(fileName, file, {
       cacheControl: '3600',
@@ -227,12 +244,32 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         .select()
         .single()
 
+      let trailerUploadFailed = false
+      if (newCourseTrailerFile) {
+        try {
+          const title = newCourseTrailerTitle.trim() || t('courseTrailer')
+          const presign = await createBunnyVideo(title)
+          await uploadToBunny(newCourseTrailerFile, presign)
+          const { error: trailerError } = await supabase.from('course_trailers').insert({
+            course_id: data.id,
+            bunny_video_id: presign.videoId,
+            title,
+          })
+          if (trailerError) throw trailerError
+        } catch (trailerError) {
+          console.error('Course saved but trailer upload failed:', trailerError)
+          trailerUploadFailed = true
+        }
+      }
+
       setForm({ title: '', description: '', price: '' })
       setThumbnailFile(null)
+      setNewCourseTrailerTitle('')
+      setNewCourseTrailerFile(null)
       setSelectedCourseId(String(data.id))
       setSelectedSectionId(firstSection ? String(firstSection.id) : '')
       setInstructorTab('pending')
-      showMessage(t('courseCreatedAddLessons'), 'success')
+      showMessage(trailerUploadFailed ? t('courseSavedTrailerFailed') : t('courseCreatedAddLessons'), trailerUploadFailed ? 'error' : 'success')
       await loadData(user)
     } catch (error) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
@@ -324,6 +361,40 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     } finally {
       setLoading(false)
       setUploadPercent(0)
+    }
+  }
+
+  const saveCourseDetails = async () => {
+    if (!visibleSelectedCourse || selectedCourseApproved) return
+    if (!courseDetailsForm.title.trim() || !courseDetailsForm.description.trim() || !courseDetailsForm.price) {
+      showMessage(t('fillCourseFields'), 'error')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const thumbnailUrl = courseThumbnailFile
+        ? await uploadPublicFile('thumbnails', courseThumbnailFile, 'thumb')
+        : visibleSelectedCourse.thumbnail_url
+
+      const { error } = await supabase
+        .from('Courses')
+        .update({
+          title: courseDetailsForm.title.trim(),
+          description: courseDetailsForm.description.trim(),
+          price: Number(courseDetailsForm.price),
+          thumbnail_url: thumbnailUrl,
+        })
+        .eq('id', visibleSelectedCourse.id)
+
+      if (error) throw error
+      setCourseThumbnailFile(null)
+      showMessage(t('courseDetailsSaved'), 'success')
+      await loadData(user)
+    } catch (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -635,8 +706,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         )}
 
         {activeTab === 'new' ? (
-          <section className="panel-card form-panel">
+          <section className="panel-card form-panel course-setup-form">
             <h2>{t('newCourse')}</h2>
+            <p className="muted">{t('courseSetupHelp')}</p>
             <label>{t('courseTitle')}</label>
             <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder={t('exampleCourseTitle')} />
             <label>{t('courseDescription')}</label>
@@ -645,6 +717,24 @@ function InstructorDashboard({ user, profile, handleLogout }) {
             <input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
             <label>{t('coverImage')}</label>
             <input type="file" accept="image/*" onChange={(event) => setThumbnailFile(event.target.files[0])} />
+            <div className="course-setup-divider">
+              <h3>{t('courseTrailer')}</h3>
+              <p className="muted">{t('trailerOptionalAtCreation')}</p>
+            </div>
+            <label>{t('trailerTitle')}</label>
+            <input
+              value={newCourseTrailerTitle}
+              onChange={(event) => setNewCourseTrailerTitle(event.target.value)}
+              placeholder={t('trailerTitlePlaceholder')}
+            />
+            <label>{t('trailerVideo')}</label>
+            <input type="file" accept="video/*" disabled={loading} onChange={(event) => setNewCourseTrailerFile(event.target.files[0] || null)} />
+            {loading && uploadPercent > 0 && (
+              <div className="upload-progress">
+                <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
+                <small>{t('uploadingVideo')} {uploadPercent}%</small>
+              </div>
+            )}
             <button className="primary-button full" onClick={createCourse} disabled={loading}>{loading ? t('loading') : t('createCourse')}</button>
           </section>
         ) : (
@@ -719,6 +809,37 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     </>
                   ) : (
                     <>
+                      <section className="course-details-editor">
+                        <div className="course-editor-heading">
+                          <div>
+                            <h3>{t('courseSetup')}</h3>
+                            <p className="muted">{t('courseDetailsHelp')}</p>
+                          </div>
+                          <img src={visibleSelectedCourse.thumbnail_url || '/course-placeholder.svg'} alt={visibleSelectedCourse.title} />
+                        </div>
+                        <label>{t('courseTitle')}</label>
+                        <input
+                          value={courseDetailsForm.title}
+                          onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, title: event.target.value })}
+                        />
+                        <label>{t('courseDescription')}</label>
+                        <textarea
+                          rows={5}
+                          value={courseDetailsForm.description}
+                          onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, description: event.target.value })}
+                        />
+                        <label>{t('priceAzN')}</label>
+                        <input
+                          type="number"
+                          value={courseDetailsForm.price}
+                          onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, price: event.target.value })}
+                        />
+                        <label>{t('replaceCoverImage')}</label>
+                        <input type="file" accept="image/*" onChange={(event) => setCourseThumbnailFile(event.target.files[0] || null)} />
+                        <button className="primary-button full" type="button" disabled={loading} onClick={saveCourseDetails}>
+                          {loading ? t('loading') : t('saveCourseDetails')}
+                        </button>
+                      </section>
                       <button className="danger-button full" type="button" onClick={deleteCourse}>
                         <Trash2 size={16} /> {t('deleteUnapprovedCourse')}
                       </button>
@@ -743,6 +864,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         <button className="outline-button full" type="button" disabled={loading} onClick={uploadTrailer}>
                           <PlayCircle size={16} /> {selectedTrailer ? t('replaceTrailer') : t('uploadTrailer')}
                         </button>
+                      </div>
+                      <div className="course-builder-heading">
+                        <h3>{t('courseCurriculum')}</h3>
+                        <p className="muted">{t('courseCurriculumHelp')}</p>
                       </div>
                       <div className="section-manager">
                         <h3>{t('courseSections')}</h3>
