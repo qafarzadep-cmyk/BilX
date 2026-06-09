@@ -35,6 +35,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [thumbnailFile, setThumbnailFile] = useState(null)
   const [newCourseTrailerTitle, setNewCourseTrailerTitle] = useState('')
   const [newCourseTrailerFile, setNewCourseTrailerFile] = useState(null)
+  const [newCourseTrailerValidating, setNewCourseTrailerValidating] = useState(false)
   const [courseDetailsForm, setCourseDetailsForm] = useState({ title: '', description: '', price: '' })
   const [courseThumbnailFile, setCourseThumbnailFile] = useState(null)
   const [lessonTitle, setLessonTitle] = useState('')
@@ -42,6 +43,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [lessonIsFree, setLessonIsFree] = useState(false)
   const [lessonFile, setLessonFile] = useState(null)
   const [trailerFile, setTrailerFile] = useState(null)
+  const [trailerValidating, setTrailerValidating] = useState(false)
   const [trailerTitle, setTrailerTitle] = useState('')
   const [selectedSectionId, setSelectedSectionId] = useState('')
   const [sectionTitle, setSectionTitle] = useState('')
@@ -192,6 +194,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const createCourse = async () => {
+    if (newCourseTrailerValidating) {
+      showMessage(t('trailerValidationWait'), 'error')
+      return
+    }
     if (!user || !form.title.trim() || !form.description.trim() || !form.price) {
       showMessage(t('fillCourseFields'), 'error')
       return
@@ -340,12 +346,18 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     video.src = objectUrl
   })
 
-  const selectTrailerFile = async (file, setter, input) => {
+  const selectTrailerFile = async (file, setter, setValidating, input) => {
     if (!file) {
       setter(null)
+      setValidating(false)
       return
     }
 
+    // Retain the selection immediately, then prevent submission while mobile
+    // Safari reads the metadata. Otherwise a fast tap can create the course
+    // before the asynchronous duration check finishes.
+    setter(file)
+    setValidating(true)
     try {
       const duration = await getVideoDuration(file)
       if (duration > 60.5) {
@@ -354,12 +366,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         showMessage(t('trailerTooLong'), 'error')
         return
       }
-      setter(file)
       showMessage(t('trailerDurationAccepted'), 'success')
     } catch (error) {
       setter(null)
       if (input) input.value = ''
       showMessage(error.message, 'error')
+    } finally {
+      setValidating(false)
     }
   }
 
@@ -402,6 +415,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
     if (!trailerFile) {
       showMessage(t('selectVideoFile'), 'error')
+      return
+    }
+    if (trailerValidating) {
+      showMessage(t('trailerValidationWait'), 'error')
       return
     }
 
@@ -800,18 +817,26 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               type="file"
               accept="video/*"
               disabled={loading}
-              onChange={(event) => selectTrailerFile(event.target.files[0] || null, setNewCourseTrailerFile, event.target)}
+              onChange={(event) => selectTrailerFile(
+                event.target.files[0] || null,
+                setNewCourseTrailerFile,
+                setNewCourseTrailerValidating,
+                event.target
+              )}
             />
             <p className="muted">{t('trailerMaxDuration')}</p>
+            {newCourseTrailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
             {loading && newCourseTrailerFile && (
               <div className="upload-progress">
                 <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
                 <small>{uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} {uploadPercent}%</small>
               </div>
             )}
-            <button className="primary-button full" onClick={createCourse} disabled={loading}>
+            <button className="primary-button full" onClick={createCourse} disabled={loading || newCourseTrailerValidating}>
               {loading && newCourseTrailerFile
                 ? `${uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} ${uploadPercent}%`
+                : newCourseTrailerValidating
+                  ? t('checkingVideoDuration')
                 : loading
                   ? t('loading')
                   : t('createCourse')}
@@ -939,19 +964,27 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           type="file"
                           accept="video/*"
                           disabled={loading}
-                          onChange={(event) => selectTrailerFile(event.target.files[0] || null, setTrailerFile, event.target)}
+                          onChange={(event) => selectTrailerFile(
+                            event.target.files[0] || null,
+                            setTrailerFile,
+                            setTrailerValidating,
+                            event.target
+                          )}
                         />
                         <p className="muted">{t('trailerMaxDuration')}</p>
+                        {trailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
                         {loading && trailerFile && (
                           <div className="upload-progress">
                             <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
                             <small>{uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} {uploadPercent}%</small>
                           </div>
                         )}
-                        <button className="outline-button full" type="button" disabled={loading} onClick={uploadTrailer}>
+                        <button className="outline-button full" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>
                           <PlayCircle size={16} />
                           {loading && trailerFile
                             ? `${uploadPercent > 0 ? t('uploadingVideo') : t('preparingVideoUpload')} ${uploadPercent}%`
+                            : trailerValidating
+                              ? t('checkingVideoDuration')
                             : selectedTrailer
                               ? t('replaceTrailer')
                               : t('uploadTrailer')}
