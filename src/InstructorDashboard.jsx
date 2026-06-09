@@ -20,6 +20,15 @@ function getCourseStatusLabel(status) {
   return 'courseStatusPending'
 }
 
+function formatVideoDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0))
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainder = seconds % 60
+  const parts = hours > 0 ? [hours, minutes, remainder] : [minutes, remainder]
+  return parts.map((part, index) => index === 0 ? String(part) : String(part).padStart(2, '0')).join(':')
+}
+
 function InstructorDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -346,6 +355,21 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     video.src = objectUrl
   })
 
+  const selectLessonFile = async (file) => {
+    setLessonFile(file)
+    if (!file) {
+      setLessonDuration('')
+      return
+    }
+
+    try {
+      const duration = await getVideoDuration(file)
+      setLessonDuration(formatVideoDuration(duration))
+    } catch {
+      setLessonDuration('')
+    }
+  }
+
   const selectTrailerFile = async (file, setter, setValidating, input) => {
     if (!file) {
       setter(null)
@@ -513,6 +537,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     showMessage(t('uploadingVideo'))
 
     try {
+      const detectedDuration = formatVideoDuration(await getVideoDuration(lessonFile))
+
       // 1. Create the Bunny video and get a presigned upload.
       const presign = await createBunnyVideo(lessonTitle.trim())
 
@@ -528,10 +554,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         section_id: Number(targetSectionId),
         order_index: courseVideos.length + 1,
         is_free: lessonIsFree,
-      }
-
-      if (lessonDuration.trim()) {
-        lessonPayload.duration = lessonDuration.trim()
+        duration: detectedDuration,
       }
 
       let { error } = await supabase.from('videos').insert(lessonPayload)
@@ -1023,7 +1046,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         <label>{t('lessonTitle')}</label>
                         <input value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} placeholder={`${visibleCourseVideos.length + 1}. ${t('lessonTitle').toLowerCase()}`} />
                         <label>{t('lessonDuration')}</label>
-                        <input value={lessonDuration} onChange={(event) => setLessonDuration(event.target.value)} placeholder={t('exampleLessonDuration')} />
+                        <input value={lessonDuration} readOnly placeholder={t('exampleLessonDuration')} />
 
                         <label>
                           <input
@@ -1036,7 +1059,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         </label>
 
                         <label>{t('videoFile')}</label>
-                        <input type="file" accept="video/*" disabled={loading} onChange={(event) => setLessonFile(event.target.files[0] || null)} />
+                        <input type="file" accept="video/*" disabled={loading} onChange={(event) => selectLessonFile(event.target.files[0] || null)} />
                         <p className="muted">{t('bunnyUploadHelp')}</p>
 
                         {loading && uploadPercent > 0 && (

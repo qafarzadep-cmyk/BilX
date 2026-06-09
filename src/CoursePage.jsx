@@ -159,7 +159,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return {
         id: item.id,
         title: item.title || t(placeholderLessons[index % placeholderLessons.length].titleKey),
-        duration: item.duration || placeholderLessons[index % placeholderLessons.length].duration,
+        duration: item.duration || playable?.duration || '',
         is_free: item.is_free,
         section_id: item.section_id || playable?.section_id || null,
         order_index: item.order_index,
@@ -383,6 +383,45 @@ function CoursePage({ user, profile, handleLogout }) {
       mounted = false
     }
   }, [activeVideo, adminPreview, hasAccess])
+
+  useEffect(() => {
+    if (!user || !course || course.instructor_id !== user.id) return undefined
+    const missing = videos.filter((video) => video.bunny_video_id && !video.duration)
+    if (missing.length === 0) return undefined
+
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      for (const video of missing) {
+        try {
+          const response = await fetch('/api/bunny-video-duration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ videoId: video.id }),
+          })
+          const result = await response.json().catch(() => ({}))
+          if (!response.ok || !result.duration || cancelled) continue
+          setVideos((current) => current.map((item) => (
+            String(item.id) === String(video.id) ? { ...item, duration: result.duration } : item
+          )))
+          setLessonPreviews((current) => current.map((item) => (
+            String(item.id) === String(video.id) ? { ...item, duration: result.duration } : item
+          )))
+        } catch {
+          // Duration remains hidden until Bunny or the network is available.
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [course, user, videos])
 
   useEffect(() => {
     if (!previewModalOpen) return undefined
@@ -878,7 +917,7 @@ function CoursePage({ user, profile, handleLogout }) {
                           </span>
                           <span className="lesson-copy">
                             <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
-                            <small><Clock3 size={14} /> {video.duration}</small>
+                            {video.duration && <small><Clock3 size={14} /> {video.duration}</small>}
                           </span>
                         </button>
                       )
