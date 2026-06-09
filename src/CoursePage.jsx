@@ -495,7 +495,10 @@ function CoursePage({ user, profile, handleLogout }) {
   // Bunny lessons play through a token-authenticated embed URL that must be
   // minted server-side (after an access check). Resolve it for whichever lesson
   // is on screen: the active lesson when enrolled, the preview otherwise.
-  const playerVideo = hasAccess ? activeVideo : publicPreviewVideo
+  // Owners/admins enter the full-course view. When a new course has a trailer
+  // but no lessons yet, keep the trailer available instead of rendering an
+  // empty lesson player.
+  const playerVideo = hasAccess ? (activeVideo || trailerVideo) : publicPreviewVideo
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
   useEffect(() => {
@@ -705,7 +708,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
         {hasAccess ? (
           <>
-          {lessons.length === 0 ? (
+          {lessons.length === 0 && !trailerVideo ? (
             <section className="panel-card empty-box">
               {t('courseHasNoLessonsYet')}
             </section>
@@ -713,32 +716,32 @@ function CoursePage({ user, profile, handleLogout }) {
           <section className="course-player-layout">
             <div className="course-player-main">
               <div className="youtube-player-shell">
-                {activeVideo?.bunny_video_id ? (
-                  signedUrl && signedFor === String(activeVideo.id) ? (
+                {playerVideo?.bunny_video_id ? (
+                  signedUrl && signedFor === String(playerVideo.id) ? (
                     <iframe
-                      key={activeVideo.id}
+                      key={playerVideo.id}
                       ref={bunnyFrameRef}
                       className="youtube-player"
                       src={signedUrl}
-                      title={activeVideo.title}
+                      title={playerVideo.title}
                       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                       allowFullScreen
                     />
                   ) : (
                     <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
                   )
-                ) : activeVideo?.video_url && isYouTubeUrl(activeVideo.video_url) ? (
+                ) : playerVideo?.video_url && isYouTubeUrl(playerVideo.video_url) ? (
                   <iframe
-                    key={activeVideo.id}
+                    key={playerVideo.id}
                     ref={playerFrameRef}
                     className="youtube-player"
-                    src={getEmbedSrc(activeVideo.video_url)}
-                    title={activeVideo.title}
+                    src={getEmbedSrc(playerVideo.video_url)}
+                    title={playerVideo.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
-                ) : activeVideo?.video_url ? (
-                  <video key={activeVideo.id} controls autoPlay src={activeVideo.video_url} onEnded={playNext} className="youtube-player">
+                ) : playerVideo?.video_url ? (
+                  <video key={playerVideo.id} controls autoPlay src={playerVideo.video_url} onEnded={playNext} className="youtube-player">
                     {t('videoNotSupported')}
                   </video>
                 ) : (
@@ -747,9 +750,14 @@ function CoursePage({ user, profile, handleLogout }) {
               </div>
               <div className="course-player-details">
                 <div>
-                  <p className="player-eyebrow">{t('lessonLabel')} {activeLessonIndex + 1} / {lessons.length}</p>
-                  <h2>{activeVideo?.title || t('lessonTitle')}</h2>
+                  <p className="player-eyebrow">
+                    {playerVideo?.is_trailer
+                      ? t('courseTrailer')
+                      : `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`}
+                  </p>
+                  <h2>{playerVideo?.title || t('lessonTitle')}</h2>
                 </div>
+                {!playerVideo?.is_trailer && (
                 <div className="player-actions">
                   {activeVideo?.source_url && (
                     <a className="outline-button complete-button" href={activeVideo.source_url} target="_blank" rel="noreferrer">
@@ -760,6 +768,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     {t('markComplete')}
                   </button>
                 </div>
+                )}
               </div>
             </div>
 
