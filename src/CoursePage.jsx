@@ -172,10 +172,10 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [lessonPreviews, videos, playableById, t])
 
   const activeVideo = lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
-  // Public lesson previews are explicitly selected by the instructor.
-  const previewLessons = !hasAccess && lessons.length > 0
-    ? lessons.filter((lesson) => !lesson.locked)
-    : []
+  // Preview samples are explicitly selected by the instructor. Keep this list
+  // available for enrolled users and owners too, so they see the same course
+  // preview card when reviewing the published page.
+  const previewLessons = lessons.filter((lesson) => lesson.is_free && !lesson.locked)
   const trailerVideo = trailer ? {
     id: `trailer-${trailer.course_id}`,
     title: trailer.title || t('courseTrailer'),
@@ -520,7 +520,11 @@ function CoursePage({ user, profile, handleLogout }) {
   // Owners/admins enter the full-course view. When a new course has a trailer
   // but no lessons yet, keep the trailer available instead of rendering an
   // empty lesson player.
-  const playerVideo = hasAccess ? (activeVideo || trailerVideo) : publicPreviewVideo
+  const playerVideo = previewModalOpen
+    ? publicPreviewVideo
+    : hasAccess
+      ? (activeVideo || trailerVideo)
+      : publicPreviewVideo
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
   useEffect(() => {
@@ -718,7 +722,7 @@ function CoursePage({ user, profile, handleLogout }) {
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
       <main className="content-shell">
-        <section className={hasAccess ? 'course-hero' : 'course-hero course-hero-public'}>
+        <section className={publicPreviewVideo ? 'course-hero course-hero-public' : 'course-hero'}>
           <div className="course-hero-copy">
             <p className="role-pill course-brand-pill">Bil-X</p>
             <h1>{course.title}</h1>
@@ -732,7 +736,7 @@ function CoursePage({ user, profile, handleLogout }) {
               <Share2 size={16} /> {t('shareCourse')}
             </button>
           </div>
-          {!hasAccess && publicPreviewVideo ? (
+          {publicPreviewVideo ? (
             <button
               type="button"
               className="course-preview-card"
@@ -974,7 +978,7 @@ function CoursePage({ user, profile, handleLogout }) {
         )}
       </main>
 
-      {!hasAccess && previewModalOpen && publicPreviewVideo && (
+      {previewModalOpen && publicPreviewVideo && (
         <div className="course-preview-backdrop" role="presentation" onMouseDown={() => setPreviewModalOpen(false)}>
           <section
             className="course-preview-modal"
