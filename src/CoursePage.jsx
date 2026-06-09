@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Award, CheckCircle2, Circle, Clock3, ExternalLink, PlayCircle, Share2 } from 'lucide-react'
+import { Award, CheckCircle2, Circle, Clock3, ExternalLink, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -109,6 +109,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [sections, setSections] = useState([])
   const [trailer, setTrailer] = useState(null)
   const [activePreviewId, setActivePreviewId] = useState('trailer')
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [progress, setProgress] = useState([])
   const [hasAccess, setHasAccess] = useState(false)
   const [isEnrolled, setIsEnrolled] = useState(false)
@@ -186,6 +187,10 @@ function CoursePage({ user, profile, handleLogout }) {
       ? trailerVideo
       : previewLessons.find((lesson) => String(lesson.id) === String(activePreviewId))
   ) || trailerVideo || previewLessons[0] || null
+  const previewChoices = [
+    ...(trailerVideo ? [trailerVideo] : []),
+    ...previewLessons,
+  ]
   const activeLessonIndex = lessons.findIndex((video) => String(video.id) === String(activeVideo?.id))
   const watchedIds = useMemo(
     () => new Set(progress.filter((item) => item.watched).map((item) => String(item.video_id))),
@@ -378,6 +383,23 @@ function CoursePage({ user, profile, handleLogout }) {
       mounted = false
     }
   }, [activeVideo, adminPreview, hasAccess])
+
+  useEffect(() => {
+    if (!previewModalOpen) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setPreviewModalOpen(false)
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [previewModalOpen])
 
   const markWatched = useCallback(async (videoId) => {
     if (!user || !videoId) return
@@ -669,6 +691,13 @@ function CoursePage({ user, profile, handleLogout }) {
     }
   }
 
+  const openCoursePreview = () => {
+    if (!publicPreviewVideo) return
+    if (trailerVideo) setActivePreviewId('trailer')
+    else if (previewLessons[0]) setActivePreviewId(previewLessons[0].id)
+    setPreviewModalOpen(true)
+  }
+
   const openCertificate = async () => {
     if (!course || completionPercent < 100 || !isEnrolled) return
     setCertificateLoading(true)
@@ -689,8 +718,8 @@ function CoursePage({ user, profile, handleLogout }) {
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
       <main className="content-shell">
-        <section className="course-hero">
-          <div>
+        <section className={hasAccess ? 'course-hero' : 'course-hero course-hero-public'}>
+          <div className="course-hero-copy">
             <p className="role-pill course-brand-pill">Bil-X</p>
             <h1>{course.title}</h1>
             {instructorName && <small className="course-instructor hero-author">{t('instructorLabel')}: {instructorName}</small>}
@@ -703,7 +732,21 @@ function CoursePage({ user, profile, handleLogout }) {
               <Share2 size={16} /> {t('shareCourse')}
             </button>
           </div>
-          <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+          {!hasAccess && publicPreviewVideo ? (
+            <button
+              type="button"
+              className="course-preview-card"
+              onClick={openCoursePreview}
+              aria-label={`${t('previewCourse')}: ${course.title}`}
+            >
+              <img src={course.thumbnail_url || '/course-placeholder.svg'} alt="" />
+              <span className="course-preview-shade" />
+              <span className="course-preview-play"><Play size={30} fill="currentColor" /></span>
+              <strong>{t('previewCourse')}</strong>
+            </button>
+          ) : (
+            <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+          )}
         </section>
 
         {hasAccess ? (
@@ -887,69 +930,6 @@ function CoursePage({ user, profile, handleLogout }) {
         ) : (
           <section className="purchase-grid">
             <div className="panel-card">
-              {publicPreviewVideo && (
-                <div className="preview-player-block">
-                  <p className="player-eyebrow">
-                    {publicPreviewVideo.is_trailer ? t('courseTrailer') : t('freeLessonPreview')}
-                  </p>
-                  <div className="youtube-player-shell">
-                    {publicPreviewVideo.bunny_video_id ? (
-                      signedUrl && signedFor === String(publicPreviewVideo.id) ? (
-                        <iframe
-                          className="youtube-player"
-                          src={signedUrl}
-                          title={publicPreviewVideo.title}
-                          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
-                      )
-                    ) : publicPreviewVideo.video_url && isYouTubeUrl(publicPreviewVideo.video_url) ? (
-                      <iframe
-                        className="youtube-player"
-                        src={getEmbedSrc(publicPreviewVideo.video_url)}
-                        title={publicPreviewVideo.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      />
-                    ) : publicPreviewVideo.video_url ? (
-                      <video controls src={publicPreviewVideo.video_url} className="youtube-player">
-                        {t('videoNotSupported')}
-                      </video>
-                    ) : null}
-                  </div>
-                  <h2>{publicPreviewVideo.title}</h2>
-                  {publicPreviewVideo.source_url && isYouTubeUrl(publicPreviewVideo.video_url) && (
-                    <a className="outline-button" href={publicPreviewVideo.source_url} target="_blank" rel="noreferrer">
-                      <ExternalLink size={16} /> {t('watchOnYoutube')}
-                    </a>
-                  )}
-                  {(trailerVideo || previewLessons.length > 0) && (
-                    <div className="public-preview-picker">
-                      {trailerVideo && (
-                        <button
-                          type="button"
-                          className={activePreviewId === 'trailer' ? 'active' : ''}
-                          onClick={() => setActivePreviewId('trailer')}
-                        >
-                          <PlayCircle size={17} /> {t('courseTrailer')}
-                        </button>
-                      )}
-                      {previewLessons.map((lesson) => (
-                        <button
-                          key={lesson.id}
-                          type="button"
-                          className={String(activePreviewId) === String(lesson.id) ? 'active' : ''}
-                          onClick={() => setActivePreviewId(lesson.id)}
-                        >
-                          <PlayCircle size={17} /> {lesson.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
               <h2>{t('courseWhatLearn')}</h2>
               <p className="muted">
                 {t('whatsappPurchaseHint')}
@@ -993,6 +973,86 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
         )}
       </main>
+
+      {!hasAccess && previewModalOpen && publicPreviewVideo && (
+        <div className="course-preview-backdrop" role="presentation" onMouseDown={() => setPreviewModalOpen(false)}>
+          <section
+            className="course-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="course-preview-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="course-preview-modal-header">
+              <div>
+                <span>{t('previewCourse')}</span>
+                <h2 id="course-preview-title">{course.title}</h2>
+              </div>
+              <button type="button" onClick={() => setPreviewModalOpen(false)} aria-label={t('cancel')}>
+                <X size={25} />
+              </button>
+            </header>
+
+            <div className="course-preview-modal-player">
+              <div className="youtube-player-shell">
+                {publicPreviewVideo.bunny_video_id ? (
+                  signedUrl && signedFor === String(publicPreviewVideo.id) ? (
+                    <iframe
+                      className="youtube-player"
+                      src={signedUrl}
+                      title={publicPreviewVideo.title}
+                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
+                  )
+                ) : publicPreviewVideo.video_url && isYouTubeUrl(publicPreviewVideo.video_url) ? (
+                  <iframe
+                    className="youtube-player"
+                    src={getEmbedSrc(publicPreviewVideo.video_url)}
+                    title={publicPreviewVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : publicPreviewVideo.video_url ? (
+                  <video controls autoPlay src={publicPreviewVideo.video_url} className="youtube-player">
+                    {t('videoNotSupported')}
+                  </video>
+                ) : (
+                  <div className="empty-player">{t('videoNotSupported')}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="course-preview-modal-list">
+              <h3>{t('coursePreview')}</h3>
+              {previewChoices.map((video) => {
+                const choiceId = video.is_trailer ? 'trailer' : video.id
+                const isActive = String(activePreviewId) === String(choiceId)
+                return (
+                  <button
+                    type="button"
+                    key={video.id}
+                    className={isActive ? 'course-preview-choice active' : 'course-preview-choice'}
+                    onClick={() => setActivePreviewId(choiceId)}
+                  >
+                    <span className="course-preview-choice-thumb">
+                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt="" />
+                      <PlayCircle size={22} />
+                    </span>
+                    <span>
+                      <small>{video.is_trailer ? t('courseTrailer') : t('freeLessonPreview')}</small>
+                      <strong>{video.title}</strong>
+                    </span>
+                    {!video.is_trailer && video.duration && <time>{video.duration}</time>}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
