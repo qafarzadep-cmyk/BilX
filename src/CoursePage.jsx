@@ -763,7 +763,9 @@ function CoursePage({ user, profile, handleLogout }) {
           <section className="course-player-layout">
             <div className="course-player-main">
               <div className="youtube-player-shell">
-                {playerVideo?.bunny_video_id ? (
+                {previewModalOpen ? (
+                  <div className="empty-player">{t('previewCourse')}</div>
+                ) : playerVideo?.bunny_video_id ? (
                   signedUrl && signedFor === String(playerVideo.id) ? (
                     <iframe
                       key={playerVideo.id}
