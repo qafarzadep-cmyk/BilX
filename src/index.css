@@ -1670,6 +1670,56 @@ button {
   display: none;
 }
 
+.localized-file-picker {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  border: 1px solid #d1d7dc;
+  border-radius: 6px;
+  padding: 7px;
+  background: #fff;
+}
+
+.localized-file-picker-input {
+  position: absolute;
+  width: 1px !important;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.localized-file-picker-button {
+  flex: 0 0 auto;
+  border-radius: 5px;
+  padding: 9px 13px;
+  background: #eef2ff;
+  color: #1435c3;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.localized-file-picker-button:hover {
+  background: #dfe6ff;
+}
+
+.localized-file-picker-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.localized-file-picker > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #6a6f73;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .instructor-add-lesson-box {
   margin: 10px 15px 16px;
   padding: 16px;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
@@ -27,6 +27,28 @@ function formatVideoDuration(totalSeconds) {
   const remainder = seconds % 60
   const parts = hours > 0 ? [hours, minutes, remainder] : [minutes, remainder]
   return parts.map((part, index) => index === 0 ? String(part) : String(part).padStart(2, '0')).join(':')
+}
+
+function LocalizedFileInput({ accept, disabled, file, onChange, t, onFocus }) {
+  const inputId = useId()
+
+  return (
+    <div className="localized-file-picker">
+      <input
+        id={inputId}
+        className="localized-file-picker-input"
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        onFocus={onFocus}
+        onChange={(event) => onChange(event.target.files[0] || null, event.target)}
+      />
+      <label className={disabled ? 'localized-file-picker-button disabled' : 'localized-file-picker-button'} htmlFor={inputId}>
+        {t('chooseFile')}
+      </label>
+      <span title={file?.name || ''}>{file?.name || t('noFileChosen')}</span>
+    </div>
+  )
 }
 
 function InstructorDashboard({ user, profile, handleLogout }) {
@@ -880,6 +902,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const numbered = `${t('sectionLabel')} ${index + 1}`
     return section.title && section.title !== `Section ${index + 1}` ? `${numbered}: ${section.title}` : numbered
   }
+  const getLocalizedSectionTitle = (section, index) => (
+    section.title === `Section ${index + 1}` ? `${t('sectionLabel')} ${index + 1}` : section.title
+  )
   // Per workflow.md 3.3: teachers cannot edit/delete an approved course. They can
   // only build (add lessons / submit) a course while it is still draft/pending;
   // once approved it is read-only and changes go through the admin via Inbox.
@@ -937,7 +962,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 <label>{t('courseDescription')}</label>
                 <textarea rows={6} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={t('exampleCourseDescription')} />
                 <label>{t('coverImage')}</label>
-                <input type="file" accept="image/*" onChange={(event) => setThumbnailFile(event.target.files[0] || null)} />
+                <LocalizedFileInput accept="image/*" file={thumbnailFile} onChange={setThumbnailFile} t={t} />
                 <label>{t('trailerTitle')}</label>
                 <input
                   value={newCourseTrailerTitle}
@@ -945,15 +970,16 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   placeholder={t('trailerTitlePlaceholder')}
                 />
                 <label>{t('trailerVideo')}</label>
-                <input
-                  type="file"
+                <LocalizedFileInput
                   accept="video/*"
                   disabled={loading}
-                  onChange={(event) => selectTrailerFile(
-                    event.target.files[0] || null,
+                  file={newCourseTrailerFile}
+                  t={t}
+                  onChange={(file, input) => selectTrailerFile(
+                    file,
                     setNewCourseTrailerFile,
                     setNewCourseTrailerValidating,
-                    event.target
+                    input
                   )}
                 />
                 <p className="muted">{t('trailerMaxDuration')}</p>
@@ -1047,7 +1073,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         <section className="section-editor-card" key={section.id}>
                           <div className="section-editor-heading">
                             <div>
-                              <strong>{sectionIndex + 1}. {section.title}</strong>
+                              <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
                               <small>{sectionVideos.length} {t('courseLessons')}</small>
                             </div>
                             <div className="instructor-inline-actions">
@@ -1099,10 +1125,17 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               setLessonTitle(event.target.value)
                             }} />
                             <label>{t('videoFile')}</label>
-                            <input type="file" accept="video/*" disabled={loading} onFocus={() => setSelectedSectionId(String(section.id))} onChange={(event) => {
-                              setSelectedSectionId(String(section.id))
-                              selectLessonFile(event.target.files[0] || null)
-                            }} />
+                            <LocalizedFileInput
+                              accept="video/*"
+                              disabled={loading}
+                              file={validSelectedSectionId === String(section.id) ? lessonFile : null}
+                              t={t}
+                              onFocus={() => setSelectedSectionId(String(section.id))}
+                              onChange={(file) => {
+                                setSelectedSectionId(String(section.id))
+                                selectLessonFile(file)
+                              }}
+                            />
                             <label className="instructor-checkbox">
                               <input type="checkbox" checked={validSelectedSectionId === String(section.id) && lessonIsFree} onChange={(event) => {
                                 setSelectedSectionId(String(section.id))
@@ -1165,7 +1198,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   <img src={detailCourse.thumbnail_url || '/course-placeholder.svg'} alt={detailCourse.title} />
                   {!detailApproved && (
                     <>
-                      <input type="file" accept="image/*" onChange={(event) => setCourseThumbnailFile(event.target.files[0] || null)} />
+                      <LocalizedFileInput accept="image/*" file={courseThumbnailFile} onChange={setCourseThumbnailFile} t={t} />
                       {courseThumbnailFile && <button className="outline-button full" type="button" onClick={saveCourseDetails}>{t('replaceCoverImage')}</button>}
                       {detailCourse.thumbnail_url && <button className="danger-button full" type="button" onClick={removeCourseCover}><Trash2 size={16} /> {t('removeCover')}</button>}
                     </>
@@ -1182,7 +1215,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     <>
                       <label>{t('trailerTitle')}</label>
                       <input value={trailerTitle} onChange={(event) => setTrailerTitle(event.target.value)} placeholder={t('trailerTitlePlaceholder')} />
-                      <input type="file" accept="video/*" disabled={loading} onChange={(event) => selectTrailerFile(event.target.files[0] || null, setTrailerFile, setTrailerValidating, event.target)} />
+                      <LocalizedFileInput
+                        accept="video/*"
+                        disabled={loading}
+                        file={trailerFile}
+                        t={t}
+                        onChange={(file, input) => selectTrailerFile(file, setTrailerFile, setTrailerValidating, input)}
+                      />
                       {trailerFile && <button className="primary-button full" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>{detailTrailer ? t('replaceTrailer') : t('uploadTrailer')}</button>}
                       {detailTrailer && <button className="danger-button full" type="button" onClick={removeTrailer}><Trash2 size={16} /> {t('removeTrailer')}</button>}
                     </>
