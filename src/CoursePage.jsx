@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Award, CheckCircle2, Circle, Clock3, ExternalLink, Play, PlayCircle, Share2, X } from 'lucide-react'
+import { Award, CheckCircle2, ChevronDown, Circle, Clock3, ExternalLink, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -119,6 +119,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [loading, setLoading] = useState(true)
   const [requested, setRequested] = useState(false)
   const [activeVideoId, setActiveVideoId] = useState(null)
+  const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
   // Signed, short-lived Bunny embed URL for the lesson currently on screen.
   const [signedUrl, setSignedUrl] = useState(null)
   const [signedFor, setSignedFor] = useState(null)
@@ -233,6 +234,42 @@ function CoursePage({ user, profile, handleLogout }) {
       }
     }).filter((section) => section.lessons.length > 0 || sections.length > 0)
   }, [lessons, sections, t, watchedIds])
+  const activeSectionId = curriculumSections.find((section) => (
+    section.lessons.some((lesson) => String(lesson.id) === String(activeVideo?.id))
+  ))?.id
+
+  useEffect(() => {
+    if (activeSectionId === undefined || activeSectionId === null) return
+    const sectionKey = String(activeSectionId)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpandedSectionIds((current) => {
+      if (current.has(sectionKey)) return current
+      const next = new Set(current)
+      next.add(sectionKey)
+      return next
+    })
+  }, [activeSectionId])
+
+  const toggleCurriculumSection = (sectionId) => {
+    const sectionKey = String(sectionId)
+    setExpandedSectionIds((current) => {
+      const next = new Set(current)
+      if (next.has(sectionKey)) next.delete(sectionKey)
+      else next.add(sectionKey)
+      return next
+    })
+  }
+
+  const selectLesson = (sectionId, videoId) => {
+    const sectionKey = String(sectionId)
+    setExpandedSectionIds((current) => {
+      if (current.has(sectionKey)) return current
+      const next = new Set(current)
+      next.add(sectionKey)
+      return next
+    })
+    setActiveVideoId(videoId)
+  }
   const ratingAverage = ratings.length
     ? Math.round((ratings.reduce((sum, item) => sum + (item.rating || 0), 0) / ratings.length) * 10) / 10
     : 0
@@ -914,37 +951,53 @@ function CoursePage({ user, profile, handleLogout }) {
                 <span style={{ width: `${completionPercent}%` }} />
               </div>
               <div className="course-lesson-list">
-                {curriculumSections.map((section, sectionIndex) => (
-                  <section className="curriculum-section" key={section.id}>
-                    <div className="curriculum-section-heading">
-                      <strong>{section.displayTitle}</strong>
-                      <small>
-                        {section.completed}/{section.lessons.length}
-                        {section.duration ? ` | ${section.duration}` : ''}
-                      </small>
-                    </div>
-                    {section.lessons.map((video, lessonIndex) => {
-                      const isActive = String(video.id) === String(activeVideo?.id)
-                      const isWatched = watchedIds.has(String(video.id))
+                {curriculumSections.map((section, sectionIndex) => {
+                  const isExpanded = expandedSectionIds.has(String(section.id))
 
-                      return (
-                        <button
-                          key={video.id}
-                          className={isActive ? 'course-lesson-item active' : 'course-lesson-item'}
-                          onClick={() => setActiveVideoId(video.id)}
-                        >
-                          <span className="lesson-status">
-                            {isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
-                          </span>
-                          <span className="lesson-copy">
-                            <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
-                            {video.duration && <small><Clock3 size={14} /> {video.duration}</small>}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </section>
-                ))}
+                  return (
+                    <section className={isExpanded ? 'curriculum-section expanded' : 'curriculum-section'} key={section.id}>
+                      <button
+                        type="button"
+                        className="curriculum-section-heading"
+                        onClick={() => toggleCurriculumSection(section.id)}
+                        aria-expanded={isExpanded}
+                      >
+                        <span>
+                          <strong>{section.displayTitle}</strong>
+                          <small>
+                            {section.completed}/{section.lessons.length}
+                            {section.duration ? ` | ${section.duration}` : ''}
+                          </small>
+                        </span>
+                        <ChevronDown size={20} />
+                      </button>
+                      {isExpanded && (
+                        <div className="curriculum-section-lessons">
+                          {section.lessons.map((video, lessonIndex) => {
+                            const isActive = String(video.id) === String(activeVideo?.id)
+                            const isWatched = watchedIds.has(String(video.id))
+
+                            return (
+                              <button
+                                key={video.id}
+                                className={isActive ? 'course-lesson-item active' : 'course-lesson-item'}
+                                onClick={() => selectLesson(section.id, video.id)}
+                              >
+                                <span className="lesson-status">
+                                  {isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
+                                </span>
+                                <span className="lesson-copy">
+                                  <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
+                                  {video.duration && <small><Clock3 size={14} /> {video.duration}</small>}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  )
+                })}
               </div>
             </aside>
           </section>

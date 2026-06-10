@@ -1038,24 +1038,52 @@ button {
 }
 
 .curriculum-section-heading {
+  width: 100%;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
+  border: 0;
+  padding: 18px 16px;
   background: #f7f9fa;
+  color: #1c1d1f;
+  text-align: left;
+}
+
+.curriculum-section-heading:hover {
+  background: #eef0f2;
+}
+
+.curriculum-section-heading > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .curriculum-section-heading strong {
   color: #1c1d1f;
+  font-size: 15px;
   line-height: 1.35;
 }
 
 .curriculum-section-heading small {
-  flex: 0 0 auto;
   color: #6a6f73;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
+}
+
+.curriculum-section-heading > svg {
+  flex: 0 0 auto;
+  transition: transform 160ms ease;
+}
+
+.curriculum-section.expanded .curriculum-section-heading > svg {
+  transform: rotate(180deg);
+}
+
+.curriculum-section-lessons {
+  background: #fff;
 }
 
 .course-certificate-card {
@@ -1097,7 +1125,7 @@ button {
   border-bottom: 1px solid #eef0f2;
   background: #fff;
   color: #1c1d1f;
-  padding: 14px 16px;
+  padding: 14px 16px 14px 20px;
   text-align: left;
 }
 
