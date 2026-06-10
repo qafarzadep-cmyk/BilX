@@ -1,4 +1,4 @@
-# Bil-X — SQL run order
+# BilX — SQL run order
 
 All scripts run in the **Supabase SQL Editor**. Every script is idempotent (safe to
 re-run). Comparisons are written to tolerate the live schema drift this project

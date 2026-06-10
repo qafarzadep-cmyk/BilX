@@ -43,16 +43,16 @@ export default async function handler(req, res) {
     const firstName = escapeHtml(name || 'dost')
     const resend = new Resend(resendApiKey)
     await resend.emails.send({
-      from: 'Bil-X <no-reply@bilx.org>',
+      from: 'BilX <no-reply@bilx.org>',
       to,
-      subject: `Bil-X-ə xoş gəldiniz, ${name || 'dost'}! 🎉`,
+      subject: `BilX-ə xoş gəldiniz, ${name || 'dost'}! 🎉`,
       html: `
       <!doctype html>
       <html lang="az">
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Bil-X-ə xoş gəldiniz</title>
+          <title>BilX-ə xoş gəldiniz</title>
         </head>
         <body style="margin:0;background:#f5f7fb;font-family:Arial,Helvetica,sans-serif;color:#171923;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:32px 16px;">
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
                   <tr>
                     <td style="padding:34px 34px 18px;">
                       <p style="margin:0 0 12px;font-size:15px;color:#6b7280;">Salam, ${firstName}!</p>
-                      <h1 style="margin:0;font-size:28px;line-height:1.2;color:#111827;">Bil-X-ə xoş gəldiniz! 🎉</h1>
+                      <h1 style="margin:0;font-size:28px;line-height:1.2;color:#111827;">BilX-ə xoş gəldiniz! 🎉</h1>
                       <p style="margin:20px 0 0;font-size:16px;line-height:1.7;color:#374151;">
                         Hesabınız uğurla yaradıldı. İndi platformumuzda mövcud olan video kurslara baxa və öyrənməyə başlaya bilərsiniz.
                       </p>
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
                   </tr>
                   <tr>
                     <td style="padding:22px 34px;background:#111827;color:#d1d5db;font-size:13px;line-height:1.6;">
-                      Hörmətlə, Bil-X komandası | <a href="https://bilx.org" style="color:#ffffff;text-decoration:none;">bilx.org</a>
+                      Hörmətlə, BilX komandası | <a href="https://bilx.org" style="color:#ffffff;text-decoration:none;">bilx.org</a>
                     </td>
                   </tr>
                 </table>

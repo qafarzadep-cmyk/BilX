@@ -1,4 +1,4 @@
--- Bil-X Supabase Advisor warning fixes.
+-- BilX Supabase Advisor warning fixes.
 -- Run in Supabase SQL Editor after security_rls_emergency_check.sql.
 
 -- 1) Remove old overly broad course insert policy.

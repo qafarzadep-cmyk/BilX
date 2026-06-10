@@ -26,7 +26,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const notificationRef = useRef(null)
   const { t } = useLanguage()
   const role = profile?.role || 'student'
-  const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Bil-X'
+  const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'BilX'
   const firstLetter = name.charAt(0).toUpperCase()
   const isInstructor = role === 'instructor'
   const isTeacherMode = location.pathname.startsWith('/instructor') || location.pathname.startsWith('/edit-course')
@@ -222,7 +222,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
 
   return (
     <nav className="top-nav">
-      <button className="logo-button" onClick={() => navigate('/')}>Bil-X</button>
+      <button className="logo-button" onClick={() => navigate('/')}>BilX</button>
 
       <div className="nav-search">
         <Search size={18} />

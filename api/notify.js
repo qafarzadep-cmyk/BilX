@@ -19,12 +19,12 @@ function escapeHtml(value) {
 
 function buildEmail({ type, payload }) {
   const subjectMap = {
-    'inbox.new': 'Bil-X: Yeni inbox mesajı',
-    'comment.new': 'Bil-X: Yeni şərh',
-    'rating.new': 'Bil-X: Yeni reytinq',
+    'inbox.new': 'BilX: Yeni inbox mesajı',
+    'comment.new': 'BilX: Yeni şərh',
+    'rating.new': 'BilX: Yeni reytinq',
   }
 
-  const subject = subjectMap[type] || 'Bil-X bildirişi'
+  const subject = subjectMap[type] || 'BilX bildirişi'
   const message = payload?.message || 'Yeni bildiriş var.'
 
   return {
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
   try {
     const email = buildEmail({ type, payload })
     await resend.emails.send({
-      from: 'Bil-X <no-reply@bilx.org>',
+      from: 'BilX <no-reply@bilx.org>',
       to,
       subject: email.subject,
       html: email.html,

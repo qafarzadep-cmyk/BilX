@@ -315,7 +315,7 @@ function Home({ user, profile, handleLogout }) {
       <footer className="home-footer">
         <div className="home-footer-inner">
           <div className="home-footer-brand">
-            <strong>Bil-X</strong>
+            <strong>BilX</strong>
             <p>{t('footerTagline')}</p>
           </div>
           <div className="home-footer-col">

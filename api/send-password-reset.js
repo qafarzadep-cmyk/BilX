@@ -33,16 +33,16 @@ export default async function handler(req, res) {
   try {
     const resend = new Resend(resendApiKey)
     await resend.emails.send({
-      from: 'Bil-X <no-reply@bilx.org>',
+      from: 'BilX <no-reply@bilx.org>',
       to,
-      subject: 'Bil-X - Şifrə Yeniləmə',
+      subject: 'BilX - Şifrə Yeniləmə',
       html: `
       <!doctype html>
       <html lang="az">
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Bil-X - Şifrə Yeniləmə</title>
+          <title>BilX - Şifrə Yeniləmə</title>
         </head>
         <body style="margin:0;background:#f5f7fb;font-family:Arial,Helvetica,sans-serif;color:#171923;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:32px 16px;">
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
                         Bu linkin müddəti 1 saat ərzində bitir.
                       </p>
                       <p style="margin:24px 0 0;font-size:16px;line-height:1.7;color:#374151;">
-                        Hörmətlə, Bil-X komandası
+                        Hörmətlə, BilX komandası
                       </p>
                     </td>
                   </tr>

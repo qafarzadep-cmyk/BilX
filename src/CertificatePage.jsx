@@ -46,7 +46,7 @@ function CertificatePage({ user, profile, handleLogout }) {
           <>
             <article className="certificate-document">
               <div className="certificate-border">
-                <div className="certificate-logo">Bil-X</div>
+                <div className="certificate-logo">BilX</div>
                 <Award className="certificate-award" size={58} />
                 <p className="certificate-kicker">{t('certificateOfCompletion')}</p>
                 <h1>{certificate.student_name}</h1>

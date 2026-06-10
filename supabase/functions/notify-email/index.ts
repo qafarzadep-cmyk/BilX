@@ -88,12 +88,12 @@ serve(async (req) => {
   const { type, courseTitle, instructorId, link, email } = payload
 
   const subjectMap = {
-    enroll: 'Bil-X: Yeni qeydiyyat',
-    comment: 'Bil-X: Yeni şərh',
-    rating: 'Bil-X: Yeni reytinq',
-    inbox: 'Bil-X: Yeni inbox mesajı',
-    teacher_approved: 'Bil-X: Müəllim statusunuz təsdiqləndi 🎉',
-    enroll_student: 'Bil-X: Kursa girişiniz açıldı',
+    enroll: 'BilX: Yeni qeydiyyat',
+    comment: 'BilX: Yeni şərh',
+    rating: 'BilX: Yeni reytinq',
+    inbox: 'BilX: Yeni inbox mesajı',
+    teacher_approved: 'BilX: Müəllim statusunuz təsdiqləndi 🎉',
+    enroll_student: 'BilX: Kursa girişiniz açıldı',
   }
 
   const bodyMap = {
@@ -101,13 +101,13 @@ serve(async (req) => {
     comment: courseTitle ? `${courseTitle} kursunda yeni şərh var.` : 'Yeni şərh var.',
     rating: courseTitle ? `${courseTitle} kursu üçün yeni reytinq var.` : 'Yeni reytinq var.',
     inbox: 'Sizə yeni inbox mesajı gəldi.',
-    teacher_approved: 'Təbriklər! Artıq Bil-X-də müəllim kimi dərslərinizi paylaşa bilərsiniz.',
+    teacher_approved: 'Təbriklər! Artıq BilX-də müəllim kimi dərslərinizi paylaşa bilərsiniz.',
     enroll_student: courseTitle
       ? `${courseTitle} kursuna girişiniz açıldı. Öyrənməyə başlaya bilərsiniz!`
       : 'Kursa girişiniz açıldı. Öyrənməyə başlaya bilərsiniz!',
   }
 
-  const subject = subjectMap[type] || 'Bil-X bildirişi'
+  const subject = subjectMap[type] || 'BilX bildirişi'
   const message = bodyMap[type] || 'Yeni bildiriş var.'
 
   // Direct-recipient types email the target address (the approved teacher / the
@@ -158,7 +158,7 @@ serve(async (req) => {
   try {
     for (const to of recipients) {
       await resend.emails.send({
-        from: 'Bil-X <no-reply@bilx.org>',
+        from: 'BilX <no-reply@bilx.org>',
         to,
         subject,
         html,

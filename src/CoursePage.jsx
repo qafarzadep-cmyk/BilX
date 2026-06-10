@@ -763,7 +763,7 @@ function CoursePage({ user, profile, handleLogout }) {
       <main className="content-shell">
         <section className="course-hero course-hero-public">
           <div className="course-hero-copy">
-            <p className="role-pill course-brand-pill">Bil-X</p>
+            <p className="role-pill course-brand-pill">BilX</p>
             <h1>{course.title}</h1>
             {instructorName && <small className="course-instructor hero-author">{t('instructorLabel')}: {instructorName}</small>}
             <p>{course.description}</p>

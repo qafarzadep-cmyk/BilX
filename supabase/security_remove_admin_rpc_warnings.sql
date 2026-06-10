@@ -1,4 +1,4 @@
--- Bil-X final Advisor cleanup for SECURITY DEFINER RPC warnings.
+-- BilX final Advisor cleanup for SECURITY DEFINER RPC warnings.
 -- IMPORTANT: deploy the updated frontend first, then run this SQL.
 -- The admin page no longer calls these RPC functions after the code update.
 

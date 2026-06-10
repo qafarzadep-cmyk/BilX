@@ -1,4 +1,4 @@
--- Bil-X Supabase RLS emergency check/fix.
+-- BilX Supabase RLS emergency check/fix.
 -- Run the first SELECT in Supabase SQL Editor to see exactly which public tables
 -- still have Row-Level Security disabled.
 

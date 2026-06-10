@@ -1,6 +1,6 @@
-# Bil-X
+# BilX
 
-Bil-X is an online **video course platform** for Azerbaijani-language courses. Students browse courses, watch a free preview, and request access over WhatsApp; an admin grants access after manual payment; instructors create courses and submit them for admin approval.
+BilX is an online **video course platform** for Azerbaijani-language courses. Students browse courses, watch a free preview, and request access over WhatsApp; an admin grants access after manual payment; instructors create courses and submit them for admin approval.
 
 - **Frontend:** React 19 + Vite, React Router 7, multi-language UI (AZ / RU / EN)
 - **Backend:** Supabase (Postgres + Auth + Storage + Edge Functions) — no custom server

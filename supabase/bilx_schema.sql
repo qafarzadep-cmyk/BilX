@@ -1,4 +1,4 @@
--- Bil-X canonical Supabase schema.
+-- BilX canonical Supabase schema.
 -- Run this in Supabase SQL Editor before using the app.
 
 create table if not exists public.profiles (

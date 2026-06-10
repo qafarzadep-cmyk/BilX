@@ -75,7 +75,7 @@ function ResetPassword() {
       <Navbar />
       <main className="auth-shell">
         <form className="auth-card-clean" onSubmit={updatePassword}>
-          <button type="button" className="auth-brand" onClick={() => navigate('/')}>Bil-X</button>
+          <button type="button" className="auth-brand" onClick={() => navigate('/')}>BilX</button>
           <p className="auth-kicker">{t('accountLabel')}</p>
           <h1>{t('resetTitle')}</h1>
           <p className="auth-subtitle">{t('resetSubtitle')}</p>

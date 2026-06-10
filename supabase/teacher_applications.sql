@@ -1,4 +1,4 @@
--- Teacher application flow for Bil-X.
+-- Teacher application flow for BilX.
 -- Run this in Supabase SQL Editor.
 
 create table if not exists public.teacher_applications (

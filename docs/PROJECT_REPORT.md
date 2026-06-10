@@ -1,4 +1,4 @@
-# Bil-X — Project Report
+# BilX — Project Report
 
 A technical report covering architecture, data model, security, the main features, and known trade-offs. For setup see `README.md`; for the SQL run order see `sql_order.md`.
 
@@ -6,7 +6,7 @@ A technical report covering architecture, data model, security, the main feature
 
 ## 1. Overview
 
-Bil-X is an Azerbaijani-language **video course marketplace**. The defining product decision is that **payments are manual over WhatsApp** — there is no payment gateway. The flow is:
+BilX is an Azerbaijani-language **video course marketplace**. The defining product decision is that **payments are manual over WhatsApp** — there is no payment gateway. The flow is:
 
 1. A visitor browses courses and watches a free preview.
 2. They contact the team on WhatsApp from the course page.

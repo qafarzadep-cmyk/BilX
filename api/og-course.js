@@ -1,6 +1,6 @@
 // Rich link previews for shared course links.
 //
-// Bil-X is a client-rendered SPA, so a link crawler (WhatsApp, Telegram,
+// BilX is a client-rendered SPA, so a link crawler (WhatsApp, Telegram,
 // Facebook, etc.) only ever sees the generic index.html — no per-course title
 // or image. This endpoint serves crawlers a tiny HTML document carrying the
 // course's own Open Graph tags so shared links unfurl with the right
@@ -37,7 +37,7 @@ function buildHtml({ url, title, description, image }) {
 <title>${safeTitle}</title>
 <meta name="description" content="${safeDescription}" />
 <meta property="og:type" content="website" />
-<meta property="og:site_name" content="Bil-X" />
+<meta property="og:site_name" content="BilX" />
 <meta property="og:title" content="${safeTitle}" />
 <meta property="og:description" content="${safeDescription}" />
 <meta property="og:url" content="${safeUrl}" />
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
 
   const fallbackHtml = () => buildHtml({
     url,
-    title: 'Bil-X — Onlayn video kurslar',
+    title: 'BilX — Onlayn video kurslar',
     description: 'Azərbaycan dilində peşəkar video kurslar.',
     image: null,
   })
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
 
     res.status(200).send(buildHtml({
       url,
-      title: `${course.title} · Bil-X`,
+      title: `${course.title} · BilX`,
       description: course.description || 'Azərbaycan dilində peşəkar video kurs.',
       image: course.thumbnail_url || null,
     }))

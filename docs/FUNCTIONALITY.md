@@ -1,6 +1,6 @@
-# Bil-X — Functionality & Rationale
+# BilX — Functionality & Rationale
 
-Every functionality in Bil-X, what it does, and **why** it works that way. Pairs with `README.md` (setup) and `PROJECT_REPORT.md` (architecture).
+Every functionality in BilX, what it does, and **why** it works that way. Pairs with `README.md` (setup) and `PROJECT_REPORT.md` (architecture).
 
 The product's defining constraint shapes most decisions: **payment is manual over WhatsApp** (no gateway), and there is **no custom backend** (a React SPA talks straight to Supabase, with Row-Level Security doing the authorization). Many "why"s trace back to those two facts.
 
@@ -50,7 +50,7 @@ The product's defining constraint shapes most decisions: **payment is manual ove
 
 ### Share a course
 - **What:** A "Share" button on each course page. On mobile it opens the native share sheet (`navigator.share` → WhatsApp/Telegram/etc.); on desktop it copies the course link to the clipboard with a confirmation toast. Shared links also **unfurl with a rich preview** (the course's own title, description, and thumbnail).
-- **Why:** Course pages are public, so the link itself is shareable, but a button (native share + copy fallback) is far better UX than asking people to copy the address bar. Rich previews matter because Bil-X is a client-rendered SPA: a link crawler would otherwise only see generic meta tags. `api/og-course.js` serves crawlers (matched by user-agent in `vercel.json`) a small HTML doc with per-course Open Graph tags, while real browsers fall through to the normal SPA untouched — and if the lookup ever fails, it degrades to valid generic tags, never a broken preview.
+- **Why:** Course pages are public, so the link itself is shareable, but a button (native share + copy fallback) is far better UX than asking people to copy the address bar. Rich previews matter because BilX is a client-rendered SPA: a link crawler would otherwise only see generic meta tags. `api/og-course.js` serves crawlers (matched by user-agent in `vercel.json`) a small HTML doc with per-course Open Graph tags, while real browsers fall through to the normal SPA untouched — and if the lookup ever fails, it degrades to valid generic tags, never a broken preview.
 
 ---
 

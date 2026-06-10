@@ -1,5 +1,5 @@
 -- ============================================================================
--- Bil-X consolidated reconcile script.
+-- BilX consolidated reconcile script.
 --
 -- Idempotent. Brings an existing (possibly older) database fully up to the
 -- canonical schema in a single run: tables, missing columns, column types,

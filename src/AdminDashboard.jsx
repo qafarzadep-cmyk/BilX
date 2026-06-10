@@ -625,7 +625,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
           <div className="admin-brand">
             <span className="admin-brand-mark"><Shield size={18} /></span>
             <span className="admin-brand-text">
-              <strong>Bil-X</strong>
+              <strong>BilX</strong>
               <small>{t('adminPanel')}</small>
             </span>
           </div>
