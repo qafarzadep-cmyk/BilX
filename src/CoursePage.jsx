@@ -103,6 +103,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const playerFrameRef = useRef(null)
   const playerRef = useRef(null)
   const bunnyFrameRef = useRef(null)
+  const activeVideoIdRef = useRef(null)
+  const advancingVideoIdRef = useRef(null)
   const [course, setCourse] = useState(location.state?.course || null)
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
@@ -172,6 +174,11 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [lessonPreviews, videos, playableById, t])
 
   const activeVideo = lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
+
+  useEffect(() => {
+    activeVideoIdRef.current = activeVideo?.id || null
+    advancingVideoIdRef.current = null
+  }, [activeVideo?.id])
   // Preview samples are explicitly selected by the instructor. Keep this list
   // available for enrolled users and owners too, so they see the same course
   // preview card when reviewing the published page.
@@ -468,12 +475,25 @@ function CoursePage({ user, profile, handleLogout }) {
     })
   }, [user])
 
-  const playNext = useCallback(async () => {
-    if (!activeVideo) return
-    await markWatched(activeVideo.id)
-    const index = lessons.findIndex((video) => String(video.id) === String(activeVideo.id))
-    if (lessons[index + 1]) setActiveVideoId(lessons[index + 1].id)
-  }, [activeVideo, lessons, markWatched])
+  const playNext = useCallback((expectedVideoId = null) => {
+    const currentId = activeVideoIdRef.current
+    if (!currentId || String(advancingVideoIdRef.current) === String(currentId)) return
+    if (expectedVideoId !== null && String(expectedVideoId) !== String(currentId)) return
+
+    const index = lessons.findIndex((video) => String(video.id) === String(currentId))
+    const nextVideo = lessons[index + 1]
+    if (!nextVideo) {
+      void markWatched(currentId)
+      return
+    }
+
+    // Advance immediately. Progress persistence must not hold the player on the
+    // old lesson, and duplicate Player.js "ended" events must not advance twice.
+    advancingVideoIdRef.current = currentId
+    activeVideoIdRef.current = nextVideo.id
+    setActiveVideoId(nextVideo.id)
+    void markWatched(currentId)
+  }, [lessons, markWatched])
 
   const submitComment = async (event) => {
     event.preventDefault()
@@ -641,7 +661,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (!data || data.context !== 'player.js') return
       // The player announces "ready" once it can take commands; subscribe then.
       if (data.event === 'ready') subscribe()
-      else if (data.event === 'ended') playNext()
+      else if (data.event === 'ended') playNext(activeVideo.id)
     }
 
     window.addEventListener('message', handleMessage)
@@ -663,7 +683,7 @@ function CoursePage({ user, profile, handleLogout }) {
         events: {
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.ENDED) {
-              playNext()
+              playNext(activeVideo.id)
             }
           },
         },
@@ -830,7 +850,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     allowFullScreen
                   />
                 ) : playerVideo?.video_url ? (
-                  <video key={playerVideo.id} controls autoPlay src={playerVideo.video_url} onEnded={playNext} className="youtube-player">
+                  <video key={playerVideo.id} controls autoPlay src={playerVideo.video_url} onEnded={() => playNext(playerVideo.id)} className="youtube-player">
                     {t('videoNotSupported')}
                   </video>
                 ) : (
@@ -853,7 +873,7 @@ function CoursePage({ user, profile, handleLogout }) {
                       <ExternalLink size={16} /> {t('openLink')}
                     </a>
                   )}
-                  <button className="primary-button complete-button" onClick={playNext}>
+                  <button className="primary-button complete-button" onClick={() => playNext(activeVideo?.id)}>
                     {t('markComplete')}
                   </button>
                 </div>
