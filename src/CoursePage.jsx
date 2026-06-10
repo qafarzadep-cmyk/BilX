@@ -761,7 +761,7 @@ function CoursePage({ user, profile, handleLogout }) {
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
       <main className="content-shell">
-        <section className={publicPreviewVideo ? 'course-hero course-hero-public' : 'course-hero'}>
+        <section className="course-hero course-hero-public">
           <div className="course-hero-copy">
             <p className="role-pill course-brand-pill">Bil-X</p>
             <h1>{course.title}</h1>
@@ -775,21 +775,22 @@ function CoursePage({ user, profile, handleLogout }) {
               <Share2 size={16} /> {t('shareCourse')}
             </button>
           </div>
-          {publicPreviewVideo ? (
-            <button
-              type="button"
-              className="course-preview-card"
-              onClick={openCoursePreview}
-              aria-label={`${t('previewCourse')}: ${course.title}`}
-            >
-              <img src={course.thumbnail_url || '/course-placeholder.svg'} alt="" />
+          <button
+            type="button"
+            className="course-preview-card"
+            onClick={openCoursePreview}
+            aria-label={publicPreviewVideo ? `${t('previewCourse')}: ${course.title}` : course.title}
+            disabled={!publicPreviewVideo}
+          >
+            <img src={course.thumbnail_url || '/course-placeholder.svg'} alt="" />
+            {publicPreviewVideo && (
+              <>
               <span className="course-preview-shade" />
               <span className="course-preview-play"><Play size={30} fill="currentColor" /></span>
               <strong>{t('previewCourse')}</strong>
-            </button>
-          ) : (
-            <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
-          )}
+              </>
+            )}
+          </button>
         </section>
 
         {hasAccess ? (

@@ -3543,6 +3543,14 @@ td button + .outline-button {
   cursor: pointer;
 }
 
+.course-preview-card:disabled {
+  cursor: default;
+}
+
+.course-preview-card:disabled img {
+  transform: none;
+}
+
 .course-preview-card img,
 .course-preview-card .course-preview-shade,
 .course-preview-card .course-preview-play,
