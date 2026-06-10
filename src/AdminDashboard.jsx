@@ -393,7 +393,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     )
   }
 
-  const reviewCourses = courses.filter((course) => getCourseStatus(course) !== 'approved')
+  const reviewCourses = courses.filter((course) => getCourseStatus(course) === 'pending')
   const approvedCourses = courses.filter((course) => getCourseStatus(course) === 'approved' || course.is_published)
   const courseLabel = (course) => {
     if (!course) return ''

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowUp, Eye, EyeOff, FolderPlus, PlayCircle, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
@@ -34,6 +34,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const role = profile?.role || 'student'
   const urlTab = searchParams.get('tab')
+  const requestedCourseId = searchParams.get('course')
+  const instructorView = searchParams.get('view') || 'courses'
+  const creatingCourse = searchParams.get('create') === '1'
   const initialTab = ['new', 'approved', 'pending'].includes(urlTab) ? urlTab : 'new'
   const [courses, setCourses] = useState([])
   const [videos, setVideos] = useState([])
@@ -167,6 +170,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }, [urlTab, activeTab])
 
   useEffect(() => {
+    if (!requestedCourseId || String(selectedCourseId) === String(requestedCourseId)) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedCourseId(requestedCourseId)
+  }, [requestedCourseId, selectedCourseId])
+
+  useEffect(() => {
     if (activeTab === 'new' || courses.length === 0) return
 
     const tabCourses = activeTab === 'approved'
@@ -207,8 +216,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       showMessage(t('trailerValidationWait'), 'error')
       return
     }
-    if (!user || !form.title.trim() || !form.description.trim() || !form.price) {
+    if (!user || !form.title.trim() || !form.description.trim()) {
       showMessage(t('fillCourseFields'), 'error')
+      return
+    }
+    if (!thumbnailFile || !newCourseTrailerFile) {
+      showMessage(t('fillCourseMedia'), 'error')
       return
     }
 
@@ -224,7 +237,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         .insert({
           title: form.title.trim(),
           description: form.description.trim(),
-          price: Number(form.price),
+          price: Number(form.price || 0),
           instructor_id: user.id,
           instructor_name: instructorName,
           thumbnail_url: thumbnailUrl,
@@ -240,7 +253,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
           .insert({
             title: form.title.trim(),
             description: form.description.trim(),
-            price: Number(form.price),
+            price: Number(form.price || 0),
             instructor_id: user.id,
             thumbnail_url: thumbnailUrl,
             is_published: false,
@@ -283,7 +296,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setNewCourseTrailerFile(null)
       setSelectedCourseId(String(data.id))
       setSelectedSectionId(firstSection ? String(firstSection.id) : '')
-      setInstructorTab('pending')
+      setSearchParams({ course: String(data.id), view: 'details' })
       showMessage(
         trailerUploadError
           ? t('courseSavedTrailerFailedDetail').replace('{error}', trailerUploadError)
@@ -507,7 +520,37 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
   }
 
-  const addLesson = async () => {
+  const removeCourseCover = async () => {
+    if (!visibleSelectedCourse || selectedCourseApproved || !window.confirm(t('confirmRemoveCover'))) return
+    const { error } = await supabase
+      .from('Courses')
+      .update({ thumbnail_url: null })
+      .eq('id', visibleSelectedCourse.id)
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+    showMessage(t('coverRemoved'), 'success')
+    await loadData(user)
+  }
+
+  const removeTrailer = async () => {
+    if (!selectedTrailer || selectedCourseApproved || !window.confirm(t('confirmRemoveTrailer'))) return
+    const { error } = await supabase
+      .from('course_trailers')
+      .delete()
+      .eq('course_id', selectedTrailer.course_id)
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+    showMessage(t('trailerRemoved'), 'success')
+    await loadData(user)
+  }
+
+  const addLesson = async (sectionIdOverride = '') => {
     if (!selectedCourseId) {
       showMessage(t('selectOrCreateCourse'), 'error')
       setInstructorTab('new')
@@ -525,7 +568,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
 
     const currentSections = sections.filter((section) => String(section.course_id) === String(selectedCourseId))
-    const selectedSection = currentSections.find((section) => String(section.id) === String(selectedSectionId))
+    const selectedSection = currentSections.find((section) => String(section.id) === String(sectionIdOverride || selectedSectionId))
     const targetSectionId = selectedSection?.id || currentSections[0]?.id
     if (!targetSectionId) {
       showMessage(t('createSectionFirst'), 'error')
@@ -609,6 +652,84 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setSelectedSectionId(String(data.id))
     showMessage(t('sectionCreated'), 'success')
     await loadData(user)
+  }
+
+  const editSection = async (section) => {
+    const nextTitle = window.prompt(t('sectionTitlePlaceholder'), section.title)
+    if (nextTitle === null || !nextTitle.trim() || nextTitle.trim() === section.title) return
+
+    const { error } = await supabase
+      .from('course_sections')
+      .update({ title: nextTitle.trim() })
+      .eq('id', section.id)
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+    showMessage(t('sectionUpdated'), 'success')
+    await loadData(user)
+  }
+
+  const deleteSection = async (section) => {
+    const sectionLessons = courseVideos.filter((video) => String(video.section_id) === String(section.id))
+    if (sectionLessons.length > 0) {
+      showMessage(t('sectionDeleteNeedsEmpty'), 'error')
+      return
+    }
+    if (!window.confirm(t('confirmDeleteSection'))) return
+
+    const { error } = await supabase.from('course_sections').delete().eq('id', section.id)
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+    showMessage(t('sectionDeleted'), 'success')
+    await loadData(user)
+  }
+
+  const editLesson = async (video) => {
+    const nextTitle = window.prompt(t('lessonTitle'), video.title)
+    if (nextTitle === null || !nextTitle.trim() || nextTitle.trim() === video.title) return
+
+    const { error } = await supabase.from('videos').update({ title: nextTitle.trim() }).eq('id', video.id)
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+    showMessage(t('lessonUpdated'), 'success')
+    await loadData(user)
+  }
+
+  const replaceLessonVideo = async (video, file) => {
+    if (!file) return
+
+    setLoading(true)
+    setUploadPercent(0)
+    showMessage(t('uploadingVideo'))
+    try {
+      const detectedDuration = formatVideoDuration(await getVideoDuration(file))
+      const presign = await createBunnyVideo(video.title)
+      await uploadToBunny(file, presign)
+
+      const { error } = await supabase
+        .from('videos')
+        .update({
+          bunny_video_id: presign.videoId,
+          video_source: 'bunny',
+          duration: detectedDuration,
+        })
+        .eq('id', video.id)
+
+      if (error) throw error
+      showMessage(t('lessonVideoReplaced'), 'success')
+      await loadData(user)
+    } catch (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+    } finally {
+      setLoading(false)
+      setUploadPercent(0)
+    }
   }
 
   const deleteLesson = async (videoId) => {
@@ -765,6 +886,323 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const selectedCourseApproved = visibleSelectedCourse
     ? (getCourseStatus(visibleSelectedCourse) === 'approved' || visibleSelectedCourse.is_published)
     : false
+
+  const openCourse = (course, view = 'details') => {
+    setSelectedCourseId(String(course.id))
+    setSearchParams({ course: String(course.id), view })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const goToCourseList = () => {
+    setMessage('')
+    setSearchParams({})
+  }
+
+  if (instructorView || creatingCourse) {
+    const cardCourses = [...courses].sort((a, b) => Number(b.id) - Number(a.id))
+    const detailCourse = courses.find((course) => String(course.id) === String(requestedCourseId))
+    const detailApproved = detailCourse
+      ? (getCourseStatus(detailCourse) === 'approved' || detailCourse.is_published)
+      : false
+    const detailVideos = detailCourse
+      ? videos.filter((video) => String(video.course_id) === String(detailCourse.id))
+      : []
+    const detailSections = detailCourse
+      ? sections.filter((section) => String(section.course_id) === String(detailCourse.id))
+      : []
+    const detailTrailer = detailCourse
+      ? trailers.find((trailer) => String(trailer.course_id) === String(detailCourse.id))
+      : null
+
+    return (
+      <div className="page">
+        <Navbar user={user} profile={profile} onLogout={handleLogout} />
+        <main className="instructor-simple-page">
+          {message && (
+            <div className={messageType === 'error' ? 'error-box' : messageType === 'success' ? 'success-box' : 'notice-box'}>
+              {message}
+            </div>
+          )}
+
+          {creatingCourse ? (
+            <>
+              <button className="instructor-back-button" type="button" onClick={goToCourseList}>
+                <ArrowLeft size={18} /> {t('backToMyCourses')}
+              </button>
+              <section className="panel-card form-panel course-setup-form instructor-focused-form">
+                <h1>{t('newCourse')}</h1>
+                <p className="muted">{t('simpleCourseSetupHelp')}</p>
+                <label>{t('courseTitle')}</label>
+                <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder={t('exampleCourseTitle')} />
+                <label>{t('courseDescription')}</label>
+                <textarea rows={6} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={t('exampleCourseDescription')} />
+                <label>{t('coverImage')}</label>
+                <input type="file" accept="image/*" onChange={(event) => setThumbnailFile(event.target.files[0] || null)} />
+                <label>{t('trailerTitle')}</label>
+                <input
+                  value={newCourseTrailerTitle}
+                  onChange={(event) => setNewCourseTrailerTitle(event.target.value)}
+                  placeholder={t('trailerTitlePlaceholder')}
+                />
+                <label>{t('trailerVideo')}</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  disabled={loading}
+                  onChange={(event) => selectTrailerFile(
+                    event.target.files[0] || null,
+                    setNewCourseTrailerFile,
+                    setNewCourseTrailerValidating,
+                    event.target
+                  )}
+                />
+                <p className="muted">{t('trailerMaxDuration')}</p>
+                {newCourseTrailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
+                {loading && newCourseTrailerFile && (
+                  <div className="upload-progress">
+                    <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
+                    <small>{t('uploadingVideo')} {uploadPercent}%</small>
+                  </div>
+                )}
+                <button className="primary-button full" onClick={createCourse} disabled={loading || newCourseTrailerValidating}>
+                  {loading ? `${t('creatingCourse')} ${uploadPercent ? `${uploadPercent}%` : ''}` : t('createCourse')}
+                </button>
+              </section>
+            </>
+          ) : instructorView === 'courses' ? (
+            <>
+              <header className="instructor-simple-header">
+                <div>
+                  <h1>{t('myCoursesTitle')}</h1>
+                  <p>{t('simpleInstructorHelp')}</p>
+                </div>
+                <button className="primary-button instructor-create-button" type="button" onClick={() => setSearchParams({ create: '1' })}>
+                  <Plus size={18} /> {t('newCourse')}
+                </button>
+              </header>
+
+              {cardCourses.length === 0 ? (
+                <div className="panel-card instructor-empty-courses">
+                  <h2>{t('noCoursesYet')}</h2>
+                  <p className="muted">{t('simpleCourseSetupHelp')}</p>
+                  <button className="primary-button" type="button" onClick={() => setSearchParams({ create: '1' })}>
+                    <Plus size={18} /> {t('newCourse')}
+                  </button>
+                </div>
+              ) : (
+                <section className="instructor-course-card-grid">
+                  {cardCourses.map((course) => (
+                    <button className="home-course-card instructor-course-card" type="button" key={course.id} onClick={() => openCourse(course)}>
+                      <img className="home-course-thumb" src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                      <span className="home-course-card-body">
+                        <span className={`instructor-status-pill status-${getCourseStatus(course)}`}>
+                          {t(getCourseStatusLabel(getCourseStatus(course)))}
+                        </span>
+                        <h3>{course.title}</h3>
+                        <span className="home-course-instructor">{getCourseAuthorName(course)}</span>
+                        <span className="home-course-meta">{videos.filter((video) => video.course_id === course.id).length} {t('courseLessons')}</span>
+                        <strong className="home-course-price">{course.price || 0} AZN</strong>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              )}
+            </>
+          ) : !detailCourse ? (
+            <div className="panel-card instructor-empty-courses">
+              <h2>{t('courseNotFound')}</h2>
+              <button className="outline-button" type="button" onClick={goToCourseList}>{t('backToMyCourses')}</button>
+            </div>
+          ) : instructorView === 'curriculum' ? (
+            <>
+              <button className="instructor-back-button" type="button" onClick={() => openCourse(detailCourse)}>
+                <ArrowLeft size={18} /> {detailCourse.title}
+              </button>
+              <header className="instructor-simple-header">
+                <div>
+                  <h1>{t('courseCurriculum')}</h1>
+                  <p>{t('courseCurriculumHelp')}</p>
+                </div>
+              </header>
+
+              {detailApproved ? (
+                <div className="notice-box">{t('approvedCourseLockNote')}</div>
+              ) : (
+                <section className="panel-card instructor-curriculum-builder">
+                  <div className="section-create-row">
+                    <input
+                      value={sectionTitle}
+                      onChange={(event) => setSectionTitle(event.target.value)}
+                      placeholder={t('sectionTitlePlaceholder')}
+                    />
+                    <button className="outline-button" type="button" onClick={createSection}>
+                      <FolderPlus size={16} /> {t('addSection')}
+                    </button>
+                  </div>
+
+                  <div className="section-editor-list">
+                    {detailSections.map((section, sectionIndex) => {
+                      const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
+                      return (
+                        <section className="section-editor-card" key={section.id}>
+                          <div className="section-editor-heading">
+                            <div>
+                              <strong>{sectionIndex + 1}. {section.title}</strong>
+                              <small>{sectionVideos.length} {t('courseLessons')}</small>
+                            </div>
+                            <div className="instructor-inline-actions">
+                              <button className="icon-link-button" type="button" onClick={() => editSection(section)} title={t('edit')}>
+                                <Pencil size={16} />
+                              </button>
+                              <button className="icon-danger-button" type="button" onClick={() => deleteSection(section)} title={t('delete')}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="lesson-list">
+                            {sectionVideos.length === 0 ? <p className="muted">{t('noLessonsInSection')}</p> : sectionVideos.map((video, lessonIndex) => (
+                              <div key={video.id} className="lesson-row managed-lesson-row">
+                                <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
+                                <div>
+                                  <strong>{video.title}</strong>
+                                  <small>{video.duration || t('durationMissing')}{video.is_free ? ` · ${t('previewShort')}` : ''}</small>
+                                </div>
+                                <div className="lesson-row-actions">
+                                  <button className="icon-link-button" type="button" onClick={() => moveLesson(video.id, -1)} disabled={lessonIndex === 0}><ArrowUp size={16} /></button>
+                                  <button className="icon-link-button" type="button" onClick={() => moveLesson(video.id, 1)} disabled={lessonIndex === sectionVideos.length - 1}><ArrowDown size={16} /></button>
+                                  <button className="icon-link-button" type="button" onClick={() => editLesson(video)} title={t('edit')}><Pencil size={16} /></button>
+                                  <label className="icon-link-button instructor-file-action" title={t('replaceLessonVideo')}>
+                                    <Upload size={16} />
+                                    <input
+                                      type="file"
+                                      accept="video/*"
+                                      disabled={loading}
+                                      onChange={(event) => {
+                                        replaceLessonVideo(video, event.target.files[0] || null)
+                                        event.target.value = ''
+                                      }}
+                                    />
+                                  </label>
+                                  <button className="icon-link-button" type="button" onClick={() => toggleFreeLesson(video.id, !video.is_free)} title={video.is_free ? t('previewClose') : t('previewOpen')}>
+                                    {video.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
+                                  </button>
+                                  <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} title={t('delete')}><Trash2 size={16} /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="instructor-add-lesson-box">
+                            <h3>{t('addLesson')}</h3>
+                            <label>{t('lessonTitle')}</label>
+                            <input value={validSelectedSectionId === String(section.id) ? lessonTitle : ''} onFocus={() => setSelectedSectionId(String(section.id))} onChange={(event) => {
+                              setSelectedSectionId(String(section.id))
+                              setLessonTitle(event.target.value)
+                            }} />
+                            <label>{t('videoFile')}</label>
+                            <input type="file" accept="video/*" disabled={loading} onFocus={() => setSelectedSectionId(String(section.id))} onChange={(event) => {
+                              setSelectedSectionId(String(section.id))
+                              selectLessonFile(event.target.files[0] || null)
+                            }} />
+                            <label className="instructor-checkbox">
+                              <input type="checkbox" checked={validSelectedSectionId === String(section.id) && lessonIsFree} onChange={(event) => {
+                                setSelectedSectionId(String(section.id))
+                                setLessonIsFree(event.target.checked)
+                              }} />
+                              {t('previewLesson')}
+                            </label>
+                            {loading && validSelectedSectionId === String(section.id) && (
+                              <div className="upload-progress">
+                                <div className="upload-progress-bar"><span style={{ width: `${uploadPercent}%` }} /></div>
+                                <small>{t('uploadingVideo')} {uploadPercent}%</small>
+                              </div>
+                            )}
+                            <button className="primary-button" type="button" disabled={loading} onClick={() => {
+                              setSelectedSectionId(String(section.id))
+                              addLesson(section.id)
+                            }}>
+                              <Plus size={16} /> {t('addLesson')}
+                            </button>
+                          </div>
+                        </section>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
+            </>
+          ) : (
+            <>
+              <button className="instructor-back-button" type="button" onClick={goToCourseList}>
+                <ArrowLeft size={18} /> {t('backToMyCourses')}
+              </button>
+              <header className="instructor-simple-header">
+                <div>
+                  <span className={`instructor-status-pill status-${getCourseStatus(detailCourse)}`}>
+                    {t(getCourseStatusLabel(getCourseStatus(detailCourse)))}
+                  </span>
+                  <h1>{detailCourse.title}</h1>
+                  <p>{t('courseDetailsHelp')}</p>
+                </div>
+                <button className="primary-button" type="button" onClick={() => openCourse(detailCourse, 'curriculum')}>
+                  <Plus size={18} /> {t('addYourLessons')}
+                </button>
+              </header>
+
+              <section className="instructor-detail-grid">
+                <div className="panel-card form-panel">
+                  <h2>{t('courseSetup')}</h2>
+                  <label>{t('courseTitle')}</label>
+                  <input disabled={detailApproved} value={courseDetailsForm.title} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, title: event.target.value })} />
+                  <label>{t('courseDescription')}</label>
+                  <textarea disabled={detailApproved} rows={6} value={courseDetailsForm.description} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, description: event.target.value })} />
+                  <label>{t('priceAzN')}</label>
+                  <input disabled={detailApproved} type="number" value={courseDetailsForm.price} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, price: event.target.value })} />
+                  {!detailApproved && <button className="primary-button full" type="button" disabled={loading} onClick={saveCourseDetails}><Pencil size={16} /> {t('saveCourseDetails')}</button>}
+                </div>
+
+                <div className="panel-card instructor-media-card">
+                  <h2>{t('coverImage')}</h2>
+                  <img src={detailCourse.thumbnail_url || '/course-placeholder.svg'} alt={detailCourse.title} />
+                  {!detailApproved && (
+                    <>
+                      <input type="file" accept="image/*" onChange={(event) => setCourseThumbnailFile(event.target.files[0] || null)} />
+                      {courseThumbnailFile && <button className="outline-button full" type="button" onClick={saveCourseDetails}>{t('replaceCoverImage')}</button>}
+                      {detailCourse.thumbnail_url && <button className="danger-button full" type="button" onClick={removeCourseCover}><Trash2 size={16} /> {t('removeCover')}</button>}
+                    </>
+                  )}
+                </div>
+
+                <div className="panel-card instructor-media-card">
+                  <h2>{t('courseTrailer')}</h2>
+                  <p className="muted">{detailTrailer ? `${detailTrailer.title} · ${t('trailerReady')}` : t('trailerHelp')}</p>
+                  <button className="outline-button full" type="button" onClick={() => navigate(`/course/${detailCourse.id}`, { state: { course: detailCourse } })}>
+                    <PlayCircle size={16} /> {t('previewCourse')}
+                  </button>
+                  {!detailApproved && (
+                    <>
+                      <label>{t('trailerTitle')}</label>
+                      <input value={trailerTitle} onChange={(event) => setTrailerTitle(event.target.value)} placeholder={t('trailerTitlePlaceholder')} />
+                      <input type="file" accept="video/*" disabled={loading} onChange={(event) => selectTrailerFile(event.target.files[0] || null, setTrailerFile, setTrailerValidating, event.target)} />
+                      {trailerFile && <button className="primary-button full" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>{detailTrailer ? t('replaceTrailer') : t('uploadTrailer')}</button>}
+                      {detailTrailer && <button className="danger-button full" type="button" onClick={removeTrailer}><Trash2 size={16} /> {t('removeTrailer')}</button>}
+                    </>
+                  )}
+                </div>
+              </section>
+
+              {!detailApproved && (
+                <div className="instructor-detail-footer">
+                  <button className="danger-button" type="button" onClick={deleteCourse}><Trash2 size={16} /> {t('deleteUnapprovedCourse')}</button>
+                  <button className="dark-button" type="button" disabled={detailVideos.length === 0 || !detailTrailer} onClick={submitCourse}>{t('submitCourse')}</button>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+    )
+  }
+
   const instructorTabs = [
     ['new', t('newCourse'), null],
     ['approved', t('approvedCourses'), approvedCourses.length],
