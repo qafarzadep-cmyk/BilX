@@ -105,6 +105,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const bunnyFrameRef = useRef(null)
   const activeVideoIdRef = useRef(null)
   const advancingVideoIdRef = useRef(null)
+  const initializedCourseIdRef = useRef(null)
   const [course, setCourse] = useState(location.state?.course || null)
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
@@ -130,6 +131,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const [ratingValue, setRatingValue] = useState(0)
   const [ratingReview, setRatingReview] = useState('')
   const adminPreview = isAdmin(user)
+  const userId = user?.id
+  const userEmail = user?.email
   // Stable id for data loading: route param, or the course passed via navigation
   // state. Keying the load effect on this (not the `course` object it also sets)
   // avoids redundant reloads.
@@ -323,10 +326,15 @@ function CoursePage({ user, profile, handleLogout }) {
         setSections(sectionData || [])
         setTrailer(trailerData || null)
         setActivePreviewId(trailerData ? 'trailer' : '')
-        setActiveVideoId(location.state?.videoId || sortedVideos[0]?.id || null)
+        if (String(initializedCourseIdRef.current) !== String(courseId)) {
+          const initialVideoId = location.state?.videoId || sortedVideos[0]?.id || null
+          initializedCourseIdRef.current = courseId
+          activeVideoIdRef.current = initialVideoId
+          setActiveVideoId(initialVideoId)
+        }
       }
 
-      if (!user) {
+      if (!userId) {
         if (mounted) setLoading(false)
         return
       }
@@ -341,7 +349,7 @@ function CoursePage({ user, profile, handleLogout }) {
         return
       }
 
-      if (currentCourse?.instructor_id === user.id) {
+      if (currentCourse?.instructor_id === userId) {
         if (mounted) {
           setHasAccess(true)
           setIsEnrolled(false)
@@ -351,7 +359,7 @@ function CoursePage({ user, profile, handleLogout }) {
         return
       }
 
-      const studentKeys = [user.id, user.email].filter(Boolean)
+      const studentKeys = [userId, userEmail].filter(Boolean)
       const { data: enrollmentData } = await supabase
         .from('enrollments')
         .select('*')
@@ -364,7 +372,7 @@ function CoursePage({ user, profile, handleLogout }) {
         const { data } = await supabase
           .from('video_progress')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .in('video_id', sortedVideos.map((video) => video.id))
         progressData = data || []
       }
@@ -381,7 +389,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [adminPreview, courseId, location.state?.videoId, navigate, user])
+  }, [adminPreview, courseId, location.state?.videoId, navigate, userEmail, userId])
 
   useEffect(() => {
     let mounted = true
