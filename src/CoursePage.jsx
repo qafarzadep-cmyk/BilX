@@ -86,6 +86,26 @@ function durationToSeconds(value) {
   return parts.reduce((total, part) => total * 60 + part, 0)
 }
 
+const COMMENT_TIME_PATTERN = /^\[\[bilx-time:(\d+)\]\]\s*/
+
+function parseTimestampedComment(body) {
+  const text = String(body || '')
+  const match = text.match(COMMENT_TIME_PATTERN)
+  return {
+    timestampSeconds: match ? Number(match[1]) : null,
+    body: text.replace(COMMENT_TIME_PATTERN, ''),
+  }
+}
+
+function formatPlaybackTime(value) {
+  const seconds = Math.max(0, Math.floor(Number(value) || 0))
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainder = seconds % 60
+  const parts = hours > 0 ? [hours, minutes, remainder] : [minutes, remainder]
+  return parts.map((part, index) => index === 0 ? String(part) : String(part).padStart(2, '0')).join(':')
+}
+
 function formatSectionDuration(seconds, t) {
   if (!seconds) return ''
   const hours = Math.floor(seconds / 3600)
@@ -103,6 +123,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const playerFrameRef = useRef(null)
   const playerRef = useRef(null)
   const bunnyFrameRef = useRef(null)
+  const legacyVideoRef = useRef(null)
+  const playbackSecondsRef = useRef(0)
   const activeVideoIdRef = useRef(null)
   const advancingVideoIdRef = useRef(null)
   const initializedCourseIdRef = useRef(null)
@@ -127,9 +149,6 @@ function CoursePage({ user, profile, handleLogout }) {
   const [signedError, setSignedError] = useState(false)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
-  const [ratings, setRatings] = useState([])
-  const [ratingValue, setRatingValue] = useState(0)
-  const [ratingReview, setRatingReview] = useState('')
   const adminPreview = isAdmin(user)
   const userId = user?.id
   const userEmail = user?.email
@@ -182,6 +201,7 @@ function CoursePage({ user, profile, handleLogout }) {
   useEffect(() => {
     activeVideoIdRef.current = activeVideo?.id || null
     advancingVideoIdRef.current = null
+    playbackSecondsRef.current = 0
   }, [activeVideo?.id])
   // Preview samples are explicitly selected by the instructor. Keep this list
   // available for enrolled users and owners too, so they see the same course
@@ -273,10 +293,6 @@ function CoursePage({ user, profile, handleLogout }) {
     })
     setActiveVideoId(videoId)
   }
-  const ratingAverage = ratings.length
-    ? Math.round((ratings.reduce((sum, item) => sum + (item.rating || 0), 0) / ratings.length) * 10) / 10
-    : 0
-
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
       await supabase.functions.invoke('notify-email', {
@@ -390,25 +406,6 @@ function CoursePage({ user, profile, handleLogout }) {
       mounted = false
     }
   }, [adminPreview, courseId, location.state?.videoId, navigate, userEmail, userId])
-
-  useEffect(() => {
-    let mounted = true
-
-    async function loadRatings() {
-      if (!course) return
-      const { data } = await supabase
-        .from('course_ratings')
-        .select('*')
-        .eq('course_id', course.id)
-        .order('created_at', { ascending: false })
-      if (mounted) setRatings(data || [])
-    }
-
-    loadRatings()
-    return () => {
-      mounted = false
-    }
-  }, [course])
 
   useEffect(() => {
     let mounted = true
@@ -540,17 +537,46 @@ function CoursePage({ user, profile, handleLogout }) {
     void markWatched(currentId)
   }, [lessons, markWatched])
 
+  const getCurrentPlaybackSeconds = () => {
+    if (legacyVideoRef.current) return legacyVideoRef.current.currentTime || 0
+    if (playerRef.current?.getCurrentTime) return playerRef.current.getCurrentTime() || 0
+    return playbackSecondsRef.current || 0
+  }
+
+  const seekToComment = (seconds) => {
+    const target = Math.max(0, Number(seconds) || 0)
+    playbackSecondsRef.current = target
+
+    if (activeVideo?.bunny_video_id && bunnyFrameRef.current?.contentWindow) {
+      bunnyFrameRef.current.contentWindow.postMessage(
+        JSON.stringify({ context: 'player.js', version: '0.0.1', method: 'setCurrentTime', value: target }),
+        '*'
+      )
+      return
+    }
+    if (playerRef.current?.seekTo) {
+      playerRef.current.seekTo(target, true)
+      return
+    }
+    if (legacyVideoRef.current) {
+      legacyVideoRef.current.currentTime = target
+      void legacyVideoRef.current.play()
+    }
+  }
+
   const submitComment = async (event) => {
     event.preventDefault()
     if (!user || !activeVideo?.id || !commentBody.trim()) return
     if (String(activeVideo.id).startsWith('placeholder-')) return
 
+    const timestampSeconds = Math.max(0, Math.floor(getCurrentPlaybackSeconds()))
+    const storedBody = `[[bilx-time:${timestampSeconds}]] ${commentBody.trim()}`
     const { error } = await supabase
       .from('video_comments')
       .insert({
         user_id: user.id,
         video_id: activeVideo.id,
-        body: commentBody.trim(),
+        body: storedBody,
       })
 
     if (!error) {
@@ -576,45 +602,6 @@ function CoursePage({ user, profile, handleLogout }) {
         .eq('video_id', activeVideo.id)
         .order('created_at', { ascending: false })
       setComments(data || [])
-    }
-  }
-
-  const submitRating = async (event) => {
-    event.preventDefault()
-    if (!user || !course || ratingValue < 1) return
-
-    const { error } = await supabase
-      .from('course_ratings')
-      .upsert({
-        user_id: user.id,
-        course_id: course.id,
-        rating: ratingValue,
-        review: ratingReview.trim() || null,
-      }, { onConflict: 'user_id,course_id' })
-
-    if (!error) {
-      setRatingReview('')
-      if (course?.instructor_id) {
-        await supabase.rpc('create_notification', {
-          p_user_id: course.instructor_id,
-          p_title: t('newRatingTitle'),
-          p_body: t('newRatingBody').replace('{title}', course.title),
-          p_link: `/course/${course.id}`,
-        })
-      }
-      await sendEmailNotification({
-        type: 'rating',
-        courseId: course.id,
-        courseTitle: course.title,
-        instructorId: course.instructor_id,
-        link: `${window.location.origin}/course/${course.id}`,
-      })
-      const { data } = await supabase
-        .from('course_ratings')
-        .select('*')
-        .eq('course_id', course.id)
-        .order('created_at', { ascending: false })
-      setRatings(data || [])
     }
   }
 
@@ -689,10 +676,12 @@ function CoursePage({ user, profile, handleLogout }) {
     if (!iframe) return undefined
 
     const subscribe = () => {
-      iframe.contentWindow?.postMessage(
-        JSON.stringify({ context: 'player.js', version: '0.0.1', method: 'addEventListener', value: 'ended', listener: 'bilx-ended' }),
-        '*'
-      )
+      for (const eventName of ['ended', 'timeupdate']) {
+        iframe.contentWindow?.postMessage(
+          JSON.stringify({ context: 'player.js', version: '0.0.1', method: 'addEventListener', value: eventName, listener: `bilx-${eventName}` }),
+          '*'
+        )
+      }
     }
 
     function handleMessage(event) {
@@ -707,6 +696,10 @@ function CoursePage({ user, profile, handleLogout }) {
       // The player announces "ready" once it can take commands; subscribe then.
       if (data.event === 'ready') subscribe()
       else if (data.event === 'ended') playNext(activeVideo.id)
+      else if (data.event === 'timeupdate') {
+        const seconds = data.value?.seconds ?? data.value?.currentTime ?? data.value
+        if (Number.isFinite(Number(seconds))) playbackSecondsRef.current = Number(seconds)
+      }
     }
 
     window.addEventListener('message', handleMessage)
@@ -895,7 +888,16 @@ function CoursePage({ user, profile, handleLogout }) {
                     allowFullScreen
                   />
                 ) : playerVideo?.video_url ? (
-                  <video key={playerVideo.id} controls autoPlay src={playerVideo.video_url} onEnded={() => playNext(playerVideo.id)} className="youtube-player">
+                  <video
+                    key={playerVideo.id}
+                    ref={legacyVideoRef}
+                    controls
+                    autoPlay
+                    src={playerVideo.video_url}
+                    onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
+                    onEnded={() => playNext(playerVideo.id)}
+                    className="youtube-player"
+                  >
                     {t('videoNotSupported')}
                   </video>
                 ) : (
@@ -1010,46 +1012,55 @@ function CoursePage({ user, profile, handleLogout }) {
             </aside>
           </section>
           )}
-          <section className="panel-card">
-            <div className="section-heading">
-              <h2>{t('courseRating')}</h2>
-              <p>{ratingAverage > 0 ? `${t('ratingAverage')}: ${ratingAverage} (${ratings.length} ${t('ratingCount')})` : t('noRatingsYet')}</p>
+          <section className="panel-card lesson-comments-panel">
+            <div className="section-heading youtube-comment-heading">
+              <div>
+                <h2>{comments.length} {t('lessonComments')}</h2>
+                <p>{activeVideo?.title || t('lessonTitle')}</p>
+              </div>
             </div>
-            <form className="form-panel" onSubmit={submitRating}>
-              <label>{t('ratingSelect')}</label>
-              <select value={ratingValue} onChange={(event) => setRatingValue(Number(event.target.value))}>
-                <option value="0">{t('ratingSelect')}</option>
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
-              </select>
-              <label>{t('courseRating')}</label>
-              <textarea rows={4} value={ratingReview} onChange={(event) => setRatingReview(event.target.value)} placeholder={t('reviewPlaceholder')} />
-              <button className="primary-button">{t('addReview')}</button>
-            </form>
-          </section>
-
-          <section className="panel-card">
-            <div className="section-heading">
-              <h2>{t('lessonComments')}</h2>
-              <p>{activeVideo?.title || t('lessonTitle')}</p>
-            </div>
-            <form className="form-panel" onSubmit={submitComment}>
-              <label>{t('lessonComments')}</label>
-              <textarea rows={4} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t('commentPlaceholder')} />
-              <button className="primary-button">{t('addComment')}</button>
+            <form className="youtube-comment-form" onSubmit={submitComment}>
+              <span className="comment-avatar">
+                {(profile?.full_name || user?.email || 'S').charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <textarea rows={2} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t('commentPlaceholder')} />
+                <div className="youtube-comment-form-actions">
+                  <small>{t('commentTimestampHelp')}</small>
+                  <button className="primary-button" disabled={!commentBody.trim()}>{t('addComment')}</button>
+                </div>
+              </div>
             </form>
             {comments.length === 0 ? (
               <p className="muted">{t('noComments')}</p>
             ) : (
               <div className="comment-list">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="comment-item">
-                    <strong>{comment.profiles?.full_name || user?.email}</strong>
-                    <small>{new Date(comment.created_at).toLocaleString('az-AZ')}</small>
-                    <p>{comment.body}</p>
-                  </div>
-                ))}
+                {comments.map((comment) => {
+                  const parsedComment = parseTimestampedComment(comment.body)
+                  const authorName = comment.profiles?.full_name || (comment.user_id === user?.id ? user?.email : t('student'))
+
+                  return (
+                    <article key={comment.id} className="comment-item youtube-comment-item">
+                      <span className="comment-avatar">{(authorName || 'S').charAt(0).toUpperCase()}</span>
+                      <div>
+                        <div className="youtube-comment-meta">
+                          <strong>{authorName}</strong>
+                          <small>{new Date(comment.created_at).toLocaleString('az-AZ')}</small>
+                        </div>
+                        {parsedComment.timestampSeconds !== null && (
+                          <button
+                            className="comment-timestamp"
+                            type="button"
+                            onClick={() => seekToComment(parsedComment.timestampSeconds)}
+                          >
+                            {formatPlaybackTime(parsedComment.timestampSeconds)}
+                          </button>
+                        )}
+                        <p>{parsedComment.body}</p>
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
             )}
           </section>

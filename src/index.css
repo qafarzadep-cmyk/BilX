@@ -2477,21 +2477,111 @@ th {
 .comment-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 22px;
+  margin-top: 28px;
 }
 
 .comment-item {
-  border: 1px solid #eef0f2;
-  border-radius: 8px;
-  padding: 12px;
+  padding: 0;
   background: #fff;
 }
 
 .comment-item small {
-  display: block;
   color: #6a6f73;
   font-size: 12px;
-  margin-bottom: 6px;
+}
+
+.lesson-comments-panel {
+  max-width: 900px;
+}
+
+.youtube-comment-heading {
+  margin-bottom: 22px;
+}
+
+.youtube-comment-form {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.youtube-comment-form textarea {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-bottom: 1px solid #9ca3af;
+  border-radius: 0;
+  padding: 8px 0;
+  outline: 0;
+  resize: vertical;
+}
+
+.youtube-comment-form textarea:focus {
+  border-bottom: 2px solid #1c1d1f;
+}
+
+.youtube-comment-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.youtube-comment-form-actions small {
+  color: #6a6f73;
+}
+
+.comment-avatar {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #1435c3;
+  color: #fff;
+  font-weight: 900;
+}
+
+.youtube-comment-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.youtube-comment-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.youtube-comment-meta strong {
+  color: #1c1d1f;
+  font-size: 13px;
+}
+
+.youtube-comment-item p {
+  margin: 5px 0 0;
+  color: #1c1d1f;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.comment-timestamp {
+  border: 0;
+  border-radius: 3px;
+  padding: 2px 5px;
+  background: #eef2ff;
+  color: #1435c3;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.comment-timestamp:hover {
+  background: #dfe6ff;
 }
 
 .role-choice-clean {
