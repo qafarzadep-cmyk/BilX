@@ -29,6 +29,29 @@ function formatVideoDuration(totalSeconds) {
   return parts.map((part, index) => index === 0 ? String(part) : String(part).padStart(2, '0')).join(':')
 }
 
+function isYouTubeUrl(url) {
+  if (!url) return false
+  try {
+    const host = new URL(url).hostname.replace('www.', '')
+    return host === 'youtu.be' || host.includes('youtube.com')
+  } catch {
+    return false
+  }
+}
+
+function toYouTubeEmbedUrl(url) {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace('www.', '')
+    const videoId = host === 'youtu.be'
+      ? parsed.pathname.replace('/', '')
+      : parsed.searchParams.get('v') || parsed.pathname.split('/embed/')[1]
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : url
+  } catch {
+    return url
+  }
+}
+
 function LocalizedFileInput({ accept, disabled, file, onChange, t, onFocus }) {
   const inputId = useId()
 
@@ -83,6 +106,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [sectionTitle, setSectionTitle] = useState('')
   const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
+  const [curriculumVideoId, setCurriculumVideoId] = useState('')
+  const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
+  const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
+  const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('notice')
@@ -196,6 +223,69 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedCourseId(requestedCourseId)
   }, [requestedCourseId, selectedCourseId])
+
+  const curriculumCourseVideos = useMemo(
+    () => videos.filter((video) => String(video.course_id) === String(requestedCourseId)),
+    [requestedCourseId, videos]
+  )
+  const curriculumActiveVideo = curriculumCourseVideos.find((video) => String(video.id) === String(curriculumVideoId))
+    || curriculumCourseVideos[0]
+
+  useEffect(() => {
+    if (instructorView !== 'curriculum' || curriculumCourseVideos.length === 0) return
+    if (curriculumCourseVideos.some((video) => String(video.id) === String(curriculumVideoId))) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurriculumVideoId(String(curriculumCourseVideos[0].id))
+  }, [curriculumCourseVideos, curriculumVideoId, instructorView])
+
+  useEffect(() => {
+    const sectionId = curriculumActiveVideo?.section_id
+    if (!sectionId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurriculumOpenSections((current) => {
+      const key = String(sectionId)
+      if (current.has(key)) return current
+      const next = new Set(current)
+      next.add(key)
+      return next
+    })
+  }, [curriculumActiveVideo?.section_id])
+
+  useEffect(() => {
+    if (!curriculumActiveVideo?.bunny_video_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCurriculumSignedUrl('')
+      setCurriculumPlaybackError(false)
+      return undefined
+    }
+
+    let cancelled = false
+    setCurriculumSignedUrl('')
+    setCurriculumPlaybackError(false)
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const response = await fetch('/api/bunny-playback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ videoId: curriculumActiveVideo.id }),
+        })
+        const result = await response.json().catch(() => ({}))
+        if (cancelled) return
+        if (!response.ok || !result.url) throw new Error(result.error || t('videoServiceUnavailable'))
+        setCurriculumSignedUrl(result.url)
+      } catch {
+        if (!cancelled) setCurriculumPlaybackError(true)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [curriculumActiveVideo?.bunny_video_id, curriculumActiveVideo?.id, t])
 
   useEffect(() => {
     if (activeTab === 'new' || courses.length === 0) return
@@ -1054,6 +1144,130 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               {detailApproved ? (
                 <div className="notice-box">{t('approvedCourseLockNote')}</div>
               ) : (
+                <>
+                <section className="instructor-curriculum-studio">
+                  <div className="course-player-layout instructor-course-player-layout">
+                    <div className="course-player-main">
+                      <div className="youtube-player-shell">
+                        {!curriculumActiveVideo ? (
+                          <div className="empty-player">{t('courseHasNoLessonsYet')}</div>
+                        ) : curriculumActiveVideo.bunny_video_id ? (
+                          curriculumSignedUrl ? (
+                            <iframe
+                              key={curriculumActiveVideo.id}
+                              className="youtube-player"
+                              src={curriculumSignedUrl}
+                              title={curriculumActiveVideo.title}
+                              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <div className="empty-player">{curriculumPlaybackError ? t('videoNotSupported') : t('loadingVideo')}</div>
+                          )
+                        ) : curriculumActiveVideo.video_url && isYouTubeUrl(curriculumActiveVideo.video_url) ? (
+                          <iframe
+                            key={curriculumActiveVideo.id}
+                            className="youtube-player"
+                            src={toYouTubeEmbedUrl(curriculumActiveVideo.video_url)}
+                            title={curriculumActiveVideo.title}
+                            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : curriculumActiveVideo.video_url ? (
+                          <video key={curriculumActiveVideo.id} className="youtube-player" controls autoPlay src={curriculumActiveVideo.video_url}>
+                            {t('videoNotSupported')}
+                          </video>
+                        ) : (
+                          <div className="empty-player">{t('videoNotSupported')}</div>
+                        )}
+                      </div>
+                      <div className="course-player-details">
+                        <div>
+                          <p className="player-eyebrow">{t('instructorPreviewMode')}</p>
+                          <h2>{curriculumActiveVideo?.title || t('lessonTitle')}</h2>
+                        </div>
+                        {curriculumActiveVideo && (
+                          <div className="player-actions">
+                            <button className="outline-button" type="button" onClick={() => editLesson(curriculumActiveVideo)}>
+                              <Pencil size={16} /> {t('edit')}
+                            </button>
+                            <label className="outline-button instructor-replace-video-button">
+                              <Upload size={16} /> {t('replaceLessonVideo')}
+                              <input type="file" accept="video/*" disabled={loading} onChange={(event) => {
+                                replaceLessonVideo(curriculumActiveVideo, event.target.files[0] || null)
+                                event.target.value = ''
+                              }} />
+                            </label>
+                            <button className="danger-button" type="button" onClick={() => deleteLesson(curriculumActiveVideo.id)}>
+                              <Trash2 size={16} /> {t('delete')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <aside className="course-lesson-panel instructor-lesson-panel">
+                      <div className="lesson-panel-header">
+                        <div>
+                          <h2>{t('courseContent')}</h2>
+                          <p>{detailVideos.length} {t('courseLessons')}</p>
+                        </div>
+                      </div>
+                      <div className="course-lesson-list">
+                        {detailSections.map((section, sectionIndex) => {
+                          const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
+                          const isOpen = curriculumOpenSections.has(String(section.id))
+                          return (
+                            <section className={isOpen ? 'curriculum-section expanded' : 'curriculum-section'} key={section.id}>
+                              <div className="instructor-section-heading">
+                                <button type="button" onClick={() => setCurriculumOpenSections((current) => {
+                                  const next = new Set(current)
+                                  const key = String(section.id)
+                                  if (next.has(key)) next.delete(key)
+                                  else next.add(key)
+                                  return next
+                                })}>
+                                  <span>
+                                    <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
+                                    <small>{sectionVideos.length} {t('courseLessons')}</small>
+                                  </span>
+                                  <ArrowDown size={18} />
+                                </button>
+                                <div>
+                                  <button type="button" onClick={() => editSection(section)} title={t('edit')}><Pencil size={15} /></button>
+                                  <button type="button" onClick={() => deleteSection(section)} title={t('delete')}><Trash2 size={15} /></button>
+                                </div>
+                              </div>
+                              {isOpen && sectionVideos.map((video, lessonIndex) => {
+                                const isActive = String(video.id) === String(curriculumActiveVideo?.id)
+                                return (
+                                  <div className={isActive ? 'course-lesson-item active instructor-course-lesson-item' : 'course-lesson-item instructor-course-lesson-item'} key={video.id}>
+                                    <button className="instructor-lesson-select" type="button" onClick={() => setCurriculumVideoId(String(video.id))}>
+                                      <PlayCircle size={19} />
+                                      <span className="lesson-copy">
+                                        <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
+                                        <small>{video.duration || t('durationMissing')}{video.is_free ? ` · ${t('previewShort')}` : ''}</small>
+                                      </span>
+                                    </button>
+                                    <div className="instructor-lesson-mini-actions">
+                                      <button type="button" onClick={() => moveLesson(video.id, -1)} disabled={lessonIndex === 0} title={t('moveLessonUp')}><ArrowUp size={14} /></button>
+                                      <button type="button" onClick={() => moveLesson(video.id, 1)} disabled={lessonIndex === sectionVideos.length - 1} title={t('moveLessonDown')}><ArrowDown size={14} /></button>
+                                      <button type="button" onClick={() => editLesson(video)} title={t('edit')}><Pencil size={14} /></button>
+                                      <button type="button" onClick={() => toggleFreeLesson(video.id, !video.is_free)} title={video.is_free ? t('previewClose') : t('previewOpen')}>
+                                        {video.is_free ? <EyeOff size={14} /> : <Eye size={14} />}
+                                      </button>
+                                      <button type="button" onClick={() => deleteLesson(video.id)} title={t('delete')}><Trash2 size={14} /></button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </section>
+                          )
+                        })}
+                      </div>
+                    </aside>
+                  </div>
+                </section>
                 <section className="panel-card instructor-curriculum-builder">
                   <div className="section-create-row">
                     <input
@@ -1161,6 +1375,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     })}
                   </div>
                 </section>
+                </>
               )}
             </>
           ) : (

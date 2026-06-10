@@ -1649,6 +1649,102 @@ button {
   padding: 24px;
 }
 
+.instructor-curriculum-studio {
+  margin-bottom: 24px;
+}
+
+.instructor-course-player-layout {
+  min-height: 620px;
+}
+
+.instructor-replace-video-button {
+  cursor: pointer;
+}
+
+.instructor-replace-video-button input {
+  display: none;
+}
+
+.instructor-section-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #d1d7dc;
+  background: #f7f9fa;
+}
+
+.instructor-section-heading > button {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  padding: 16px;
+  background: transparent;
+  color: #1c1d1f;
+  text-align: left;
+}
+
+.instructor-section-heading > button > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.instructor-section-heading small {
+  color: #6a6f73;
+}
+
+.instructor-section-heading > div {
+  display: flex;
+  gap: 4px;
+  padding-right: 10px;
+}
+
+.instructor-section-heading > div button,
+.instructor-lesson-mini-actions button {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d7dc;
+  border-radius: 5px;
+  background: #fff;
+  color: #1435c3;
+}
+
+.instructor-course-lesson-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.instructor-lesson-select {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.instructor-lesson-mini-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.instructor-curriculum-studio + .instructor-curriculum-builder .section-editor-card .lesson-list {
+  display: none;
+}
+
 .instructor-curriculum-builder .section-editor-heading > div:first-child {
   display: flex;
   flex-direction: column;
@@ -1759,6 +1855,15 @@ button {
 
   .instructor-course-card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .instructor-course-player-layout {
+    min-height: auto;
+  }
+
+  .instructor-course-lesson-item {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
 
