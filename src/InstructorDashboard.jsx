@@ -626,7 +626,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const saveCourseDetails = async () => {
-    if (!visibleSelectedCourse || selectedCourseApproved) return
+    const targetCourse = requestedCourseId
+      ? courses.find((course) => String(course.id) === String(requestedCourseId))
+      : visibleSelectedCourse
+    const targetApproved = targetCourse
+      ? (getCourseStatus(targetCourse) === 'approved' || targetCourse.is_published)
+      : false
+    if (!targetCourse || targetApproved) return
     if (!courseDetailsForm.title.trim() || !courseDetailsForm.description.trim() || !courseDetailsForm.price) {
       showMessage(t('fillCourseFields'), 'error')
       return
@@ -636,7 +642,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     try {
       const thumbnailUrl = courseThumbnailFile
         ? await uploadPublicFile('thumbnails', courseThumbnailFile, 'thumb')
-        : visibleSelectedCourse.thumbnail_url
+        : targetCourse.thumbnail_url
 
       const { error } = await supabase
         .from('Courses')
@@ -646,7 +652,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
           price: Number(courseDetailsForm.price),
           thumbnail_url: thumbnailUrl,
         })
-        .eq('id', visibleSelectedCourse.id)
+        .eq('id', targetCourse.id)
 
       if (error) throw error
       setCourseThumbnailFile(null)
@@ -677,26 +683,33 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const saveCourseCover = async () => {
-    if (!visibleSelectedCourse || selectedCourseApproved || !courseThumbnailFile) return
+    const targetCourse = requestedCourseId
+      ? courses.find((course) => String(course.id) === String(requestedCourseId))
+      : visibleSelectedCourse
+    const targetApproved = targetCourse
+      ? (getCourseStatus(targetCourse) === 'approved' || targetCourse.is_published)
+      : false
+    if (!targetCourse || targetApproved || !courseThumbnailFile) return
 
     setLoading(true)
     try {
       const thumbnailUrl = await uploadPublicFile('thumbnails', courseThumbnailFile, 'thumb')
-      const { error } = await supabase
+      const { data: updatedCourse, error } = await supabase
         .from('Courses')
         .update({ thumbnail_url: thumbnailUrl })
-        .eq('id', visibleSelectedCourse.id)
+        .eq('id', targetCourse.id)
+        .select('id, thumbnail_url')
+        .single()
 
       if (error) throw error
       setCourses((current) => current.map((course) => (
-        String(course.id) === String(visibleSelectedCourse.id)
-          ? { ...course, thumbnail_url: thumbnailUrl }
+        String(course.id) === String(targetCourse.id)
+          ? { ...course, thumbnail_url: updatedCourse.thumbnail_url }
           : course
       )))
       clearCourseCoverSelection()
       setCoverEditing(false)
       showMessage(t('coverSaved'), 'success')
-      await loadData(user)
     } catch (error) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
     } finally {
@@ -742,24 +755,31 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }, [instructorView, requestedCourseId, trailers])
 
   const removeCourseCover = async () => {
-    if (!visibleSelectedCourse || selectedCourseApproved || !window.confirm(t('confirmRemoveCover'))) return
+    const targetCourse = requestedCourseId
+      ? courses.find((course) => String(course.id) === String(requestedCourseId))
+      : visibleSelectedCourse
+    const targetApproved = targetCourse
+      ? (getCourseStatus(targetCourse) === 'approved' || targetCourse.is_published)
+      : false
+    if (!targetCourse || targetApproved || !window.confirm(t('confirmRemoveCover'))) return
     setLoading(true)
     try {
       const { error } = await supabase
         .from('Courses')
         .update({ thumbnail_url: null })
-        .eq('id', visibleSelectedCourse.id)
+        .eq('id', targetCourse.id)
+        .select('id')
+        .single()
 
       if (error) throw error
       setCourses((current) => current.map((course) => (
-        String(course.id) === String(visibleSelectedCourse.id)
+        String(course.id) === String(targetCourse.id)
           ? { ...course, thumbnail_url: null }
           : course
       )))
       clearCourseCoverSelection()
       setCoverEditing(false)
       showMessage(t('coverRemoved'), 'success')
-      await loadData(user)
     } catch (error) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
     } finally {
