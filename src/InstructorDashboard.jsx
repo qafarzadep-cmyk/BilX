@@ -939,7 +939,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       .from('course_sections')
       .insert({
         course_id: Number(targetCourseId),
-        title: sectionTitle.trim() || `Section ${nextIndex}`,
+        title: sectionTitle.trim() || 'Section',
         order_index: nextIndex,
       })
       .select()
@@ -1221,12 +1221,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const validSelectedSectionId = visibleCourseSections.some((section) => String(section.id) === String(selectedSectionId))
     ? selectedSectionId
     : visibleCourseSections[0]?.id || ''
+  const isDefaultSectionTitle = (title = '') => /^(section|bölmə|раздел)(\s+\d+)?$/iu.test(title.trim())
   const getSectionLabel = (section, index) => {
     const numbered = `${t('sectionLabel')} ${index + 1}`
-    return section.title && section.title !== `Section ${index + 1}` ? `${numbered}: ${section.title}` : numbered
+    return section.title && !isDefaultSectionTitle(section.title) ? `${numbered}: ${section.title}` : numbered
   }
-  const getLocalizedSectionTitle = (section, index) => (
-    section.title === `Section ${index + 1}` ? `${t('sectionLabel')} ${index + 1}` : section.title
+  const getLocalizedSectionTitle = (section) => (
+    isDefaultSectionTitle(section.title) ? t('sectionLabel') : section.title
   )
   // Per workflow.md 3.3: teachers cannot edit/delete an approved course. They can
   // only build (add lessons / submit) a course while it is still draft/pending;
