@@ -110,6 +110,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
+  const [detailsEditing, setDetailsEditing] = useState(false)
+  const [mediaEditing, setMediaEditing] = useState(false)
+  const [detailTrailerUrl, setDetailTrailerUrl] = useState('')
+  const [detailTrailerError, setDetailTrailerError] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('notice')
@@ -132,6 +137,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       price: selectedCourse.price ?? '',
     })
     setCourseThumbnailFile(null)
+    setDetailsEditing(false)
+    setMediaEditing(false)
   }, [selectedCourse])
 
   const showMessage = (text, type = 'notice') => {
@@ -145,7 +152,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const loadData = async (currentUser = user) => {
-    if (!currentUser) return
+    if (!currentUser) {
+      setDataLoading(false)
+      return
+    }
+    setDataLoading(true)
 
     const { data: courseData, error: courseError } = await supabase
       .from('Courses')
@@ -155,6 +166,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     if (courseError) {
       showMessage(`${t('coursesLoadFailed')}${courseError.message}`, 'error')
+      setDataLoading(false)
       return
     }
 
@@ -181,6 +193,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setSections([])
       setTrailers([])
       setInstructorTab('new')
+      setDataLoading(false)
       return
     }
 
@@ -196,12 +209,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     if (videoError) {
       showMessage(`${t('lessonsLoadFailed')}${videoError.message}`, 'error')
+      setDataLoading(false)
       return
     }
 
     setVideos(videoData || [])
     setSections(sectionError ? [] : sectionData || [])
     setTrailers(trailerError ? [] : trailerData || [])
+    setDataLoading(false)
   }
 
   useEffect(() => {
@@ -588,6 +603,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
       setTrailerFile(null)
       setTrailerTitle('')
+      setMediaEditing(false)
       showMessage(t('trailerUploaded'), 'success')
       await loadData(user)
     } catch (error) {
@@ -623,6 +639,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
       if (error) throw error
       setCourseThumbnailFile(null)
+      setDetailsEditing(false)
+      setMediaEditing(false)
       showMessage(t('courseDetailsSaved'), 'success')
       await loadData(user)
     } catch (error) {
@@ -631,6 +649,43 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (instructorView !== 'details' || !requestedCourseId) return undefined
+    const trailer = trailers.find((item) => String(item.course_id) === String(requestedCourseId))
+    if (!trailer?.bunny_video_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDetailTrailerUrl('')
+      setDetailTrailerError(false)
+      return undefined
+    }
+
+    let cancelled = false
+    setDetailTrailerUrl('')
+    setDetailTrailerError(false)
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const response = await fetch('/api/bunny-playback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ trailerCourseId: requestedCourseId }),
+        })
+        const result = await response.json().catch(() => ({}))
+        if (cancelled) return
+        if (!response.ok || !result.url) throw new Error(result.error)
+        setDetailTrailerUrl(result.url)
+      } catch {
+        if (!cancelled) setDetailTrailerError(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [instructorView, requestedCourseId, trailers])
 
   const removeCourseCover = async () => {
     if (!visibleSelectedCourse || selectedCourseApproved || !window.confirm(t('confirmRemoveCover'))) return
@@ -1097,7 +1152,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 </button>
               </header>
 
-              {cardCourses.length === 0 ? (
+              {dataLoading ? (
+                <div className="instructor-course-card-grid" aria-label={t('loading')}>
+                  {[1, 2, 3].map((item) => <div className="home-course-card skeleton-card instructor-course-skeleton" key={item} />)}
+                </div>
+              ) : cardCourses.length === 0 ? (
                 <div className="panel-card instructor-empty-courses">
                   <h2>{t('noCoursesYet')}</h2>
                   <p className="muted">{t('simpleCourseSetupHelp')}</p>
@@ -1124,6 +1183,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 </section>
               )}
             </>
+          ) : dataLoading ? (
+            <div className="panel-card instructor-detail-loading" aria-label={t('loading')}>
+              <div className="skeleton-card instructor-detail-skeleton" />
+              <div className="skeleton-card instructor-detail-skeleton instructor-detail-skeleton-media" />
+            </div>
           ) : !detailCourse ? (
             <div className="panel-card instructor-empty-courses">
               <h2>{t('courseNotFound')}</h2>
@@ -1383,51 +1447,99 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               <button className="instructor-back-button" type="button" onClick={goToCourseList}>
                 <ArrowLeft size={18} /> {t('backToMyCourses')}
               </button>
-              <header className="instructor-simple-header">
+              <header className="instructor-simple-header instructor-detail-header">
                 <div>
                   <span className={`instructor-status-pill status-${getCourseStatus(detailCourse)}`}>
                     {t(getCourseStatusLabel(getCourseStatus(detailCourse)))}
                   </span>
-                  <h1>{detailCourse.title}</h1>
-                  <p>{t('courseDetailsHelp')}</p>
+                  <h1 className="instructor-detail-title">{detailCourse.title}</h1>
                 </div>
-                <button className="primary-button" type="button" onClick={() => openCourse(detailCourse, 'curriculum')}>
-                  <Plus size={18} /> {t('addYourLessons')}
+                <button className="outline-button" type="button" onClick={() => navigate(`/course/${detailCourse.id}`, { state: { course: detailCourse } })}>
+                  <PlayCircle size={16} /> {t('previewCourse')}
                 </button>
               </header>
 
-              <section className="instructor-detail-grid">
-                <div className="panel-card form-panel">
-                  <h2>{t('courseSetup')}</h2>
-                  <label>{t('courseTitle')}</label>
-                  <input disabled={detailApproved} value={courseDetailsForm.title} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, title: event.target.value })} />
-                  <label>{t('courseDescription')}</label>
-                  <textarea disabled={detailApproved} rows={6} value={courseDetailsForm.description} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, description: event.target.value })} />
-                  <label>{t('priceAzN')}</label>
-                  <input disabled={detailApproved} type="number" value={courseDetailsForm.price} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, price: event.target.value })} />
-                  {!detailApproved && <button className="primary-button full" type="button" disabled={loading} onClick={saveCourseDetails}><Pencil size={16} /> {t('saveCourseDetails')}</button>}
-                </div>
-
-                <div className="panel-card instructor-media-card">
-                  <h2>{t('coverImage')}</h2>
-                  <img src={detailCourse.thumbnail_url || '/course-placeholder.svg'} alt={detailCourse.title} />
-                  {!detailApproved && (
-                    <>
-                      <LocalizedFileInput accept="image/*" file={courseThumbnailFile} onChange={setCourseThumbnailFile} t={t} />
-                      {courseThumbnailFile && <button className="outline-button full" type="button" onClick={saveCourseDetails}>{t('replaceCoverImage')}</button>}
-                      {detailCourse.thumbnail_url && <button className="danger-button full" type="button" onClick={removeCourseCover}><Trash2 size={16} /> {t('removeCover')}</button>}
-                    </>
+              <section className="instructor-detail-stack">
+                <div className="panel-card instructor-compact-card">
+                  <div className="instructor-card-heading">
+                    <h2>{t('courseSetup')}</h2>
+                    {!detailApproved && !detailsEditing && (
+                      <button className="outline-button instructor-edit-button" type="button" onClick={() => setDetailsEditing(true)}>
+                        <Pencil size={16} /> {t('edit')}
+                      </button>
+                    )}
+                  </div>
+                  {detailsEditing ? (
+                    <div className="form-panel instructor-inline-form">
+                      <label>{t('courseTitle')}</label>
+                      <input value={courseDetailsForm.title} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, title: event.target.value })} />
+                      <label>{t('courseDescription')}</label>
+                      <textarea rows={4} value={courseDetailsForm.description} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, description: event.target.value })} />
+                      <label>{t('priceAzN')}</label>
+                      <input type="number" value={courseDetailsForm.price} onChange={(event) => setCourseDetailsForm({ ...courseDetailsForm, price: event.target.value })} />
+                      <div className="instructor-edit-actions">
+                        <button
+                          className="outline-button"
+                          type="button"
+                          onClick={() => {
+                            setCourseDetailsForm({
+                              title: detailCourse.title || '',
+                              description: detailCourse.description || '',
+                              price: detailCourse.price ?? '',
+                            })
+                            setDetailsEditing(false)
+                          }}
+                        >
+                          {t('cancel')}
+                        </button>
+                        <button className="primary-button" type="button" disabled={loading} onClick={saveCourseDetails}>{t('saveCourseDetails')}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="instructor-course-summary">
+                      <strong>{detailCourse.title}</strong>
+                      <p>{detailCourse.description}</p>
+                      <span>{detailCourse.price || 0} AZN</span>
+                    </div>
                   )}
                 </div>
 
-                <div className="panel-card instructor-media-card">
-                  <h2>{t('courseTrailer')}</h2>
+                <div className="panel-card instructor-compact-card instructor-combined-media-card">
+                  <div className="instructor-card-heading">
+                    <h2>{t('courseTrailer')}</h2>
+                    {!detailApproved && !mediaEditing && (
+                      <button className="outline-button instructor-edit-button" type="button" onClick={() => setMediaEditing(true)}>
+                        <Pencil size={16} /> {t('edit')}
+                      </button>
+                    )}
+                  </div>
                   <p className="muted">{detailTrailer ? `${detailTrailer.title} · ${t('trailerReady')}` : t('trailerHelp')}</p>
-                  <button className="outline-button full" type="button" onClick={() => navigate(`/course/${detailCourse.id}`, { state: { course: detailCourse } })}>
-                    <PlayCircle size={16} /> {t('previewCourse')}
-                  </button>
-                  {!detailApproved && (
-                    <>
+                  <div className="instructor-media-combined">
+                    <div className="instructor-trailer-preview">
+                      {detailTrailerUrl ? (
+                        <iframe
+                          src={detailTrailerUrl}
+                          title={detailTrailer?.title || t('courseTrailer')}
+                          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="empty-player">{detailTrailerError ? t('videoNotSupported') : detailTrailer ? t('loadingVideo') : t('trailerHelp')}</div>
+                      )}
+                    </div>
+                    <div className="instructor-cover-preview">
+                      <span>{t('coverImage')}</span>
+                      <img src={detailCourse.thumbnail_url || '/course-placeholder.svg'} alt={detailCourse.title} />
+                    </div>
+                  </div>
+                  {mediaEditing && (
+                    <div className="form-panel instructor-inline-form instructor-media-editor">
+                      <label>{t('coverImage')}</label>
+                      <LocalizedFileInput accept="image/*" file={courseThumbnailFile} onChange={setCourseThumbnailFile} t={t} />
+                      <div className="instructor-edit-actions">
+                        {courseThumbnailFile && <button className="outline-button" type="button" disabled={loading} onClick={saveCourseDetails}>{t('replaceCoverImage')}</button>}
+                        {detailCourse.thumbnail_url && <button className="danger-button" type="button" onClick={removeCourseCover}><Trash2 size={16} /> {t('removeCover')}</button>}
+                      </div>
                       <label>{t('trailerTitle')}</label>
                       <input value={trailerTitle} onChange={(event) => setTrailerTitle(event.target.value)} placeholder={t('trailerTitlePlaceholder')} />
                       <LocalizedFileInput
@@ -1437,11 +1549,23 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         t={t}
                         onChange={(file, input) => selectTrailerFile(file, setTrailerFile, setTrailerValidating, input)}
                       />
-                      {trailerFile && <button className="primary-button full" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>{detailTrailer ? t('replaceTrailer') : t('uploadTrailer')}</button>}
-                      {detailTrailer && <button className="danger-button full" type="button" onClick={removeTrailer}><Trash2 size={16} /> {t('removeTrailer')}</button>}
-                    </>
+                      <div className="instructor-edit-actions">
+                        <button className="outline-button" type="button" onClick={() => setMediaEditing(false)}>{t('cancel')}</button>
+                        {trailerFile && <button className="primary-button" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>{detailTrailer ? t('replaceTrailer') : t('uploadTrailer')}</button>}
+                        {detailTrailer && <button className="danger-button" type="button" onClick={removeTrailer}><Trash2 size={16} /> {t('removeTrailer')}</button>}
+                      </div>
+                    </div>
                   )}
                 </div>
+
+                <button className="panel-card instructor-videos-card" type="button" onClick={() => openCourse(detailCourse, 'curriculum')}>
+                  <span className="instructor-videos-icon"><PlayCircle size={22} /></span>
+                  <span className="instructor-videos-copy">
+                    <strong>{t('addYourLessons')}</strong>
+                    <small>{detailVideos.length} {t('courseLessons')}</small>
+                  </span>
+                  <Plus size={20} />
+                </button>
               </section>
 
               {!detailApproved && (
