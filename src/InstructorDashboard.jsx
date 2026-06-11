@@ -282,7 +282,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const selectCurriculumSection = (section, sectionVideos) => {
-    setCurriculumOpenSections(new Set([String(section.id)]))
+    const sectionId = String(section.id)
+    if (curriculumOpenSections.has(sectionId)) {
+      setCurriculumOpenSections(new Set())
+      return
+    }
+    setCurriculumOpenSections(new Set([sectionId]))
     if (sectionVideos[0]) selectCurriculumVideo(sectionVideos[0])
   }
 
