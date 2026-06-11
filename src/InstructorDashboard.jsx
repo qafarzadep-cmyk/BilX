@@ -80,6 +80,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const role = profile?.role || 'student'
   const urlTab = searchParams.get('tab')
   const requestedCourseId = searchParams.get('course')
+  const requestedLessonId = searchParams.get('lesson')
   const instructorView = searchParams.get('view') || 'courses'
   const creatingCourse = searchParams.get('create') === '1'
   const initialTab = ['new', 'approved', 'pending'].includes(urlTab) ? urlTab : 'new'
@@ -254,28 +255,30 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     () => videos.filter((video) => String(video.course_id) === String(requestedCourseId)),
     [requestedCourseId, videos]
   )
-  const curriculumActiveVideo = curriculumCourseVideos.find((video) => String(video.id) === String(curriculumVideoId))
+  const curriculumActiveVideo = curriculumCourseVideos.find((video) => String(video.id) === String(requestedLessonId || curriculumVideoId))
     || curriculumCourseVideos[0]
 
   useEffect(() => {
     if (instructorView !== 'curriculum' || curriculumCourseVideos.length === 0) return
-    if (curriculumCourseVideos.some((video) => String(video.id) === String(curriculumVideoId))) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurriculumVideoId(String(curriculumCourseVideos[0].id))
-  }, [curriculumCourseVideos, curriculumVideoId, instructorView])
+    const requestedVideo = curriculumCourseVideos.find((video) => String(video.id) === String(requestedLessonId))
+    if (requestedVideo) return
+    const selectedVideo = curriculumCourseVideos.find((video) => String(video.id) === String(curriculumVideoId))
+    const nextVideoId = String(selectedVideo?.id || curriculumCourseVideos[0].id)
+    setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: nextVideoId }, { replace: true })
+  }, [curriculumCourseVideos, curriculumVideoId, instructorView, requestedCourseId, requestedLessonId, setSearchParams])
 
   useEffect(() => {
     const sectionId = curriculumActiveVideo?.section_id
     if (!sectionId) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurriculumOpenSections((current) => {
-      const key = String(sectionId)
-      if (current.has(key)) return current
-      const next = new Set(current)
-      next.add(key)
-      return next
-    })
+    setCurriculumOpenSections(new Set([String(sectionId)]))
   }, [curriculumActiveVideo?.section_id])
+
+  const selectCurriculumVideo = (video) => {
+    const videoId = String(video.id)
+    setCurriculumVideoId(videoId)
+    setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
+  }
 
   useEffect(() => {
     if (!curriculumActiveVideo?.bunny_video_id) {
@@ -1168,6 +1171,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const detailTrailer = detailCourse
       ? trailers.find((trailer) => String(trailer.course_id) === String(detailCourse.id))
       : null
+    const activeCurriculumSection = detailSections.find(
+      (section) => String(section.id) === String(curriculumActiveVideo?.section_id)
+    ) || detailSections[0]
 
     return (
       <div className="page">
@@ -1370,11 +1376,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             <section className={isOpen ? 'curriculum-section expanded' : 'curriculum-section'} key={section.id}>
                               <div className="instructor-section-heading">
                                 <button type="button" onClick={() => setCurriculumOpenSections((current) => {
-                                  const next = new Set(current)
                                   const key = String(section.id)
-                                  if (next.has(key)) next.delete(key)
-                                  else next.add(key)
-                                  return next
+                                  return current.has(key) ? new Set() : new Set([key])
                                 })}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
@@ -1391,7 +1394,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 const isActive = String(video.id) === String(curriculumActiveVideo?.id)
                                 return (
                                   <div className={isActive ? 'course-lesson-item active instructor-course-lesson-item' : 'course-lesson-item instructor-course-lesson-item'} key={video.id}>
-                                    <button className="instructor-lesson-select" type="button" onClick={() => setCurriculumVideoId(String(video.id))}>
+                                    <button className="instructor-lesson-select" type="button" onClick={() => selectCurriculumVideo(video)}>
                                       <PlayCircle size={19} />
                                       <span className="lesson-copy">
                                         <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
@@ -1430,7 +1433,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   </div>
 
                   <div className="section-editor-list">
-                    {detailSections.map((section, sectionIndex) => {
+                    {activeCurriculumSection && [activeCurriculumSection].map((section) => {
+                      const sectionIndex = detailSections.findIndex((item) => String(item.id) === String(section.id))
                       const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
                       return (
                         <section className="section-editor-card" key={section.id}>

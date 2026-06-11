@@ -1858,7 +1858,14 @@ button {
 }
 
 .instructor-course-player-layout {
-  min-height: 620px;
+  min-height: 0;
+  align-items: start;
+  background: #fff;
+}
+
+.instructor-course-player-layout .course-player-main {
+  align-self: start;
+  background: #fff;
 }
 
 .instructor-replace-video-button {
