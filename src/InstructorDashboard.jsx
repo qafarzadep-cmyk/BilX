@@ -1062,13 +1062,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     await loadData(user)
   }
 
-  const reorderSections = async (targetSectionId) => {
-    if (!draggedSectionId || String(draggedSectionId) === String(targetSectionId)) return
+  const reorderSections = async (sourceSectionId, targetSectionId) => {
+    if (!sourceSectionId || String(sourceSectionId) === String(targetSectionId)) return
     const courseId = requestedCourseId || selectedCourseId
     const courseSections = sections
       .filter((section) => String(section.course_id) === String(courseId))
       .sort((a, b) => Number(a.order_index) - Number(b.order_index))
-    const fromIndex = courseSections.findIndex((section) => String(section.id) === String(draggedSectionId))
+    const fromIndex = courseSections.findIndex((section) => String(section.id) === String(sourceSectionId))
     const toIndex = courseSections.findIndex((section) => String(section.id) === String(targetSectionId))
     if (fromIndex < 0 || toIndex < 0) return
 
@@ -1473,12 +1473,15 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               key={section.id}
                               onDragOver={(event) => {
                                 event.preventDefault()
+                                event.dataTransfer.dropEffect = 'move'
                                 setSectionDropTargetId(String(section.id))
                               }}
                               onDragLeave={() => setSectionDropTargetId('')}
                               onDrop={(event) => {
                                 event.preventDefault()
-                                reorderSections(section.id)
+                                event.stopPropagation()
+                                const sourceSectionId = event.dataTransfer.getData('text/plain') || draggedSectionId
+                                reorderSections(sourceSectionId, section.id)
                               }}
                             >
                               <div className="instructor-section-heading">
