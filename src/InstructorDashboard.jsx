@@ -39,14 +39,14 @@ function isYouTubeUrl(url) {
   }
 }
 
-function toYouTubeEmbedUrl(url) {
+function toYouTubeEmbedUrl(url, autoplay = true) {
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.replace('www.', '')
     const videoId = host === 'youtu.be'
       ? parsed.pathname.replace('/', '')
       : parsed.searchParams.get('v') || parsed.pathname.split('/embed/')[1]
-    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : url
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? '1' : '0'}` : url
   } catch {
     return url
   }
@@ -280,6 +280,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
   }
 
+  const selectCurriculumSection = (section, sectionVideos) => {
+    setCurriculumOpenSections(new Set([String(section.id)]))
+    if (sectionVideos[0]) selectCurriculumVideo(sectionVideos[0])
+  }
+
   useEffect(() => {
     if (!curriculumActiveVideo?.bunny_video_id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -300,7 +305,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token || ''}`,
           },
-          body: JSON.stringify({ videoId: curriculumActiveVideo.id }),
+          body: JSON.stringify({ videoId: curriculumActiveVideo.id, autoplay: false }),
         })
         const result = await response.json().catch(() => ({}))
         if (cancelled) return
@@ -1337,7 +1342,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               className="youtube-player"
                               src={curriculumSignedUrl}
                               title={curriculumActiveVideo.title}
-                              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                               allowFullScreen
                             />
                           ) : (
@@ -1347,13 +1352,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <iframe
                             key={curriculumActiveVideo.id}
                             className="youtube-player"
-                            src={toYouTubeEmbedUrl(curriculumActiveVideo.video_url)}
+                            src={toYouTubeEmbedUrl(curriculumActiveVideo.video_url, false)}
                             title={curriculumActiveVideo.title}
-                            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
                           />
                         ) : curriculumActiveVideo.video_url ? (
-                          <video key={curriculumActiveVideo.id} className="youtube-player" controls autoPlay src={curriculumActiveVideo.video_url}>
+                          <video key={curriculumActiveVideo.id} className="youtube-player" controls src={curriculumActiveVideo.video_url}>
                             {t('videoNotSupported')}
                           </video>
                         ) : (
@@ -1399,10 +1404,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           return (
                             <section className={isOpen ? 'curriculum-section expanded' : 'curriculum-section'} key={section.id}>
                               <div className="instructor-section-heading">
-                                <button type="button" onClick={() => setCurriculumOpenSections((current) => {
-                                  const key = String(section.id)
-                                  return current.has(key) ? new Set() : new Set([key])
-                                })}>
+                                <button type="button" onClick={() => selectCurriculumSection(section, sectionVideos)}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
                                     <small>{sectionVideos.length} {t('courseLessons')}</small>
