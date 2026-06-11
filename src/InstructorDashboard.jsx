@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, GripVertical, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
@@ -111,6 +111,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
+  const [draggedSectionId, setDraggedSectionId] = useState('')
+  const [sectionDropTargetId, setSectionDropTargetId] = useState('')
   const [detailsEditing, setDetailsEditing] = useState(false)
   const [mediaEditing, setMediaEditing] = useState(false)
   const [coverEditing, setCoverEditing] = useState(false)
@@ -1060,6 +1062,48 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     await loadData(user)
   }
 
+  const reorderSections = async (targetSectionId) => {
+    if (!draggedSectionId || String(draggedSectionId) === String(targetSectionId)) return
+    const courseId = requestedCourseId || selectedCourseId
+    const courseSections = sections
+      .filter((section) => String(section.course_id) === String(courseId))
+      .sort((a, b) => Number(a.order_index) - Number(b.order_index))
+    const fromIndex = courseSections.findIndex((section) => String(section.id) === String(draggedSectionId))
+    const toIndex = courseSections.findIndex((section) => String(section.id) === String(targetSectionId))
+    if (fromIndex < 0 || toIndex < 0) return
+
+    const reordered = [...courseSections]
+    const [movedSection] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, movedSection)
+    const reorderedIds = reordered.map((section) => Number(section.id))
+    const previousSections = sections
+    setSections((current) => current.map((section) => {
+      const nextIndex = reordered.findIndex((item) => String(item.id) === String(section.id))
+      return nextIndex >= 0 ? { ...section, order_index: nextIndex + 1 } : section
+    }))
+    setDraggedSectionId('')
+    setSectionDropTargetId('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error(t('sessionExpired'))
+      const response = await fetch('/api/reorder-course-sections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ courseId: Number(courseId), sectionIds: reorderedIds }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || t('sectionOrderFailed'))
+      showMessage(t('sectionOrderUpdated'), 'success')
+    } catch (error) {
+      setSections(previousSections)
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+    }
+  }
+
   const deleteCourse = async () => {
     if (!visibleSelectedCourse || selectedCourseApproved) return
     if (!window.confirm(t('instructorConfirmDeleteCourse'))) return
@@ -1212,7 +1256,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       ? videos.filter((video) => String(video.course_id) === String(detailCourse.id))
       : []
     const detailSections = detailCourse
-      ? sections.filter((section) => String(section.course_id) === String(detailCourse.id))
+      ? sections
+        .filter((section) => String(section.course_id) === String(detailCourse.id))
+        .sort((a, b) => Number(a.order_index) - Number(b.order_index))
       : []
     const detailTrailer = detailCourse
       ? trailers.find((trailer) => String(trailer.course_id) === String(detailCourse.id))
@@ -1421,7 +1467,19 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
                           const isOpen = curriculumOpenSections.has(String(section.id))
                           return (
-                            <section className={isOpen ? 'curriculum-section expanded' : 'curriculum-section'} key={section.id}>
+                            <section
+                              className={`${isOpen ? 'curriculum-section expanded' : 'curriculum-section'}${String(sectionDropTargetId) === String(section.id) ? ' section-drop-target' : ''}`}
+                              key={section.id}
+                              onDragOver={(event) => {
+                                event.preventDefault()
+                                setSectionDropTargetId(String(section.id))
+                              }}
+                              onDragLeave={() => setSectionDropTargetId('')}
+                              onDrop={(event) => {
+                                event.preventDefault()
+                                reorderSections(section.id)
+                              }}
+                            >
                               <div className="instructor-section-heading">
                                 <button type="button" onClick={() => selectCurriculumSection(section, sectionVideos)}>
                                   <span>
@@ -1431,6 +1489,23 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   <ArrowDown size={18} />
                                 </button>
                                 <div>
+                                  <span
+                                    className="instructor-section-drag-handle"
+                                    draggable
+                                    title={t('dragSection')}
+                                    aria-label={t('dragSection')}
+                                    onDragStart={(event) => {
+                                      setDraggedSectionId(String(section.id))
+                                      event.dataTransfer.effectAllowed = 'move'
+                                      event.dataTransfer.setData('text/plain', String(section.id))
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggedSectionId('')
+                                      setSectionDropTargetId('')
+                                    }}
+                                  >
+                                    <GripVertical size={16} />
+                                  </span>
                                   <button type="button" onClick={() => editSection(section)} title={t('edit')}><Pencil size={15} /></button>
                                   <button type="button" onClick={() => deleteSection(section)} title={t('delete')}><Trash2 size={15} /></button>
                                 </div>
