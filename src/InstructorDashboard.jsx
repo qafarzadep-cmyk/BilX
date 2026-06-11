@@ -681,6 +681,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     coverPreviewUrlRef.current = previewUrl
     setCoverPreviewUrl(previewUrl)
     setCourseThumbnailFile(file)
+    if (file) void saveCourseCover(file)
   }
 
   const clearCourseCoverSelection = () => {
@@ -690,14 +691,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCourseThumbnailFile(null)
   }
 
-  const saveCourseCover = async () => {
+  const saveCourseCover = async (selectedFile = courseThumbnailFile) => {
     const targetCourse = requestedCourseId
       ? courses.find((course) => String(course.id) === String(requestedCourseId))
       : visibleSelectedCourse
     const targetApproved = targetCourse
       ? (getCourseStatus(targetCourse) === 'approved' || targetCourse.is_published)
       : false
-    if (!targetCourse || targetApproved || !courseThumbnailFile) return
+    if (!targetCourse || targetApproved || !selectedFile) return
 
     setLoading(true)
     try {
@@ -711,7 +712,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         },
         body: JSON.stringify({
           courseId: targetCourse.id,
-          fileName: courseThumbnailFile.name,
+          fileName: selectedFile.name,
         }),
       })
       const prepared = await prepareResponse.json().catch(() => ({}))
@@ -720,20 +721,27 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       }
       const { error: uploadError } = await supabase.storage
         .from('thumbnails')
-        .uploadToSignedUrl(prepared.path, prepared.token, courseThumbnailFile, {
-          contentType: courseThumbnailFile.type || 'image/jpeg',
+        .uploadToSignedUrl(prepared.path, prepared.token, selectedFile, {
+          contentType: selectedFile.type || 'image/jpeg',
           cacheControl: '3600',
         })
       if (uploadError) throw uploadError
-      const thumbnailUrl = prepared.publicUrl
-      const { data: updatedCourse, error } = await supabase
-        .from('Courses')
-        .update({ thumbnail_url: thumbnailUrl })
-        .eq('id', targetCourse.id)
-        .select('id, thumbnail_url')
-        .single()
-
-      if (error) throw error
+      const saveResponse = await fetch('/api/course-cover-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          courseId: targetCourse.id,
+          publicUrl: prepared.publicUrl,
+        }),
+      })
+      const saved = await saveResponse.json().catch(() => ({}))
+      if (!saveResponse.ok || !saved.course?.thumbnail_url) {
+        throw new Error(saved.error || t('uploadFailed').replace('{bucket}', 'thumbnails').replace('{error}', ''))
+      }
+      const updatedCourse = saved.course
       setCourses((current) => current.map((course) => (
         String(course.id) === String(targetCourse.id)
           ? { ...course, thumbnail_url: updatedCourse.thumbnail_url }
@@ -1687,9 +1695,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             >
                               {t('cancel')}
                             </button>
-                            <button className="primary-button" type="button" disabled={loading || !courseThumbnailFile} onClick={saveCourseCover}>
-                              {t('saveCover')}
-                            </button>
+                            {loading && <span className="muted">{t('loading')}</span>}
                           </div>
                         </div>
                       )}

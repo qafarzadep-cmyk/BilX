@@ -71,6 +71,30 @@ export default async function handler(req, res) {
     return
   }
 
+  const publicUrl = String(req.body?.publicUrl || '')
+  if (publicUrl) {
+    const expectedPrefix = `${config.url}/storage/v1/object/public/thumbnails/${user.id}/`
+    if (!publicUrl.startsWith(expectedPrefix)) {
+      res.status(400).json({ error: 'Invalid course cover URL.' })
+      return
+    }
+
+    const { data: updatedCourse, error: updateError } = await service
+      .from('Courses')
+      .update({ thumbnail_url: publicUrl })
+      .eq('id', course.id)
+      .select('id, thumbnail_url')
+      .single()
+
+    if (updateError || !updatedCourse) {
+      res.status(500).json({ error: updateError?.message || 'Could not save the course cover.' })
+      return
+    }
+
+    res.status(200).json({ course: updatedCourse })
+    return
+  }
+
   const extension = getExtension(fileName)
   const path = `${user.id}/course-${course.id}-${Date.now()}.${extension}`
   const { data: upload, error: uploadError } = await service.storage
@@ -82,6 +106,6 @@ export default async function handler(req, res) {
     return
   }
 
-  const publicUrl = service.storage.from('thumbnails').getPublicUrl(path).data.publicUrl
-  res.status(200).json({ path, token: upload.token, publicUrl })
+  const uploadPublicUrl = service.storage.from('thumbnails').getPublicUrl(path).data.publicUrl
+  res.status(200).json({ path, token: upload.token, publicUrl: uploadPublicUrl })
 }
