@@ -696,7 +696,31 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     setLoading(true)
     try {
-      const thumbnailUrl = await uploadPublicFile('thumbnails', courseThumbnailFile, 'thumb')
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error(t('sessionExpired'))
+      const prepareResponse = await fetch('/api/course-cover-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          courseId: targetCourse.id,
+          fileName: courseThumbnailFile.name,
+        }),
+      })
+      const prepared = await prepareResponse.json().catch(() => ({}))
+      if (!prepareResponse.ok || !prepared.path || !prepared.token || !prepared.publicUrl) {
+        throw new Error(prepared.error || t('uploadFailed').replace('{bucket}', 'thumbnails').replace('{error}', ''))
+      }
+      const { error: uploadError } = await supabase.storage
+        .from('thumbnails')
+        .uploadToSignedUrl(prepared.path, prepared.token, courseThumbnailFile, {
+          contentType: courseThumbnailFile.type || 'image/jpeg',
+          cacheControl: '3600',
+        })
+      if (uploadError) throw uploadError
+      const thumbnailUrl = prepared.publicUrl
       const { data: updatedCourse, error } = await supabase
         .from('Courses')
         .update({ thumbnail_url: thumbnailUrl })
@@ -742,7 +766,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token || ''}`,
           },
-          body: JSON.stringify({ trailerCourseId: requestedCourseId }),
+          body: JSON.stringify({ trailerCourseId: requestedCourseId, autoplay: false }),
         })
         const result = await response.json().catch(() => ({}))
         if (cancelled) return
@@ -1609,7 +1633,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         <iframe
                           src={detailTrailerUrl}
                           title={detailTrailer?.title || t('courseTrailer')}
-                          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                           allowFullScreen
                         />
                       ) : (
