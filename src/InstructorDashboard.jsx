@@ -278,6 +278,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const selectCurriculumVideo = (video) => {
     const videoId = String(video.id)
     setCurriculumVideoId(videoId)
+    if (video.section_id) setSelectedSectionId(String(video.section_id))
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
   }
 
@@ -288,6 +289,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       return
     }
     setCurriculumOpenSections(new Set([sectionId]))
+    setSelectedSectionId(sectionId)
     if (sectionVideos[0]) selectCurriculumVideo(sectionVideos[0])
   }
 
@@ -923,17 +925,18 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const createSection = async () => {
-    if (!selectedCourseId) {
+    const targetCourseId = requestedCourseId || selectedCourseId
+    if (!targetCourseId) {
       showMessage(t('selectOrCreateCourse'), 'error')
       return
     }
 
-    const courseSections = sections.filter((section) => String(section.course_id) === String(selectedCourseId))
+    const courseSections = sections.filter((section) => String(section.course_id) === String(targetCourseId))
     const nextIndex = courseSections.length + 1
     const { data, error } = await supabase
       .from('course_sections')
       .insert({
-        course_id: Number(selectedCourseId),
+        course_id: Number(targetCourseId),
         title: sectionTitle.trim() || `Section ${nextIndex}`,
         order_index: nextIndex,
       })
@@ -947,8 +950,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     setSectionTitle('')
     setSelectedSectionId(String(data.id))
+    setSections((current) => [...current, data])
+    setCurriculumOpenSections(new Set([String(data.id)]))
     showMessage(t('sectionCreated'), 'success')
-    await loadData(user)
   }
 
   const editSection = async (section) => {
@@ -1214,6 +1218,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       ? trailers.find((trailer) => String(trailer.course_id) === String(detailCourse.id))
       : null
     const activeCurriculumSection = detailSections.find(
+      (section) => String(section.id) === String(selectedSectionId)
+    ) || detailSections.find(
       (section) => String(section.id) === String(curriculumActiveVideo?.section_id)
     ) || detailSections[0]
 
