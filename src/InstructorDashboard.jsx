@@ -236,7 +236,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
     const nextTab = ['new', 'approved', 'pending'].includes(urlTab) ? urlTab : 'new'
