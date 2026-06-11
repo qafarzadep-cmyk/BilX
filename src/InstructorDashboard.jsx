@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
@@ -112,6 +112,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
   const [detailsEditing, setDetailsEditing] = useState(false)
   const [mediaEditing, setMediaEditing] = useState(false)
+  const [coverEditing, setCoverEditing] = useState(false)
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState('')
+  const coverPreviewUrlRef = useRef('')
   const [detailTrailerUrl, setDetailTrailerUrl] = useState('')
   const [detailTrailerError, setDetailTrailerError] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
@@ -137,9 +140,17 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       price: selectedCourse.price ?? '',
     })
     setCourseThumbnailFile(null)
+    if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
+    coverPreviewUrlRef.current = ''
+    setCoverPreviewUrl('')
     setDetailsEditing(false)
     setMediaEditing(false)
+    setCoverEditing(false)
   }, [selectedCourse])
+
+  useEffect(() => () => {
+    if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
+  }, [])
 
   const showMessage = (text, type = 'notice') => {
     setMessage(text)
@@ -650,6 +661,49 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
   }
 
+  const selectCourseCover = (file) => {
+    if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
+    const previewUrl = file ? URL.createObjectURL(file) : ''
+    coverPreviewUrlRef.current = previewUrl
+    setCoverPreviewUrl(previewUrl)
+    setCourseThumbnailFile(file)
+  }
+
+  const clearCourseCoverSelection = () => {
+    if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
+    coverPreviewUrlRef.current = ''
+    setCoverPreviewUrl('')
+    setCourseThumbnailFile(null)
+  }
+
+  const saveCourseCover = async () => {
+    if (!visibleSelectedCourse || selectedCourseApproved || !courseThumbnailFile) return
+
+    setLoading(true)
+    try {
+      const thumbnailUrl = await uploadPublicFile('thumbnails', courseThumbnailFile, 'thumb')
+      const { error } = await supabase
+        .from('Courses')
+        .update({ thumbnail_url: thumbnailUrl })
+        .eq('id', visibleSelectedCourse.id)
+
+      if (error) throw error
+      setCourses((current) => current.map((course) => (
+        String(course.id) === String(visibleSelectedCourse.id)
+          ? { ...course, thumbnail_url: thumbnailUrl }
+          : course
+      )))
+      clearCourseCoverSelection()
+      setCoverEditing(false)
+      showMessage(t('coverSaved'), 'success')
+      await loadData(user)
+    } catch (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (instructorView !== 'details' || !requestedCourseId) return undefined
     const trailer = trailers.find((item) => String(item.course_id) === String(requestedCourseId))
@@ -689,17 +743,28 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
   const removeCourseCover = async () => {
     if (!visibleSelectedCourse || selectedCourseApproved || !window.confirm(t('confirmRemoveCover'))) return
-    const { error } = await supabase
-      .from('Courses')
-      .update({ thumbnail_url: null })
-      .eq('id', visibleSelectedCourse.id)
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('Courses')
+        .update({ thumbnail_url: null })
+        .eq('id', visibleSelectedCourse.id)
 
-    if (error) {
+      if (error) throw error
+      setCourses((current) => current.map((course) => (
+        String(course.id) === String(visibleSelectedCourse.id)
+          ? { ...course, thumbnail_url: null }
+          : course
+      )))
+      clearCourseCoverSelection()
+      setCoverEditing(false)
+      showMessage(t('coverRemoved'), 'success')
+      await loadData(user)
+    } catch (error) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
-      return
+    } finally {
+      setLoading(false)
     }
-    showMessage(t('coverRemoved'), 'success')
-    await loadData(user)
   }
 
   const removeTrailer = async () => {
@@ -1528,18 +1593,60 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       )}
                     </div>
                     <div className="instructor-cover-preview">
-                      <span>{t('coverImage')}</span>
-                      <img src={detailCourse.thumbnail_url || '/course-placeholder.svg'} alt={detailCourse.title} />
+                      <div className="instructor-cover-heading">
+                        <span>{t('coverImage')}</span>
+                        {!detailApproved && (
+                          <span className="instructor-cover-actions">
+                            <button
+                              className="icon-button"
+                              type="button"
+                              title={t('edit')}
+                              aria-label={t('edit')}
+                              onClick={() => setCoverEditing((current) => !current)}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            {detailCourse.thumbnail_url && (
+                              <button
+                                className="icon-button danger-icon-button"
+                                type="button"
+                                disabled={loading}
+                                title={t('removeCover')}
+                                aria-label={t('removeCover')}
+                                onClick={removeCourseCover}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      <img src={coverPreviewUrl || detailCourse.thumbnail_url || '/course-placeholder.svg'} alt={detailCourse.title} />
+                      {coverEditing && (
+                        <div className="instructor-cover-editor">
+                          <LocalizedFileInput accept="image/*" disabled={loading} file={courseThumbnailFile} onChange={selectCourseCover} t={t} />
+                          <div className="instructor-cover-editor-actions">
+                            <button
+                              className="outline-button"
+                              type="button"
+                              disabled={loading}
+                              onClick={() => {
+                                clearCourseCoverSelection()
+                                setCoverEditing(false)
+                              }}
+                            >
+                              {t('cancel')}
+                            </button>
+                            <button className="primary-button" type="button" disabled={loading || !courseThumbnailFile} onClick={saveCourseCover}>
+                              {t('saveCover')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {mediaEditing && (
                     <div className="form-panel instructor-inline-form instructor-media-editor">
-                      <label>{t('coverImage')}</label>
-                      <LocalizedFileInput accept="image/*" file={courseThumbnailFile} onChange={setCourseThumbnailFile} t={t} />
-                      <div className="instructor-edit-actions">
-                        {courseThumbnailFile && <button className="outline-button" type="button" disabled={loading} onClick={saveCourseDetails}>{t('replaceCoverImage')}</button>}
-                        {detailCourse.thumbnail_url && <button className="danger-button" type="button" onClick={removeCourseCover}><Trash2 size={16} /> {t('removeCover')}</button>}
-                      </div>
                       <label>{t('trailerTitle')}</label>
                       <input value={trailerTitle} onChange={(event) => setTrailerTitle(event.target.value)} placeholder={t('trailerTitlePlaceholder')} />
                       <LocalizedFileInput
