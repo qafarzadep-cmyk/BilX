@@ -132,13 +132,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const selectedTrailer = trailers.find((trailer) => String(trailer.course_id) === String(selectedCourseId))
 
   useEffect(() => {
-    if (!selectedCourse) return
+    if (!selectedCourseId) return
     // Keep the edit form aligned when the instructor selects another course.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCourseDetailsForm({
-      title: selectedCourse.title || '',
-      description: selectedCourse.description || '',
-      price: selectedCourse.price ?? '',
+      title: selectedCourse?.title || '',
+      description: selectedCourse?.description || '',
+      price: selectedCourse?.price ?? '',
     })
     setCourseThumbnailFile(null)
     if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
@@ -147,7 +147,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setDetailsEditing(false)
     setMediaEditing(false)
     setCoverEditing(false)
-  }, [selectedCourse])
+    // Thumbnail-only updates must not reset an open cover editor.
+  }, [selectedCourseId, selectedCourse?.title, selectedCourse?.description, selectedCourse?.price])
 
   useEffect(() => () => {
     if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
@@ -681,7 +682,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     coverPreviewUrlRef.current = previewUrl
     setCoverPreviewUrl(previewUrl)
     setCourseThumbnailFile(file)
-    if (file) void saveCourseCover(file)
   }
 
   const clearCourseCoverSelection = () => {
@@ -1695,7 +1695,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             >
                               {t('cancel')}
                             </button>
-                            {loading && <span className="muted">{t('loading')}</span>}
+                            <button
+                              className="primary-button"
+                              type="button"
+                              disabled={loading || !courseThumbnailFile}
+                              onClick={() => saveCourseCover()}
+                            >
+                              {loading ? t('loading') : t('saveCover')}
+                            </button>
                           </div>
                         </div>
                       )}
