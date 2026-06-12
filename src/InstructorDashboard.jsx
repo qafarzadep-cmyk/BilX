@@ -1087,23 +1087,42 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const saveSectionOrder = async (reorderedIds, previousSections) => {
     if (!reorderedIds.length) return
     const courseId = requestedCourseId || selectedCourseId
+    const originalSections = previousSections
+      .filter((section) => String(section.course_id) === String(courseId))
+      .sort((a, b) => Number(a.order_index) - Number(b.order_index))
     setSectionDropTargetId('')
 
+    const updateOrderIndex = async (sectionId, orderIndex) => {
+      const { data, error } = await supabase
+        .from('course_sections')
+        .update({ order_index: orderIndex })
+        .eq('id', sectionId)
+        .eq('course_id', Number(courseId))
+        .select('id')
+        .maybeSingle()
+      if (error) throw error
+      if (!data) throw new Error(t('sectionOrderFailed'))
+    }
+
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error(t('sessionExpired'))
-      const response = await fetch('/api/reorder-course-sections', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ courseId: Number(courseId), sectionIds: reorderedIds }),
-      })
-      const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || t('sectionOrderFailed'))
+      for (let index = 0; index < reorderedIds.length; index += 1) {
+        await updateOrderIndex(reorderedIds[index], -100000 - index)
+      }
+      for (let index = 0; index < reorderedIds.length; index += 1) {
+        await updateOrderIndex(reorderedIds[index], index + 1)
+      }
       showMessage(t('sectionOrderUpdated'), 'success')
     } catch (error) {
+      try {
+        for (let index = 0; index < originalSections.length; index += 1) {
+          await updateOrderIndex(originalSections[index].id, -200000 - index)
+        }
+        for (const section of originalSections) {
+          await updateOrderIndex(section.id, Number(section.order_index))
+        }
+      } catch {
+        // Keep the original failure visible; reloading restores the database order.
+      }
       setSections(previousSections)
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
     }
