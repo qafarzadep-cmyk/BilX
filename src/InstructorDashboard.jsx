@@ -111,8 +111,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
-  const [draggedSectionId, setDraggedSectionId] = useState('')
   const [sectionDropTargetId, setSectionDropTargetId] = useState('')
+  const draggedSectionIdRef = useRef('')
+  const sectionDragOrderRef = useRef([])
+  const sectionDragOriginalSectionsRef = useRef([])
+  const sectionDropCompletedRef = useRef(false)
   const [detailsEditing, setDetailsEditing] = useState(false)
   const [mediaEditing, setMediaEditing] = useState(false)
   const [coverEditing, setCoverEditing] = useState(false)
@@ -1062,26 +1065,28 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     await loadData(user)
   }
 
-  const reorderSections = async (sourceSectionId, targetSectionId) => {
-    if (!sourceSectionId || String(sourceSectionId) === String(targetSectionId)) return
-    const courseId = requestedCourseId || selectedCourseId
-    const courseSections = sections
-      .filter((section) => String(section.course_id) === String(courseId))
-      .sort((a, b) => Number(a.order_index) - Number(b.order_index))
-    const fromIndex = courseSections.findIndex((section) => String(section.id) === String(sourceSectionId))
-    const toIndex = courseSections.findIndex((section) => String(section.id) === String(targetSectionId))
+  const previewSectionReorder = (targetSectionId) => {
+    const sourceSectionId = draggedSectionIdRef.current
+    const currentOrder = sectionDragOrderRef.current
+    if (!sourceSectionId || String(sourceSectionId) === String(targetSectionId) || !currentOrder.length) return
+
+    const fromIndex = currentOrder.findIndex((id) => String(id) === String(sourceSectionId))
+    const toIndex = currentOrder.findIndex((id) => String(id) === String(targetSectionId))
     if (fromIndex < 0 || toIndex < 0) return
 
-    const reordered = [...courseSections]
-    const [movedSection] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, movedSection)
-    const reorderedIds = reordered.map((section) => Number(section.id))
-    const previousSections = sections
+    const reorderedIds = [...currentOrder]
+    const [movedSectionId] = reorderedIds.splice(fromIndex, 1)
+    reorderedIds.splice(toIndex, 0, movedSectionId)
+    sectionDragOrderRef.current = reorderedIds
     setSections((current) => current.map((section) => {
-      const nextIndex = reordered.findIndex((item) => String(item.id) === String(section.id))
+      const nextIndex = reorderedIds.findIndex((id) => String(id) === String(section.id))
       return nextIndex >= 0 ? { ...section, order_index: nextIndex + 1 } : section
     }))
-    setDraggedSectionId('')
+  }
+
+  const saveSectionOrder = async (reorderedIds, previousSections) => {
+    if (!reorderedIds.length) return
+    const courseId = requestedCourseId || selectedCourseId
     setSectionDropTargetId('')
 
     try {
@@ -1476,12 +1481,19 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 event.dataTransfer.dropEffect = 'move'
                                 setSectionDropTargetId(String(section.id))
                               }}
+                              onDragEnter={(event) => {
+                                event.preventDefault()
+                                previewSectionReorder(section.id)
+                              }}
                               onDragLeave={() => setSectionDropTargetId('')}
                               onDrop={(event) => {
                                 event.preventDefault()
                                 event.stopPropagation()
-                                const sourceSectionId = event.dataTransfer.getData('text/plain') || draggedSectionId
-                                reorderSections(sourceSectionId, section.id)
+                                sectionDropCompletedRef.current = true
+                                saveSectionOrder(
+                                  [...sectionDragOrderRef.current],
+                                  sectionDragOriginalSectionsRef.current,
+                                )
                               }}
                             >
                               <div className="instructor-section-heading">
@@ -1499,12 +1511,32 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     title={t('dragSection')}
                                     aria-label={t('dragSection')}
                                     onDragStart={(event) => {
-                                      setDraggedSectionId(String(section.id))
+                                      draggedSectionIdRef.current = String(section.id)
+                                      sectionDragOrderRef.current = detailSections.map((item) => Number(item.id))
+                                      sectionDragOriginalSectionsRef.current = sections
+                                      sectionDropCompletedRef.current = false
                                       event.dataTransfer.effectAllowed = 'move'
                                       event.dataTransfer.setData('text/plain', String(section.id))
                                     }}
                                     onDragEnd={() => {
-                                      setDraggedSectionId('')
+                                      const reorderedIds = [...sectionDragOrderRef.current]
+                                      const previousSections = sectionDragOriginalSectionsRef.current
+                                      if (!sectionDropCompletedRef.current && reorderedIds.length && previousSections.length) {
+                                        const courseId = requestedCourseId || selectedCourseId
+                                        const originalIds = previousSections
+                                          .filter((item) => String(item.course_id) === String(courseId))
+                                          .sort((a, b) => Number(a.order_index) - Number(b.order_index))
+                                          .map((item) => Number(item.id))
+                                        const orderChanged = reorderedIds.some((id, index) => id !== originalIds[index])
+                                        if (orderChanged) {
+                                          sectionDropCompletedRef.current = true
+                                          saveSectionOrder(reorderedIds, previousSections)
+                                        }
+                                      }
+                                      draggedSectionIdRef.current = ''
+                                      sectionDragOrderRef.current = []
+                                      sectionDragOriginalSectionsRef.current = []
+                                      sectionDropCompletedRef.current = false
                                       setSectionDropTargetId('')
                                     }}
                                   >
