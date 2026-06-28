@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { BookOpen, Clock3, PlayCircle, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
@@ -31,6 +31,21 @@ const HOME_STEPS = [
   ['2', 'step2Title', 'step2Text'],
   ['3', 'step3Title', 'step3Text'],
 ]
+
+function getPageTitle(pathname) {
+  if (pathname === '/') return 'Onlayn video kurslar | BilX'
+  if (pathname === '/login') return 'Giris | BilX'
+  if (pathname === '/register') return 'Qeydiyyat | BilX'
+  if (pathname === '/reset-password') return 'Sifre yenileme | BilX'
+  if (pathname === '/admin') return 'Admin paneli | BilX'
+  if (pathname === '/profile') return 'Telebe paneli | BilX'
+  if (pathname === '/instructor') return 'Muellim paneli | BilX'
+  if (pathname === '/inbox') return 'Inbox | BilX'
+  if (pathname.startsWith('/course')) return 'Kurs | BilX'
+  if (pathname.startsWith('/certificate')) return 'Sertifikat | BilX'
+  if (pathname.startsWith('/edit-course')) return 'Kursu redakte et | BilX'
+  return 'BilX'
+}
 
 function Home({ user, profile, handleLogout }) {
   const navigate = useNavigate()
@@ -340,7 +355,12 @@ function App() {
   const [profile, setProfile] = useState(null)
   const [loggingOut, setLoggingOut] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useLanguage()
+
+  useEffect(() => {
+    document.title = getPageTitle(location.pathname)
+  }, [location.pathname])
 
   useEffect(() => {
     let mounted = true
