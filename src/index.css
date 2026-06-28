@@ -4655,6 +4655,10 @@ td button + .outline-button {
   align-items: stretch;
 }
 
+.inbox-grid-compact .panel-card {
+  padding: 28px 34px;
+}
+
 .inbox-item {
   display: flex;
   align-items: flex-start;
@@ -4664,6 +4668,27 @@ td button + .outline-button {
   padding: 14px;
   background: #fff;
   box-shadow: var(--shadow-soft);
+}
+
+.inbox-item-button {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.inbox-item-button:hover {
+  border-color: rgba(20, 53, 195, 0.28);
+  background: #f8faff;
+  transform: translateY(-1px);
+}
+
+.inbox-grid-compact .inbox-item {
+  gap: 10px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 18px rgba(20, 53, 195, 0.06);
 }
 
 .inbox-avatar {
@@ -4677,6 +4702,12 @@ td button + .outline-button {
   background: #eef2ff;
   color: var(--brand);
   font-weight: 900;
+}
+
+.inbox-grid-compact .inbox-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
 }
 
 .inbox-item-body {
@@ -4699,6 +4730,15 @@ td button + .outline-button {
   white-space: nowrap;
 }
 
+.inbox-grid-compact .inbox-item-head {
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.inbox-grid-compact .inbox-item-head strong {
+  font-size: 14px;
+}
+
 .inbox-item-head small {
   flex: 0 0 auto;
   color: #6a6f73;
@@ -4710,6 +4750,19 @@ td button + .outline-button {
   color: #3f444a;
   line-height: 1.55;
   word-break: break-word;
+}
+
+.inbox-grid-compact .inbox-item-body p {
+  line-height: 1.35;
+  font-size: 14px;
+}
+
+.inbox-reply-hint {
+  display: inline-flex;
+  margin-top: 6px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 @media (max-width: 860px) {

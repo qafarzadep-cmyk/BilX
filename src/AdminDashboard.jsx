@@ -806,7 +806,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
           )}
 
           {activeTab === 'inbox' && (
-            <InboxPanel user={user} compact />
+            <InboxPanel user={user} compact adminMode />
           )}
 
           {activeTab === 'courses' && (

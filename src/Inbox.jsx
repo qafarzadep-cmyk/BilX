@@ -5,12 +5,13 @@ import { useLanguage } from './i18n'
 import { ADMIN_EMAIL } from './profileApi'
 import { supabase } from './supabase'
 
-export function InboxPanel({ user, compact = false }) {
+export function InboxPanel({ user, compact = false, adminMode = false }) {
   const navigate = useNavigate()
   const [messages, setMessages] = useState([])
   const [courses, setCourses] = useState([])
   const [recipientType, setRecipientType] = useState('admin')
   const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [recipientEmailInput, setRecipientEmailInput] = useState('')
   const [replyTo, setReplyTo] = useState(null)
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,6 +32,15 @@ export function InboxPanel({ user, compact = false }) {
     () => courses.filter((course) => course.instructor_id),
     [courses]
   )
+
+  const selectReplyTarget = (item) => {
+    const sentByMe = item.sender_id === user?.id || item.sender_email === user?.email
+    const id = sentByMe ? item.recipient_id : item.sender_id
+    const email = sentByMe ? item.recipient_email : item.sender_email
+    if (!id && !email) return
+    setReplyTo({ id: id || null, email: email || id || '' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     let mounted = true
@@ -77,6 +87,12 @@ export function InboxPanel({ user, compact = false }) {
     if (replyTo) {
       recipientId = replyTo.id || null
       recipientEmail = replyTo.email || null
+    } else if (adminMode) {
+      recipientEmail = recipientEmailInput.trim()
+      if (!recipientEmail) {
+        setMessage(t('enterRecipientEmail'))
+        return
+      }
     } else if (recipientType === 'admin') {
       recipientEmail = ADMIN_EMAIL
     } else {
@@ -128,6 +144,7 @@ export function InboxPanel({ user, compact = false }) {
 
     setBody('')
     setSelectedCourseId('')
+    setRecipientEmailInput('')
     setRecipientType('admin')
     setReplyTo(null)
     setMessage(t('messageSent'))
@@ -155,7 +172,7 @@ export function InboxPanel({ user, compact = false }) {
         <section className="panel-card">
           <div className="section-heading">
             <h2>{t('inbox')}</h2>
-            <p>{t('inboxIntro')}</p>
+            <p>{adminMode ? t('adminInboxIntro') : t('inboxIntro')}</p>
           </div>
 
           {message && <div className="notice-box">{message}</div>}
@@ -168,25 +185,40 @@ export function InboxPanel({ user, compact = false }) {
               </div>
             ) : (
               <>
-                <label>{t('chooseRecipient')}</label>
-                <div className="inbox-choice">
-                  <button
-                    type="button"
-                    className={recipientType === 'admin' ? 'active' : ''}
-                    onClick={() => setRecipientType('admin')}
-                  >
-                    {t('contactAdmin')}
-                  </button>
-                  <button
-                    type="button"
-                    className={recipientType === 'instructor' ? 'active' : ''}
-                    onClick={() => setRecipientType('instructor')}
-                  >
-                    {t('contactTeacher')}
-                  </button>
-                </div>
+                {adminMode ? (
+                  <>
+                    <label>{t('recipientEmail')}</label>
+                    <input
+                      type="email"
+                      value={recipientEmailInput}
+                      onChange={(event) => setRecipientEmailInput(event.target.value)}
+                      placeholder="student@example.com"
+                      autoComplete="email"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label>{t('chooseRecipient')}</label>
+                    <div className="inbox-choice">
+                      <button
+                        type="button"
+                        className={recipientType === 'admin' ? 'active' : ''}
+                        onClick={() => setRecipientType('admin')}
+                      >
+                        {t('contactAdmin')}
+                      </button>
+                      <button
+                        type="button"
+                        className={recipientType === 'instructor' ? 'active' : ''}
+                        onClick={() => setRecipientType('instructor')}
+                      >
+                        {t('contactTeacher')}
+                      </button>
+                    </div>
+                  </>
+                )}
 
-                {recipientType === 'instructor' && (
+                {!adminMode && recipientType === 'instructor' && (
                   <>
                     <label>{t('chooseCourse')}</label>
                     <select
@@ -225,7 +257,12 @@ export function InboxPanel({ user, compact = false }) {
           ) : (
             <div className="inbox-list">
               {messages.map((item) => (
-                <div key={item.id} className="inbox-item">
+                <button
+                  key={item.id}
+                  type="button"
+                  className="inbox-item inbox-item-button"
+                  onClick={() => selectReplyTarget(item)}
+                >
                   <span className="inbox-avatar" aria-hidden="true">
                     {(item.sender_email || '?').charAt(0).toUpperCase()}
                   </span>
@@ -235,20 +272,9 @@ export function InboxPanel({ user, compact = false }) {
                       <small>{new Date(item.created_at).toLocaleString('az-AZ')}</small>
                     </div>
                     <p>{item.body}</p>
-                    {item.sender_id && item.sender_id !== user.id && (
-                      <button
-                        type="button"
-                        className="inbox-reply-button"
-                        onClick={() => {
-                          setReplyTo({ id: item.sender_id, email: item.sender_email })
-                          window.scrollTo({ top: 0, behavior: 'smooth' })
-                        }}
-                      >
-                        {t('reply')}
-                      </button>
-                    )}
+                    <span className="inbox-reply-hint">{t('reply')}</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
