@@ -488,6 +488,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const nameParts = application ? { name: application.name || '-', surname: application.surname || '-' } : splitFullName(item.full_name)
     upsertUserRow(item.user_id, {
       key: item.user_id,
+      userId: item.user_id,
       name: nameParts.name,
       surname: nameParts.surname,
       email: application?.email || item.user_id,
@@ -502,6 +503,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const key = application.user_id || application.email
     upsertUserRow(key, {
       key,
+      userId: application.user_id || null,
       name: application.name || '-',
       surname: application.surname || '-',
       email: application.email || '-',
