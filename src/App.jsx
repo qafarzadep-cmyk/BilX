@@ -33,17 +33,17 @@ const HOME_STEPS = [
 ]
 
 function getPageTitle(pathname) {
-  if (pathname === '/') return 'Onlayn video kurslar | BilX'
-  if (pathname === '/login') return 'Giris | BilX'
-  if (pathname === '/register') return 'Qeydiyyat | BilX'
-  if (pathname === '/reset-password') return 'Sifre yenileme | BilX'
-  if (pathname === '/admin') return 'Admin paneli | BilX'
-  if (pathname === '/profile') return 'Telebe paneli | BilX'
-  if (pathname === '/instructor') return 'Muellim paneli | BilX'
-  if (pathname === '/inbox') return 'Inbox | BilX'
-  if (pathname.startsWith('/course')) return 'Kurs | BilX'
-  if (pathname.startsWith('/certificate')) return 'Sertifikat | BilX'
-  if (pathname.startsWith('/edit-course')) return 'Kursu redakte et | BilX'
+  if (pathname === '/') return 'BilX | Onlayn video kurslar'
+  if (pathname === '/login') return 'BilX | Giris'
+  if (pathname === '/register') return 'BilX | Qeydiyyat'
+  if (pathname === '/reset-password') return 'BilX | Sifre yenileme'
+  if (pathname === '/admin') return 'BilX | Admin paneli'
+  if (pathname === '/profile') return 'BilX | Telebe paneli'
+  if (pathname === '/instructor') return 'BilX | Muellim paneli'
+  if (pathname === '/inbox') return 'BilX | Inbox'
+  if (pathname.startsWith('/course')) return 'BilX | Kurs'
+  if (pathname.startsWith('/certificate')) return 'BilX | Sertifikat'
+  if (pathname.startsWith('/edit-course')) return 'BilX | Kursu redakte et'
   return 'BilX'
 }
 
