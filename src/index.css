@@ -726,6 +726,21 @@ button {
   margin-bottom: 6px;
 }
 
+.teacher-profile-link {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: #1435c3;
+  padding: 0;
+  text-align: left;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.teacher-profile-link:hover {
+  text-decoration: underline;
+}
+
 .home-course-meta {
   margin-bottom: 8px;
 }
@@ -4213,6 +4228,50 @@ td button + .outline-button {
 .course-hero .tag-row span {
   border-color: rgba(255, 255, 255, 0.32);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.teacher-profile-page {
+  display: grid;
+  gap: 28px;
+}
+
+.teacher-profile-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  padding: 34px;
+  border-radius: 18px;
+  background:
+    radial-gradient(640px 260px at 100% 0%, rgba(111, 140, 255, 0.26), transparent 60%),
+    #fff;
+  border: 1px solid #e6e9f2;
+  box-shadow: 0 12px 30px rgba(16, 24, 64, 0.08);
+}
+
+.teacher-profile-avatar {
+  width: 84px;
+  height: 84px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #1435c3;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.teacher-profile-header h1 {
+  margin: 8px 0 8px;
+  color: #1c1d1f;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 1.05;
+}
+
+.teacher-profile-header p {
+  margin: 0;
+  color: #4b5563;
 }
 
 /* Purchase / sticky price panel */

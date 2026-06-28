@@ -13,6 +13,7 @@ import Navbar from './Navbar'
 import Register from './Register'
 import ResetPassword from './ResetPassword'
 import StudentProfile from './StudentProfile'
+import TeacherProfile from './TeacherProfile'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { useLanguage } from './i18n'
@@ -41,6 +42,7 @@ function getPageTitle(pathname) {
   if (pathname === '/profile') return 'BilX | Tələbə paneli'
   if (pathname === '/instructor') return 'BilX | Müəllim paneli'
   if (pathname === '/inbox') return 'BilX | Inbox'
+  if (pathname.startsWith('/teacher')) return 'BilX | Müəllim'
   if (pathname.startsWith('/course')) return 'BilX | Kurs'
   if (pathname.startsWith('/certificate')) return 'BilX | Sertifikat'
   if (pathname.startsWith('/edit-course')) return 'BilX | Kursu redaktə et'
@@ -124,6 +126,10 @@ function Home({ user, profile, handleLogout }) {
   const scrollToCourses = () => coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const goTeach = () => navigate(user ? '/instructor' : '/register')
   const openCourse = (course) => navigate(`/course/${course.id}`, { state: { course } })
+  const openTeacher = (event, teacherId) => {
+    event.stopPropagation()
+    if (teacherId) navigate(`/teacher/${teacherId}`)
+  }
   const onCourseKeyDown = (event, course) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -260,7 +266,11 @@ function Home({ user, profile, handleLogout }) {
                         )}
                         <div className="home-course-card-body">
                           <h3>{course.title}</h3>
-                          {instructorName && <small className="home-course-instructor">{instructorName}</small>}
+                          {instructorName && (
+                            <button className="teacher-profile-link home-course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
+                              {instructorName}
+                            </button>
+                          )}
                           <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
                         </div>
                       </article>
@@ -294,7 +304,11 @@ function Home({ user, profile, handleLogout }) {
                       <div className="course-card-body">
                         <h3>{course.title}</h3>
                         {course.description && <p>{course.description}</p>}
-                        {instructorName && <small className="course-instructor">{instructorName}</small>}
+                        {instructorName && (
+                          <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
+                            {instructorName}
+                          </button>
+                        )}
                         <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
                       </div>
                     </article>
@@ -537,6 +551,7 @@ function App() {
       <Route path="/course" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/certificate/:code" element={<CertificatePage user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/teacher/:id" element={<TeacherProfile user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/instructor" element={<InstructorDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/inbox" element={<Inbox user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/edit-course" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
