@@ -559,6 +559,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
     student: t('student'),
   }
   const getRoleLabel = (role) => roleLabels[role] || role || '-'
+  const canOpenPublicTeacherProfile = (item) => item?.role === 'instructor' && item?.userId
+  const openPublicTeacherProfile = (event, item) => {
+    event.stopPropagation()
+    if (canOpenPublicTeacherProfile(item)) navigate(`/teacher/${item.userId}`)
+  }
   const pendingTeacherApplications = teacherApplications.filter((application) => application.status === 'pending')
 
   // Monthly report (4.6): bucket events by year-month from already-loaded data.
@@ -763,8 +768,20 @@ function AdminDashboard({ user, profile, handleLogout }) {
                     <tr key={item.key || item.email || index}>
                       <td>{index + 1}</td>
                       <td>{getRoleLabel(item.role)}</td>
-                      <td>{item.name}</td>
-                      <td>{item.surname}</td>
+                      <td>
+                        {canOpenPublicTeacherProfile(item) ? (
+                          <button className="teacher-profile-link admin-user-link" type="button" onClick={(event) => openPublicTeacherProfile(event, item)}>
+                            {item.name}
+                          </button>
+                        ) : item.name}
+                      </td>
+                      <td>
+                        {canOpenPublicTeacherProfile(item) && item.surname && item.surname !== '-' ? (
+                          <button className="teacher-profile-link admin-user-link" type="button" onClick={(event) => openPublicTeacherProfile(event, item)}>
+                            {item.surname}
+                          </button>
+                        ) : item.surname}
+                      </td>
                       <td>{item.email}</td>
                       <td>{item.phone}</td>
                       <td>{formatDateTime(item.signedUpAt)}</td>
@@ -869,6 +886,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
             </div>
             <div className="form-panel">
               <p className="muted">{getRoleLabel(selectedUser.role)} · {selectedUser.email}</p>
+              {canOpenPublicTeacherProfile(selectedUser) && (
+                <button className="outline-button" type="button" onClick={(event) => openPublicTeacherProfile(event, selectedUser)}>
+                  {t('viewPublicTeacherProfile')}
+                </button>
+              )}
               {selectedUser.phone && selectedUser.phone !== '-' && <p className="muted">{t('phoneLabel')}: {selectedUser.phone}</p>}
               <p className="muted">{t('signupDateLabel')}: {formatDateTime(selectedUser.signedUpAt)}</p>
               {selectedUser.role === 'instructor' && <p className="muted">{t('teacherSinceLabel')}: {formatDateTime(selectedUser.teacherApprovedAt)}</p>}

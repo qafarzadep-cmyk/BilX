@@ -741,6 +741,11 @@ button {
   text-decoration: underline;
 }
 
+.admin-user-link {
+  display: inline;
+  font-size: inherit;
+}
+
 .home-course-meta {
   margin-bottom: 8px;
 }
