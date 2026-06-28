@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Shield } from 'lucide-react'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
+import { InboxPanel } from './Inbox'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
 import { isAdmin } from './profileApi'
@@ -62,6 +63,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [teacherApplications, setTeacherApplications] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [requests, setRequests] = useState([])
+  const [inboxMessages, setInboxMessages] = useState([])
   const [activeTab, setActiveTab] = useState('pending')
   const [studentEmail, setStudentEmail] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
@@ -90,6 +92,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
       { data: teacherApplicationData, error: teacherApplicationError },
       { data: enrollmentData, error: enrollmentError },
       { data: requestData, error: requestError },
+      { data: inboxMessageData },
       { data: adminUserData },
     ] = await Promise.all([
       supabase.from('Courses').select('*').order('id', { ascending: false }),
@@ -97,6 +100,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
       supabase.from('teacher_applications').select('*').order('id', { ascending: false }),
       supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
       supabase.from('requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('inbox_messages').select('id').order('created_at', { ascending: false }),
       supabase.rpc('admin_list_users'),
     ])
 
@@ -121,6 +125,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     setTeacherApplications(teacherApplicationError ? [] : teacherApplicationData || [])
     setEnrollments(enrollmentData || [])
     setRequests(requestData || [])
+    setInboxMessages(inboxMessageData || [])
   }, [t])
 
   useEffect(() => {
@@ -620,6 +625,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     ['teacher-applications', t('pendingTeachers'), pendingTeacherApplications.length],
     ['access', t('grantAccess'), enrollments.length],
     ['users', t('userCount'), visibleUsers.length],
+    ['inbox', t('inbox'), inboxMessages.length],
     ['courses', t('approvedCoursesTitle'), approvedCourses.length],
     ['stats', t('statsTab'), monthlyStats.length],
   ]
@@ -797,6 +803,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {activeTab === 'inbox' && (
+            <InboxPanel user={user} compact />
           )}
 
           {activeTab === 'courses' && (
