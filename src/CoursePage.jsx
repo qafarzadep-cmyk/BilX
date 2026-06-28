@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Award, CheckCircle2, ChevronDown, Circle, Clock3, ExternalLink, Play, PlayCircle, Share2, X } from 'lucide-react'
+import { Award, CheckCircle2, ChevronDown, Circle, Clock3, ExternalLink, Lock, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -164,6 +164,7 @@ function CoursePage({ user, profile, handleLogout }) {
   // state. Keying the load effect on this (not the `course` object it also sets)
   // avoids redundant reloads.
   const courseId = id || location.state?.course?.id
+  const courseInstructorId = course?.instructor_id
 
   // Map of lessons the current viewer can actually play (full set for
   // enrolled/admin/owner; only free-preview lessons for everyone else).
@@ -189,9 +190,13 @@ function CoursePage({ user, profile, handleLogout }) {
       const embedUrl = rawUrl
         ? (isYouTubeUrl(rawUrl) ? toYouTubeEmbedUrl(rawUrl, index) : normalizeExternalUrl(rawUrl))
         : null
+      const locked = !rawUrl && !bunnyId
+      const title = item.title || t(placeholderLessons[index % placeholderLessons.length].titleKey)
+      const showTitle = hasAccess || adminPreview || courseInstructorId === userId || !locked
       return {
         id: item.id,
-        title: item.title || t(placeholderLessons[index % placeholderLessons.length].titleKey),
+        title,
+        displayTitle: showTitle ? title : t('lockedLessonTitle'),
         duration: item.duration || playable?.duration || '',
         is_free: item.is_free,
         section_id: item.section_id || playable?.section_id || null,
@@ -199,10 +204,10 @@ function CoursePage({ user, profile, handleLogout }) {
         source_url: rawUrl ? normalizeExternalUrl(rawUrl) : null,
         video_url: embedUrl,
         bunny_video_id: bunnyId,
-        locked: !rawUrl && !bunnyId,
+        locked,
       }
     })
-  }, [lessonPreviews, videos, playableById, t])
+  }, [adminPreview, courseInstructorId, hasAccess, lessonPreviews, playableById, t, userId, videos])
 
   const activeVideo = lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
 
@@ -237,6 +242,10 @@ function CoursePage({ user, profile, handleLogout }) {
   )
   const completedCount = lessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
   const completionPercent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0
+  const fullCourseDuration = formatSectionDuration(
+    lessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0),
+    t
+  )
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     const effective = orderedSections.length > 0
@@ -275,7 +284,7 @@ function CoursePage({ user, profile, handleLogout }) {
       const sectionLessons = sectionMatches
         ? section.lessons
         : section.lessons.filter((lesson) => (
-          normalizeSearchText(`${lesson.title || ''} ${lesson.duration || ''}`).includes(query)
+          normalizeSearchText(`${lesson.displayTitle || lesson.title || ''} ${lesson.duration || ''}`).includes(query)
         ))
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       return {
@@ -313,6 +322,11 @@ function CoursePage({ user, profile, handleLogout }) {
   }
 
   const selectLesson = (sectionId, videoId) => {
+    const lesson = lessons.find((item) => String(item.id) === String(videoId))
+    if (!lesson || lesson.locked) {
+      toast(t('unlockFullCourse'))
+      return
+    }
     const sectionKey = String(sectionId)
     setExpandedSectionIds((current) => {
       if (current.has(sectionKey)) return current
@@ -321,6 +335,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return next
     })
     setActiveVideoId(videoId)
+    if (!hasAccess) setActivePreviewId(videoId)
   }
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
@@ -644,7 +659,7 @@ function CoursePage({ user, profile, handleLogout }) {
     ? publicPreviewVideo
     : hasAccess
       ? (activeVideo || trailerVideo)
-      : publicPreviewVideo
+      : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
   useEffect(() => {
@@ -843,6 +858,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
+  const canUseLessonPlayer = hasAccess || (Boolean(user) && previewLessons.length > 0)
 
   return (
     <div className="page">
@@ -856,6 +872,7 @@ function CoursePage({ user, profile, handleLogout }) {
             <p>{course.description}</p>
             <div className="tag-row">
               <span>{lessons.length} {t('courseLessons')}</span>
+              {fullCourseDuration && <span>{fullCourseDuration}</span>}
               <span>{t('lifetimeAccess')}</span>
             </div>
             <button type="button" className="outline-button share-button" onClick={handleShare}>
@@ -880,7 +897,7 @@ function CoursePage({ user, profile, handleLogout }) {
           </button>
         </section>
 
-        {hasAccess ? (
+        {canUseLessonPlayer ? (
           <>
           {lessons.length === 0 && !trailerVideo ? (
             <section className="panel-card empty-box">
@@ -940,9 +957,9 @@ function CoursePage({ user, profile, handleLogout }) {
                       ? t('courseTrailer')
                       : `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`}
                   </p>
-                  <h2>{playerVideo?.title || t('lessonTitle')}</h2>
+                  <h2>{playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}</h2>
                 </div>
-                {!playerVideo?.is_trailer && (
+                {hasAccess && !playerVideo?.is_trailer && (
                 <div className="player-actions">
                   {activeVideo?.source_url && (
                     <a className="outline-button complete-button" href={activeVideo.source_url} target="_blank" rel="noreferrer">
@@ -982,13 +999,25 @@ function CoursePage({ user, profile, handleLogout }) {
               <div className="lesson-panel-header">
                 <div>
                   <h2>{t('courseContent')}</h2>
-                  <p>{completedCount}/{lessons.length} {t('completedLabel')}</p>
+                  <p>
+                    {hasAccess
+                      ? `${completedCount}/${lessons.length} ${t('completedLabel')}`
+                      : `${lessons.length} ${t('courseLessons')}${fullCourseDuration ? ` | ${fullCourseDuration}` : ''}`}
+                  </p>
                 </div>
-                <strong>{completionPercent}%</strong>
+                {hasAccess ? (
+                  <strong>{completionPercent}%</strong>
+                ) : (
+                  <button className="outline-button unlock-course-button" type="button" onClick={handleWhatsApp}>
+                    {t('unlockFullCourse')}
+                  </button>
+                )}
               </div>
-              <div className="lesson-progress-track">
-                <span style={{ width: `${completionPercent}%` }} />
-              </div>
+              {hasAccess && (
+                <div className="lesson-progress-track">
+                  <span style={{ width: `${completionPercent}%` }} />
+                </div>
+              )}
               {curriculumSections.length > 0 && (
                 <div className="curriculum-search">
                   <input
@@ -1028,19 +1057,25 @@ function CoursePage({ user, profile, handleLogout }) {
                           {section.lessons.map((video, lessonIndex) => {
                             const isActive = String(video.id) === String(activeVideo?.id)
                             const isWatched = watchedIds.has(String(video.id))
+                            const isLocked = video.locked
 
                             return (
                               <button
                                 key={video.id}
-                                className={isActive ? 'course-lesson-item active' : 'course-lesson-item'}
+                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isLocked ? ' locked' : ''}`}
                                 onClick={() => selectLesson(section.id, video.id)}
                               >
                                 <span className="lesson-status">
-                                  {isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
+                                  {isLocked ? <Lock size={19} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
                                 </span>
                                 <span className="lesson-copy">
-                                  <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
-                                  {video.duration && <small><Clock3 size={14} /> {video.duration}</small>}
+                                  <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.displayTitle || video.title}</strong>
+                                  {(video.duration || isLocked) && (
+                                    <small>
+                                      {video.duration && <><Clock3 size={14} /> {video.duration}</>}
+                                      {isLocked && <span>{video.duration ? ' | ' : ''}{t('unlockFullCourse')}</span>}
+                                    </small>
+                                  )}
                                 </span>
                               </button>
                             )
@@ -1054,6 +1089,7 @@ function CoursePage({ user, profile, handleLogout }) {
             </aside>
           </section>
           )}
+          {hasAccess && (
           <section className="panel-card lesson-comments-panel">
             <div className="section-heading youtube-comment-heading">
               <div>
@@ -1106,6 +1142,7 @@ function CoursePage({ user, profile, handleLogout }) {
               </div>
             )}
           </section>
+          )}
           </>
         ) : (
           <section className="purchase-grid">
@@ -1137,7 +1174,7 @@ function CoursePage({ user, profile, handleLogout }) {
                       {section.lessons.map((video, lessonIndex) => (
                         <div key={video.id} className="locked-lesson">
                           <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
-                          {video.title}
+                          {video.displayTitle || video.title}
                           <small>{previewLessons.some((lesson) => String(lesson.id) === String(video.id)) ? t('coursePreview') : t('locked')}</small>
                         </div>
                       ))}

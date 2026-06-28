@@ -1068,6 +1068,12 @@ button {
   overflow-y: auto;
 }
 
+.unlock-course-button {
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
 .curriculum-section + .curriculum-section,
 .locked-curriculum-section + .locked-curriculum-section {
   border-top: 1px solid #d1d7dc;
@@ -1172,6 +1178,24 @@ button {
 .course-lesson-item.active {
   background: #eef2ff;
   box-shadow: inset 4px 0 0 #1435c3;
+}
+
+.course-lesson-item.locked {
+  color: #6a6f73;
+  background: #fbfcff;
+}
+
+.course-lesson-item.locked:hover {
+  background: #f4f6fb;
+}
+
+.course-lesson-item.locked .lesson-status,
+.course-lesson-item.locked .lesson-copy strong {
+  color: #6a6f73;
+}
+
+.course-lesson-item.locked .lesson-copy small span {
+  color: #1435c3;
 }
 
 .lesson-status {
