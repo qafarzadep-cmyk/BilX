@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
@@ -8,10 +8,14 @@ import { supabase } from './supabase'
 export function InboxPanel({ user, compact = false, adminMode = false }) {
   const navigate = useNavigate()
   const [messages, setMessages] = useState([])
+  const [profiles, setProfiles] = useState([])
   const [courses, setCourses] = useState([])
   const [recipientType, setRecipientType] = useState('admin')
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [recipientEmailInput, setRecipientEmailInput] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedConversationKey, setSelectedConversationKey] = useState('')
+  const [profilePreview, setProfilePreview] = useState(null)
   const [replyTo, setReplyTo] = useState(null)
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(false)
@@ -33,13 +37,113 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
     [courses]
   )
 
-  const selectReplyTarget = (item) => {
+  const profilesById = useMemo(
+    () => new Map((profiles || []).map((item) => [item.user_id, item])),
+    [profiles]
+  )
+
+  const getPersonName = (person) => {
+    if (!person) return ''
+    return profilesById.get(person.id)?.full_name || person.email || ''
+  }
+
+  const getPersonProfile = useCallback((person) => {
+    if (!person) return null
+    const profile = person.id ? profilesById.get(person.id) : null
+    return {
+      id: person.id || profile?.user_id || null,
+      email: person.email || '',
+      name: profile?.full_name || person.email || '',
+      role: profile?.role || '',
+    }
+  }, [profilesById])
+
+  const getCounterpart = useCallback((item) => {
     const sentByMe = item.sender_id === user?.id || item.sender_email === user?.email
-    const id = sentByMe ? item.recipient_id : item.sender_id
-    const email = sentByMe ? item.recipient_email : item.sender_email
+    const sentToMe = item.recipient_id === user?.id || item.recipient_email === user?.email
+
+    if (sentByMe) {
+      return { id: item.recipient_id || null, email: item.recipient_email || '' }
+    }
+
+    if (sentToMe || adminMode) {
+      return { id: item.sender_id || null, email: item.sender_email || '' }
+    }
+
+    return { id: item.sender_id || null, email: item.sender_email || '' }
+  }, [adminMode, user])
+
+  const getConversationKey = (person) => person?.id || person?.email?.toLowerCase() || ''
+
+  const getMessagePerson = (item, type) => {
+    const id = type === 'sender' ? item.sender_id : item.recipient_id
+    const email = type === 'sender' ? item.sender_email : item.recipient_email
+    return { id: id || null, email: email || '' }
+  }
+
+  const conversations = useMemo(() => {
+    const byKey = new Map()
+
+    messages.forEach((item) => {
+      const person = getCounterpart(item)
+      const key = getConversationKey(person)
+      if (!key) return
+
+      const current = byKey.get(key) || {
+        key,
+        person,
+        messages: [],
+        latest: item,
+      }
+
+      current.messages.push(item)
+      if (new Date(item.created_at) > new Date(current.latest.created_at)) {
+        current.latest = item
+      }
+      byKey.set(key, current)
+    })
+
+    return Array.from(byKey.values())
+      .map((conversation) => ({
+        ...conversation,
+        profile: getPersonProfile(conversation.person),
+        messages: conversation.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+      }))
+      .sort((a, b) => new Date(b.latest.created_at) - new Date(a.latest.created_at))
+  }, [messages, getCounterpart, getPersonProfile])
+
+  const filteredConversations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    if (!query) return conversations
+
+    return conversations.filter((conversation) => {
+      const profile = conversation.profile || {}
+      const searchable = [
+        profile.name,
+        profile.email,
+        profile.role,
+        ...conversation.messages.map((item) => item.body),
+      ].join(' ').toLowerCase()
+      return searchable.includes(query)
+    })
+  }, [conversations, searchTerm])
+
+  const selectedConversation = useMemo(() => {
+    if (!filteredConversations.length) return null
+    return filteredConversations.find((conversation) => conversation.key === selectedConversationKey) || filteredConversations[0]
+  }, [filteredConversations, selectedConversationKey])
+
+  const selectConversation = (conversation) => {
+    const profile = conversation.profile || getPersonProfile(conversation.person)
+    setSelectedConversationKey(conversation.key)
+    setReplyTo({ id: profile.id || null, email: profile.email || '' })
+  }
+
+  const selectReplyTarget = (person) => {
+    const id = person?.id || null
+    const email = person?.email || ''
     if (!id && !email) return
     setReplyTo({ id: id || null, email: email || id || '' })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   useEffect(() => {
@@ -66,7 +170,25 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (mounted) setMessages(messageData || [])
+      const ids = Array.from(new Set(
+        (messageData || [])
+          .flatMap((item) => [item.sender_id, item.recipient_id])
+          .filter(Boolean)
+      ))
+
+      let profileData = []
+      if (ids.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, role')
+          .in('user_id', ids)
+        profileData = data || []
+      }
+
+      if (mounted) {
+        setMessages(messageData || [])
+        setProfiles(profileData)
+      }
     }
 
     loadInbox()
@@ -146,7 +268,13 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
     setSelectedCourseId('')
     setRecipientEmailInput('')
     setRecipientType('admin')
-    setReplyTo(null)
+    if (recipientId || recipientEmail) {
+      const nextPerson = { id: recipientId || null, email: recipientEmail || '' }
+      setReplyTo(nextPerson)
+      setSelectedConversationKey(getConversationKey(nextPerson))
+    } else {
+      setReplyTo(null)
+    }
     setMessage(t('messageSent'))
     setLoading(false)
 
@@ -250,35 +378,138 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
           </form>
         </section>
 
-        <section className="panel-card">
-          <h3>{t('latestMessages')}</h3>
+        <section className="panel-card inbox-conversations-panel">
+          <div className="inbox-panel-head">
+            <h3>{t('latestMessages')}</h3>
+            <label className="sr-only" htmlFor="inbox-search">{t('inboxSearchLabel')}</label>
+            <input
+              id="inbox-search"
+              className="inbox-search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={t('inboxSearchPlaceholder')}
+            />
+          </div>
+
           {messages.length === 0 ? (
             <p className="muted">{t('noInboxMessages')}</p>
+          ) : filteredConversations.length === 0 ? (
+            <p className="muted">{t('inboxSearchEmpty')}</p>
           ) : (
-            <div className="inbox-list">
-              {messages.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="inbox-item inbox-item-button"
-                  onClick={() => selectReplyTarget(item)}
-                >
-                  <span className="inbox-avatar" aria-hidden="true">
-                    {(item.sender_email || '?').charAt(0).toUpperCase()}
-                  </span>
-                  <div className="inbox-item-body">
-                    <div className="inbox-item-head">
-                      <strong>{item.sender_email}</strong>
-                      <small>{new Date(item.created_at).toLocaleString('az-AZ')}</small>
+            <div className="inbox-conversation-layout">
+              <div className="inbox-list inbox-thread-list">
+                {filteredConversations.map((conversation) => {
+                  const profile = conversation.profile || {}
+                  const name = profile.name || profile.email || t('profileLabel')
+                  const latest = conversation.latest
+                  const isActive = selectedConversation?.key === conversation.key
+
+                  return (
+                    <article
+                      key={conversation.key}
+                      className={`inbox-item inbox-thread-item ${isActive ? 'active' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="inbox-thread-main"
+                        onClick={() => selectConversation(conversation)}
+                      >
+                        <span className="inbox-avatar" aria-hidden="true">
+                          {name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="inbox-item-body">
+                          <span className="inbox-item-head">
+                            <strong>{name}</strong>
+                            <small>{new Date(latest.created_at).toLocaleString('az-AZ')}</small>
+                          </span>
+                          {profile.email && <small className="inbox-person-email">{profile.email}</small>}
+                          <span className="inbox-preview">{latest.body}</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="inbox-profile-link"
+                        onClick={() => setProfilePreview(profile)}
+                      >
+                        {t('profileLabel')}
+                      </button>
+                    </article>
+                  )
+                })}
+              </div>
+
+              <div className="inbox-chat-panel">
+                {selectedConversation ? (
+                  <>
+                    <div className="inbox-chat-head">
+                      <button
+                        type="button"
+                        className="inbox-chat-person"
+                        onClick={() => setProfilePreview(selectedConversation.profile)}
+                      >
+                        <span className="inbox-avatar" aria-hidden="true">
+                          {(selectedConversation.profile?.name || selectedConversation.profile?.email || '?').charAt(0).toUpperCase()}
+                        </span>
+                        <span>
+                          <strong>{selectedConversation.profile?.name || selectedConversation.profile?.email}</strong>
+                          {selectedConversation.profile?.email && <small>{selectedConversation.profile.email}</small>}
+                        </span>
+                      </button>
+                      <button type="button" className="outline-button compact" onClick={() => selectReplyTarget(selectedConversation.profile)}>
+                        {t('reply')}
+                      </button>
                     </div>
-                    <p>{item.body}</p>
-                    <span className="inbox-reply-hint">{t('reply')}</span>
-                  </div>
-                </button>
-              ))}
+                    <div className="inbox-chat-scroll">
+                      {selectedConversation.messages.map((item) => {
+                        const isMine = item.sender_id === user?.id || item.sender_email === user?.email
+                        const person = getMessagePerson(item, 'sender')
+                        const displayName = isMine ? t('youLabel') : getPersonName(person)
+
+                        return (
+                          <div key={item.id} className={`inbox-chat-row ${isMine ? 'mine' : ''}`}>
+                            <div className="inbox-chat-bubble">
+                              <div className="inbox-chat-meta">
+                                <strong>{displayName}</strong>
+                                <small>{new Date(item.created_at).toLocaleString('az-AZ')}</small>
+                              </div>
+                              <p>{item.body}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <p className="muted">{t('noInboxMessages')}</p>
+                )}
+              </div>
             </div>
           )}
         </section>
+
+        {profilePreview && (
+          <div className="modal-backdrop" role="presentation" onMouseDown={() => setProfilePreview(null)}>
+            <div className="modal-panel" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{profilePreview.name || profilePreview.email}</h2>
+                <button type="button" className="modal-close-button" onClick={() => setProfilePreview(null)}>x</button>
+              </div>
+              <div className="form-panel">
+                {profilePreview.role && <p className="muted">{profilePreview.role}</p>}
+                {profilePreview.email && <p className="muted">{profilePreview.email}</p>}
+                {profilePreview.id && profilePreview.role === 'instructor' && (
+                  <button
+                    className="outline-button"
+                    type="button"
+                    onClick={() => navigate(`/teacher/${profilePreview.id}`)}
+                  >
+                    {t('viewPublicTeacherProfile')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   )
 }
