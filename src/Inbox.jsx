@@ -5,7 +5,7 @@ import { useLanguage } from './i18n'
 import { ADMIN_EMAIL } from './profileApi'
 import { supabase } from './supabase'
 
-function Inbox({ user, profile, handleLogout }) {
+export function InboxPanel({ user, compact = false }) {
   const navigate = useNavigate()
   const [messages, setMessages] = useState([])
   const [courses, setCourses] = useState([])
@@ -143,20 +143,15 @@ function Inbox({ user, profile, handleLogout }) {
 
   if (!user) {
     return (
-      <div className="page centered-page">
-        <div className="empty-box compact">
-          <h2>{t('pleaseLogin')}</h2>
-          <button className="primary-button" onClick={() => navigate('/login')}>{t('login')}</button>
-        </div>
+      <div className="empty-box compact">
+        <h2>{t('pleaseLogin')}</h2>
+        <button className="primary-button" onClick={() => navigate('/login')}>{t('login')}</button>
       </div>
     )
   }
 
   return (
-    <div className="page">
-      <Navbar user={user} profile={profile} onLogout={handleLogout} />
-      <main className="content-shell">
-        <div className="inbox-grid">
+    <div className={compact ? 'inbox-grid inbox-grid-compact' : 'inbox-grid'}>
         <section className="panel-card">
           <div className="section-heading">
             <h2>{t('inbox')}</h2>
@@ -258,7 +253,16 @@ function Inbox({ user, profile, handleLogout }) {
             </div>
           )}
         </section>
-        </div>
+    </div>
+  )
+}
+
+function Inbox({ user, profile, handleLogout }) {
+  return (
+    <div className="page">
+      <Navbar user={user} profile={profile} onLogout={handleLogout} />
+      <main className="content-shell">
+        <InboxPanel user={user} />
       </main>
     </div>
   )

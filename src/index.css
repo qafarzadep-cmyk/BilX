@@ -1657,6 +1657,10 @@ button {
   gap: 22px;
 }
 
+.instructor-inbox-section {
+  margin-top: 30px;
+}
+
 .instructor-course-card {
   width: 100%;
   min-width: 0;
@@ -4645,6 +4649,10 @@ td button + .outline-button {
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
   gap: 22px;
   align-items: start;
+}
+
+.inbox-grid-compact {
+  align-items: stretch;
 }
 
 .inbox-item {

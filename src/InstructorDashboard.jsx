@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, GripVertical, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
+import { InboxPanel } from './Inbox'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
 import { supabase } from './supabase'
@@ -1419,6 +1420,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   ))}
                 </section>
               )}
+              <section className="instructor-inbox-section">
+                <InboxPanel user={user} compact />
+              </section>
             </>
           ) : dataLoading ? (
             <div className="panel-card instructor-detail-loading" aria-label={t('loading')}>
