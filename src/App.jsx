@@ -34,16 +34,16 @@ const HOME_STEPS = [
 
 function getPageTitle(pathname) {
   if (pathname === '/') return 'BilX | Onlayn video kurslar'
-  if (pathname === '/login') return 'BilX | Giris'
+  if (pathname === '/login') return 'BilX | Giriş'
   if (pathname === '/register') return 'BilX | Qeydiyyat'
-  if (pathname === '/reset-password') return 'BilX | Sifre yenileme'
+  if (pathname === '/reset-password') return 'BilX | Şifrə yeniləmə'
   if (pathname === '/admin') return 'BilX | Admin paneli'
-  if (pathname === '/profile') return 'BilX | Telebe paneli'
-  if (pathname === '/instructor') return 'BilX | Muellim paneli'
+  if (pathname === '/profile') return 'BilX | Tələbə paneli'
+  if (pathname === '/instructor') return 'BilX | Müəllim paneli'
   if (pathname === '/inbox') return 'BilX | Inbox'
   if (pathname.startsWith('/course')) return 'BilX | Kurs'
   if (pathname.startsWith('/certificate')) return 'BilX | Sertifikat'
-  if (pathname.startsWith('/edit-course')) return 'BilX | Kursu redakte et'
+  if (pathname.startsWith('/edit-course')) return 'BilX | Kursu redaktə et'
   return 'BilX'
 }
 
