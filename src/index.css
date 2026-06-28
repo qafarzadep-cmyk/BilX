@@ -1027,6 +1027,42 @@ button {
   transition: width 180ms ease;
 }
 
+.curriculum-search {
+  padding: 12px 14px;
+  border-bottom: 1px solid #eef0f2;
+  background: #fff;
+}
+
+.curriculum-search input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #d1d7dc;
+  border-radius: 999px;
+  outline: 0;
+  background: #f7f9fa;
+  color: #1c1d1f;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.curriculum-search input:focus {
+  border-color: #1435c3;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(20, 53, 195, 0.12);
+}
+
+.locked-curriculum-search {
+  padding: 8px 0 14px;
+  border-bottom: 0;
+}
+
+.curriculum-search-empty {
+  margin: 0;
+  padding: 18px 16px;
+  color: #6a6f73;
+  font-size: 14px;
+}
+
 .course-lesson-list {
   min-height: 0;
   overflow-y: auto;

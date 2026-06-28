@@ -115,6 +115,13 @@ function formatSectionDuration(seconds, t) {
     : `${minutes}${t('minuteShort')}`
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLocaleLowerCase('az-AZ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 function CoursePage({ user, profile, handleLogout }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -143,6 +150,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [requested, setRequested] = useState(false)
   const [activeVideoId, setActiveVideoId] = useState(null)
   const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
+  const [curriculumSearch, setCurriculumSearch] = useState('')
   // Signed, short-lived Bunny embed URL for the lesson currently on screen.
   const [signedUrl, setSignedUrl] = useState(null)
   const [signedFor, setSignedFor] = useState(null)
@@ -257,6 +265,27 @@ function CoursePage({ user, profile, handleLogout }) {
       }
     }).filter((section) => section.lessons.length > 0 || sections.length > 0)
   }, [lessons, sections, t, watchedIds])
+  const curriculumSearchTerm = curriculumSearch.trim()
+  const visibleCurriculumSections = useMemo(() => {
+    const query = normalizeSearchText(curriculumSearchTerm)
+    if (!query) return curriculumSections
+
+    return curriculumSections.map((section) => {
+      const sectionMatches = normalizeSearchText(section.displayTitle || section.title).includes(query)
+      const sectionLessons = sectionMatches
+        ? section.lessons
+        : section.lessons.filter((lesson) => (
+          normalizeSearchText(`${lesson.title || ''} ${lesson.duration || ''}`).includes(query)
+        ))
+      const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
+      return {
+        ...section,
+        lessons: sectionLessons,
+        completed: sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length,
+        duration: formatSectionDuration(duration, t),
+      }
+    }).filter((section) => section.lessons.length > 0)
+  }, [curriculumSearchTerm, curriculumSections, t, watchedIds])
   const activeSectionId = curriculumSections.find((section) => (
     section.lessons.some((lesson) => String(lesson.id) === String(activeVideo?.id))
   ))?.id
@@ -960,9 +989,22 @@ function CoursePage({ user, profile, handleLogout }) {
               <div className="lesson-progress-track">
                 <span style={{ width: `${completionPercent}%` }} />
               </div>
+              {curriculumSections.length > 0 && (
+                <div className="curriculum-search">
+                  <input
+                    type="search"
+                    value={curriculumSearch}
+                    onChange={(event) => setCurriculumSearch(event.target.value)}
+                    placeholder={t('curriculumSearchPlaceholder')}
+                    aria-label={t('curriculumSearchLabel')}
+                  />
+                </div>
+              )}
               <div className="course-lesson-list">
-                {curriculumSections.map((section, sectionIndex) => {
-                  const isExpanded = expandedSectionIds.has(String(section.id))
+                {visibleCurriculumSections.length === 0 ? (
+                  <p className="curriculum-search-empty">{t('curriculumSearchEmpty')}</p>
+                ) : visibleCurriculumSections.map((section, sectionIndex) => {
+                  const isExpanded = curriculumSearchTerm ? true : expandedSectionIds.has(String(section.id))
 
                   return (
                     <section className={isExpanded ? 'curriculum-section expanded' : 'curriculum-section'} key={section.id}>
@@ -1073,21 +1115,36 @@ function CoursePage({ user, profile, handleLogout }) {
                 {t('whatsappPurchaseHint')}
               </p>
               <h3>{t('lessonListTitle')}</h3>
-              {lessons.length === 0 ? <p className="muted">{t('lessonsSoon')}</p> : curriculumSections.map((section, sectionIndex) => (
-                <section className="locked-curriculum-section" key={section.id}>
-                  <div className="curriculum-section-heading">
-                    <strong>{section.displayTitle}</strong>
-                    <small>{section.lessons.length} {t('courseLessons')}{section.duration ? ` | ${section.duration}` : ''}</small>
+              {lessons.length === 0 ? <p className="muted">{t('lessonsSoon')}</p> : (
+                <>
+                  <div className="curriculum-search locked-curriculum-search">
+                    <input
+                      type="search"
+                      value={curriculumSearch}
+                      onChange={(event) => setCurriculumSearch(event.target.value)}
+                      placeholder={t('curriculumSearchPlaceholder')}
+                      aria-label={t('curriculumSearchLabel')}
+                    />
                   </div>
-                  {section.lessons.map((video, lessonIndex) => (
-                    <div key={video.id} className="locked-lesson">
-                      <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
-                      {video.title}
-                      <small>{previewLessons.some((lesson) => String(lesson.id) === String(video.id)) ? t('coursePreview') : t('locked')}</small>
-                    </div>
+                  {visibleCurriculumSections.length === 0 ? (
+                    <p className="muted">{t('curriculumSearchEmpty')}</p>
+                  ) : visibleCurriculumSections.map((section, sectionIndex) => (
+                    <section className="locked-curriculum-section" key={section.id}>
+                      <div className="curriculum-section-heading">
+                        <strong>{section.displayTitle}</strong>
+                        <small>{section.lessons.length} {t('courseLessons')}{section.duration ? ` | ${section.duration}` : ''}</small>
+                      </div>
+                      {section.lessons.map((video, lessonIndex) => (
+                        <div key={video.id} className="locked-lesson">
+                          <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
+                          {video.title}
+                          <small>{previewLessons.some((lesson) => String(lesson.id) === String(video.id)) ? t('coursePreview') : t('locked')}</small>
+                        </div>
+                      ))}
+                    </section>
                   ))}
-                </section>
-              ))}
+                </>
+              )}
             </div>
             <aside className="panel-card sticky-panel">
               <p className="muted">{t('coursePrice')}</p>

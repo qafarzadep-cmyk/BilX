@@ -52,6 +52,13 @@ function toYouTubeEmbedUrl(url, autoplay = true) {
   }
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLocaleLowerCase('az-AZ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 function LocalizedFileInput({ accept, disabled, file, onChange, t, onFocus }) {
   const inputId = useId()
 
@@ -111,6 +118,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
+  const [curriculumSearch, setCurriculumSearch] = useState('')
   const [sectionDropTargetId, setSectionDropTargetId] = useState('')
   const draggedSectionIdRef = useRef('')
   const sectionDragOrderRef = useRef([])
@@ -1293,6 +1301,25 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     ) || detailSections.find(
       (section) => String(section.id) === String(curriculumActiveVideo?.section_id)
     ) || detailSections[0]
+    const curriculumSearchTerm = curriculumSearch.trim()
+    const visibleDetailSections = curriculumSearchTerm
+      ? detailSections.map((section) => {
+        const sectionTitle = getLocalizedSectionTitle(section)
+        const sectionMatches = normalizeSearchText(sectionTitle).includes(normalizeSearchText(curriculumSearchTerm))
+        const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
+        return {
+          ...section,
+          filteredVideos: sectionMatches
+            ? sectionVideos
+            : sectionVideos.filter((video) => (
+              normalizeSearchText(`${video.title || ''} ${video.duration || ''}`).includes(normalizeSearchText(curriculumSearchTerm))
+            )),
+        }
+      }).filter((section) => section.filteredVideos.length > 0)
+      : detailSections.map((section) => ({
+        ...section,
+        filteredVideos: detailVideos.filter((video) => String(video.section_id) === String(section.id)),
+      }))
 
     return (
       <div className="page">
@@ -1487,10 +1514,23 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <p>{detailVideos.length} {t('courseLessons')}</p>
                         </div>
                       </div>
+                      {detailSections.length > 0 && (
+                        <div className="curriculum-search">
+                          <input
+                            type="search"
+                            value={curriculumSearch}
+                            onChange={(event) => setCurriculumSearch(event.target.value)}
+                            placeholder={t('curriculumSearchPlaceholder')}
+                            aria-label={t('curriculumSearchLabel')}
+                          />
+                        </div>
+                      )}
                       <div className="course-lesson-list">
-                        {detailSections.map((section, sectionIndex) => {
-                          const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
-                          const isOpen = curriculumOpenSections.has(String(section.id))
+                        {visibleDetailSections.length === 0 ? (
+                          <p className="curriculum-search-empty">{t('curriculumSearchEmpty')}</p>
+                        ) : visibleDetailSections.map((section, sectionIndex) => {
+                          const sectionVideos = section.filteredVideos || []
+                          const isOpen = curriculumSearchTerm ? true : curriculumOpenSections.has(String(section.id))
                           return (
                             <section
                               className={`${isOpen ? 'curriculum-section expanded' : 'curriculum-section'}${String(sectionDropTargetId) === String(section.id) ? ' section-drop-target' : ''}`}
