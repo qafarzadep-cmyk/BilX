@@ -897,7 +897,7 @@ button {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #111116;
+  background: #fff;
 }
 
 .youtube-player-shell {
