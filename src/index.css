@@ -2528,6 +2528,37 @@ button {
   font-weight: 600;
 }
 
+.admin-user-filter-row button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-user-filter-row td:last-child button {
+  text-align: left;
+}
+
+.admin-user-filter-row:hover td,
+.admin-user-filter-row.active td {
+  background: #eef2ff;
+}
+
+.admin-user-filter-row.active button {
+  color: var(--brand);
+}
+
+.admin-user-filter-title {
+  margin: 18px 0 8px;
+  color: #373c42;
+  font-size: 18px;
+  font-weight: 800;
+}
+
 .instructor-layout .dashboard-header {
   margin-bottom: 20px;
 }

@@ -69,6 +69,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [selectedCourse, setSelectedCourse] = useState('')
   const [message, setMessage] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
+  const [userFilter, setUserFilter] = useState('all')
   const [userComments, setUserComments] = useState([])
   const [userModalLoading, setUserModalLoading] = useState(false)
   const [adminMessageBody, setAdminMessageBody] = useState('')
@@ -557,10 +558,14 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const instructors = visibleUsers.filter((item) => item.role === 'instructor')
   const students = visibleUsers.filter((item) => item.role === 'student')
   const userStats = [
-    [t('studentsLabel'), students.length],
-    [t('instructorsLabel'), instructors.length],
-    [t('totalUsersLabel'), visibleUsers.length],
+    { key: 'student', label: t('studentsLabel'), count: students.length },
+    { key: 'instructor', label: t('instructorsLabel'), count: instructors.length },
+    { key: 'all', label: t('totalUsersLabel'), count: visibleUsers.length },
   ]
+  const filteredVisibleUsers = userFilter === 'all'
+    ? visibleUsers
+    : visibleUsers.filter((item) => item.role === userFilter)
+  const activeUserFilterLabel = userStats.find((item) => item.key === userFilter)?.label || t('totalUsersLabel')
   const roleLabels = {
     instructor: t('instructor'),
     student: t('student'),
@@ -754,8 +759,22 @@ function AdminDashboard({ user, profile, handleLogout }) {
               <h2>{t('userCount')}</h2>
               <table>
                 <thead><tr><th>{t('userTypeLabel')}</th><th>{t('countLabel')}</th></tr></thead>
-                <tbody>{userStats.map(([label, count]) => <tr key={label}><td>{label}</td><td>{count}</td></tr>)}</tbody>
+                <tbody>{userStats.map((item) => (
+                  <tr key={item.key} className={userFilter === item.key ? 'admin-user-filter-row active' : 'admin-user-filter-row'}>
+                    <td>
+                      <button type="button" onClick={() => setUserFilter(item.key)}>
+                        {item.label}
+                      </button>
+                    </td>
+                    <td>
+                      <button type="button" onClick={() => setUserFilter(item.key)}>
+                        {item.count}
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
               </table>
+              <div className="admin-user-filter-title">{activeUserFilterLabel}</div>
               <table className="user-detail-table">
                 <thead>
                   <tr>
@@ -772,7 +791,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleUsers.map((item, index) => (
+                  {filteredVisibleUsers.map((item, index) => (
                     <tr key={item.key || item.email || index}>
                       <td>{index + 1}</td>
                       <td>{getRoleLabel(item.role)}</td>
