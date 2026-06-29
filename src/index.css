@@ -5028,7 +5028,7 @@ td button + .outline-button {
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
   gap: 0;
-  height: clamp(480px, calc(100vh - 290px), 680px);
+  height: clamp(460px, calc(100vh - 340px), 620px);
   min-height: 0;
   padding: 0;
   overflow: hidden;
@@ -5245,6 +5245,9 @@ td button + .outline-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 116px;
   align-items: center;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid #e8edf3;
