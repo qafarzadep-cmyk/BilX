@@ -5235,7 +5235,8 @@ td button + .outline-button {
 
 .inbox-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 116px;
+  align-items: center;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid #e8edf3;
@@ -5243,18 +5244,26 @@ td button + .outline-button {
 }
 
 .inbox-composer textarea {
+  height: 44px;
   min-height: 44px;
-  max-height: 110px;
-  resize: vertical;
+  max-height: 44px;
+  resize: none;
   border: 1px solid #d1d7dc;
   border-radius: 999px;
   padding: 11px 16px;
+  line-height: 20px;
+  overflow-y: auto;
 }
 
 .inbox-composer .primary-button {
+  width: 116px;
+  height: 44px;
   min-height: 44px;
   border-radius: 999px;
-  padding-inline: 18px;
+  padding: 0 14px;
+  align-self: center;
+  justify-self: end;
+  font-size: 14px;
 }
 
 @media (max-width: 860px) {
