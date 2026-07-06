@@ -1380,6 +1380,15 @@ button {
   color: #c2410c;
 }
 
+.instructor-quiz-preview {
+  max-height: 100%;
+  padding: 32px 38px;
+}
+
+.instructor-quiz-preview h2 {
+  font-size: 28px;
+}
+
 .video-player,
 .empty-player {
   width: 100%;

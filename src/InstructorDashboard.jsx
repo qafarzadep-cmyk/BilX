@@ -124,6 +124,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [curriculumVideoId, setCurriculumVideoId] = useState('')
+  const [curriculumQuizId, setCurriculumQuizId] = useState('')
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
@@ -282,8 +283,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     () => videos.filter((video) => String(video.course_id) === String(requestedCourseId)),
     [requestedCourseId, videos]
   )
+  const curriculumCourseQuizzes = useMemo(
+    () => quizzes.filter((quiz) => String(quiz.course_id) === String(requestedCourseId)),
+    [requestedCourseId, quizzes]
+  )
+  const curriculumActiveQuiz = curriculumCourseQuizzes.find((quiz) => String(quiz.id) === String(curriculumQuizId)) || null
   const curriculumActiveVideo = curriculumCourseVideos.find((video) => String(video.id) === String(requestedLessonId || curriculumVideoId))
-    || curriculumCourseVideos[0]
+    || (curriculumActiveQuiz ? null : curriculumCourseVideos[0])
 
   useEffect(() => {
     if (instructorView !== 'curriculum' || curriculumCourseVideos.length === 0) return
@@ -304,8 +310,20 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const selectCurriculumVideo = (video) => {
     const videoId = String(video.id)
     setCurriculumVideoId(videoId)
+    setCurriculumQuizId('')
     if (video.section_id) setSelectedSectionId(String(video.section_id))
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
+  }
+
+  const selectCurriculumQuiz = (quiz) => {
+    const quizId = String(quiz.id)
+    setCurriculumQuizId(quizId)
+    setCurriculumVideoId('')
+    if (quiz.section_id) {
+      setSelectedSectionId(String(quiz.section_id))
+      setCurriculumOpenSections(new Set([String(quiz.section_id)]))
+    }
+    setSearchParams({ course: String(requestedCourseId), view: 'curriculum' }, { replace: true })
   }
 
   const selectCurriculumSection = (section, sectionVideos) => {
@@ -1569,7 +1587,30 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   <div className="course-player-layout instructor-course-player-layout">
                     <div className="course-player-main">
                       <div className="youtube-player-shell">
-                        {!curriculumActiveVideo ? (
+                        {curriculumActiveQuiz ? (
+                          <div className="quiz-player instructor-quiz-preview">
+                            <p className="player-eyebrow">{t('quizLabel')}</p>
+                            <h2>{curriculumActiveQuiz.title}</h2>
+                            {curriculumActiveQuiz.questions?.[0] ? (
+                              <div className="quiz-question-card">
+                                <strong>{curriculumActiveQuiz.questions[0].prompt}</strong>
+                                <div className="quiz-answer-list">
+                                  {(curriculumActiveQuiz.questions[0].options || []).map((option, optionIndex) => (
+                                    <div
+                                      key={optionIndex}
+                                      className={`quiz-answer-option${Number(curriculumActiveQuiz.questions[0].correctIndex) === optionIndex ? ' correct' : ''}`}
+                                    >
+                                      <span>{optionIndex + 1}</span>
+                                      {option}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="muted">{t('quizNoQuestions')}</p>
+                            )}
+                          </div>
+                        ) : !curriculumActiveVideo ? (
                           <div className="empty-player">{t('courseHasNoLessonsYet')}</div>
                         ) : curriculumActiveVideo.bunny_video_id ? (
                           curriculumSignedUrl ? (
@@ -1604,9 +1645,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <div className="course-player-details">
                         <div>
                           <p className="player-eyebrow">{t('instructorPreviewMode')}</p>
-                          <h2>{curriculumActiveVideo?.title || t('lessonTitle')}</h2>
+                          <h2>{curriculumActiveQuiz?.title || curriculumActiveVideo?.title || t('lessonTitle')}</h2>
                         </div>
-                        {curriculumActiveVideo && (
+                        {curriculumActiveVideo && !curriculumActiveQuiz && (
                           <div className="player-actions">
                             <button className="outline-button" type="button" onClick={() => editLesson(curriculumActiveVideo)}>
                               <Pencil size={16} /> {t('edit')}
@@ -1749,8 +1790,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 )
                               })}
                               {isOpen && sectionQuizzes.map((quiz, quizIndex) => (
-                                <div className="course-lesson-item instructor-course-lesson-item quiz-content-item" key={`quiz-${quiz.id}`}>
-                                  <button className="instructor-lesson-select" type="button">
+                                <div
+                                  className={String(quiz.id) === String(curriculumActiveQuiz?.id)
+                                    ? 'course-lesson-item active instructor-course-lesson-item quiz-content-item'
+                                    : 'course-lesson-item instructor-course-lesson-item quiz-content-item'}
+                                  key={`quiz-${quiz.id}`}
+                                >
+                                  <button className="instructor-lesson-select" type="button" onClick={() => selectCurriculumQuiz(quiz)}>
                                     <PlayCircle size={19} />
                                     <span className="lesson-copy">
                                       <strong>{sectionIndex + 1}.Q{quizIndex + 1} {quiz.title}</strong>
