@@ -986,7 +986,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <div className="lesson-heading-block">
                       <span className="lesson-section-context">{activeLessonDetails.sectionTitle}</span>
                       <h2>
-                        <span>{t('lessonLabel')} {activeLessonDetails.lessonNumber}</span>
+                        <span>{t('lessonLabel')} {activeLessonDetails.lessonNumber} :</span>
                         {activeLessonDetails.lessonTitle}
                       </h2>
                     </div>
