@@ -139,6 +139,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
   const [sections, setSections] = useState([])
+  const [quizzes, setQuizzes] = useState([])
   const [trailer, setTrailer] = useState(null)
   const [activePreviewId, setActivePreviewId] = useState('trailer')
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
@@ -149,6 +150,9 @@ function CoursePage({ user, profile, handleLogout }) {
   const [loading, setLoading] = useState(true)
   const [requested, setRequested] = useState(false)
   const [activeVideoId, setActiveVideoId] = useState(null)
+  const [activeQuizId, setActiveQuizId] = useState(null)
+  const [quizAnswers, setQuizAnswers] = useState({})
+  const [checkedQuizId, setCheckedQuizId] = useState(null)
   const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
   const [curriculumSearch, setCurriculumSearch] = useState('')
   // Signed, short-lived Bunny embed URL for the lesson currently on screen.
@@ -209,7 +213,8 @@ function CoursePage({ user, profile, handleLogout }) {
     })
   }, [adminPreview, courseInstructorId, hasAccess, lessonPreviews, playableById, t, userId, videos])
 
-  const activeVideo = lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
+  const activeQuiz = quizzes.find((quiz) => String(quiz.id) === String(activeQuizId)) || null
+  const activeVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
 
   useEffect(() => {
     activeVideoIdRef.current = activeVideo?.id || null
@@ -258,6 +263,7 @@ function CoursePage({ user, profile, handleLogout }) {
         if (!lesson.section_id && sectionIndex === 0) return true
         return String(lesson.section_id) === String(section.id)
       })
+      const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       const numberedTitle = `${t('sectionLabel')} ${sectionIndex + 1}`
@@ -269,11 +275,12 @@ function CoursePage({ user, profile, handleLogout }) {
           ? `${numberedTitle}: ${section.title}`
           : numberedTitle,
         lessons: sectionLessons,
+        quizzes: sectionQuizzes,
         completed,
         duration: formatSectionDuration(duration, t),
       }
-    }).filter((section) => section.lessons.length > 0 || sections.length > 0)
-  }, [lessons, sections, t, watchedIds])
+    }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
+  }, [lessons, quizzes, sections, t, watchedIds])
   const curriculumSearchTerm = curriculumSearch.trim()
   const visibleCurriculumSections = useMemo(() => {
     const query = normalizeSearchText(curriculumSearchTerm)
@@ -286,17 +293,24 @@ function CoursePage({ user, profile, handleLogout }) {
         : section.lessons.filter((lesson) => (
           normalizeSearchText(`${lesson.displayTitle || lesson.title || ''} ${lesson.duration || ''}`).includes(query)
         ))
+      const sectionQuizzes = sectionMatches
+        ? section.quizzes
+        : (section.quizzes || []).filter((quiz) => (
+          normalizeSearchText(`${quiz.title || ''} ${quiz.questions?.[0]?.prompt || ''}`).includes(query)
+        ))
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       return {
         ...section,
         lessons: sectionLessons,
+        quizzes: sectionQuizzes,
         completed: sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length,
         duration: formatSectionDuration(duration, t),
       }
-    }).filter((section) => section.lessons.length > 0)
+    }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0)
   }, [curriculumSearchTerm, curriculumSections, t, watchedIds])
   const activeSectionId = curriculumSections.find((section) => (
     section.lessons.some((lesson) => String(lesson.id) === String(activeVideo?.id))
+    || section.quizzes?.some((quiz) => String(quiz.id) === String(activeQuiz?.id))
   ))?.id
   const activeLessonDetails = (() => {
     if (!activeVideo?.id) return null
@@ -346,6 +360,8 @@ function CoursePage({ user, profile, handleLogout }) {
       toast(t('unlockFullCourse'))
       return
     }
+    setActiveQuizId(null)
+    setCheckedQuizId(null)
     const sectionKey = String(sectionId)
     setExpandedSectionIds((current) => {
       if (current.has(sectionKey)) return current
@@ -355,6 +371,22 @@ function CoursePage({ user, profile, handleLogout }) {
     })
     setActiveVideoId(videoId)
     if (!hasAccess) setActivePreviewId(videoId)
+  }
+
+  const selectQuiz = (sectionId, quizId) => {
+    if (!hasAccess && !adminPreview && courseInstructorId !== userId) {
+      toast(t('unlockFullCourse'))
+      return
+    }
+    const sectionKey = String(sectionId)
+    setExpandedSectionIds((current) => {
+      if (current.has(sectionKey)) return current
+      const next = new Set(current)
+      next.add(sectionKey)
+      return next
+    })
+    setActiveQuizId(quizId)
+    setCheckedQuizId(null)
   }
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
@@ -390,11 +422,13 @@ function CoursePage({ user, profile, handleLogout }) {
         { data: videoData },
         { data: previewData },
         { data: sectionData },
+        { data: quizData },
         { data: trailerData },
       ] = await Promise.all([
         supabase.from('videos').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('lesson_previews').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('course_sections').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
+        supabase.from('course_quizzes').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('course_trailers').select('*').eq('course_id', courseId).maybeSingle(),
       ])
 
@@ -403,6 +437,7 @@ function CoursePage({ user, profile, handleLogout }) {
         setVideos(sortedVideos)
         setLessonPreviews(previewData || [])
         setSections(sectionData || [])
+        setQuizzes(quizData || [])
         setTrailer(trailerData || null)
         setActivePreviewId(trailerData ? 'trailer' : '')
         if (String(initializedCourseIdRef.current) !== String(courseId)) {
@@ -676,11 +711,16 @@ function CoursePage({ user, profile, handleLogout }) {
   // empty lesson player.
   const playerVideo = previewModalOpen
     ? publicPreviewVideo
+    : activeQuiz
+      ? null
     : hasAccess
       ? (activeVideo || trailerVideo)
       : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
+  const activeQuizQuestion = activeQuiz?.questions?.[0] || null
+  const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuiz.id] : undefined
+  const activeQuizChecked = activeQuiz ? String(checkedQuizId) === String(activeQuiz.id) : false
   useEffect(() => {
     if (!playerBunnyId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -922,7 +962,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
         {canUseLessonPlayer ? (
           <>
-          {lessons.length === 0 && !trailerVideo ? (
+          {lessons.length === 0 && quizzes.length === 0 && !trailerVideo ? (
             <section className="panel-card empty-box">
               {t('courseHasNoLessonsYet')}
             </section>
@@ -932,6 +972,52 @@ function CoursePage({ user, profile, handleLogout }) {
               <div className="youtube-player-shell">
                 {previewModalOpen ? (
                   <div className="empty-player">{t('previewCourse')}</div>
+                ) : activeQuiz ? (
+                  <div className="quiz-player">
+                    <p className="player-eyebrow">{t('quizLabel')}</p>
+                    <h2>{activeQuiz.title}</h2>
+                    {activeQuizQuestion ? (
+                      <div className="quiz-question-card">
+                        <strong>{activeQuizQuestion.prompt}</strong>
+                        <div className="quiz-answer-list">
+                          {(activeQuizQuestion.options || []).map((option, optionIndex) => {
+                            const isSelected = Number(activeQuizAnswer) === optionIndex
+                            const isCorrect = Number(activeQuizQuestion.correctIndex) === optionIndex
+                            const showCorrect = activeQuizChecked && isCorrect
+                            const showWrong = activeQuizChecked && isSelected && !isCorrect
+                            return (
+                              <button
+                                type="button"
+                                key={optionIndex}
+                                className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
+                                onClick={() => setQuizAnswers((current) => ({ ...current, [activeQuiz.id]: optionIndex }))}
+                              >
+                                <span>{optionIndex + 1}</span>
+                                {option}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div className="quiz-player-actions">
+                          <button
+                            className="primary-button"
+                            type="button"
+                            disabled={activeQuizAnswer === undefined}
+                            onClick={() => setCheckedQuizId(activeQuiz.id)}
+                          >
+                            {t('checkAnswer')}
+                          </button>
+                          {activeQuizChecked && (
+                            <strong className={Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? 'quiz-result correct' : 'quiz-result wrong'}>
+                              {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrect') : t('quizWrong')}
+                            </strong>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="muted">{t('quizNoQuestions')}</p>
+                    )}
+                  </div>
                 ) : playerVideo?.bunny_video_id ? (
                   signedUrl && signedFor === String(playerVideo.id) ? (
                     <iframe
@@ -976,11 +1062,15 @@ function CoursePage({ user, profile, handleLogout }) {
               <div className="course-player-details">
                 <div>
                   <p className="player-eyebrow">
-                    {playerVideo?.is_trailer
+                    {activeQuiz
+                      ? t('quizLabel')
+                      : playerVideo?.is_trailer
                       ? t('courseTrailer')
                       : activeLessonDetails?.summary || `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`}
                   </p>
-                  {playerVideo?.is_trailer ? (
+                  {activeQuiz ? (
+                    <h2>{activeQuiz.title}</h2>
+                  ) : playerVideo?.is_trailer ? (
                     <h2>{playerVideo?.title || t('courseTrailer')}</h2>
                   ) : activeLessonDetails ? (
                     <div className="lesson-heading-block">
@@ -994,7 +1084,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <h2>{playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}</h2>
                   )}
                 </div>
-                {hasAccess && !playerVideo?.is_trailer && (
+                {hasAccess && !activeQuiz && !playerVideo?.is_trailer && (
                 <div className="player-actions">
                   {activeVideo?.source_url && (
                     <a className="outline-button complete-button" href={activeVideo.source_url} target="_blank" rel="noreferrer">
@@ -1083,6 +1173,7 @@ function CoursePage({ user, profile, handleLogout }) {
                           <small>
                             {section.completed}/{section.lessons.length}
                             {section.duration ? ` | ${section.duration}` : ''}
+                            {section.quizzes?.length ? ` | ${section.quizzes.length} ${t('quizLabel')}` : ''}
                           </small>
                         </span>
                         <ChevronDown size={20} />
@@ -1115,6 +1206,25 @@ function CoursePage({ user, profile, handleLogout }) {
                               </button>
                             )
                           })}
+                          {(section.quizzes || []).map((quiz, quizIndex) => {
+                            const isActive = String(quiz.id) === String(activeQuiz?.id)
+
+                            return (
+                              <button
+                                key={`quiz-${quiz.id}`}
+                                className={isActive ? 'course-lesson-item active quiz-content-item' : 'course-lesson-item quiz-content-item'}
+                                onClick={() => selectQuiz(section.id, quiz.id)}
+                              >
+                                <span className="lesson-status">
+                                  <PlayCircle size={20} />
+                                </span>
+                                <span className="lesson-copy">
+                                  <strong>{sectionIndex + 1}.Q{quizIndex + 1} {quiz.title}</strong>
+                                  <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
+                                </span>
+                              </button>
+                            )
+                          })}
                         </div>
                       )}
                     </section>
@@ -1124,7 +1234,7 @@ function CoursePage({ user, profile, handleLogout }) {
             </aside>
           </section>
           )}
-          {hasAccess && (
+          {hasAccess && activeVideo && (
           <section className="panel-card lesson-comments-panel">
             <div className="section-heading youtube-comment-heading">
               <div>

@@ -1289,6 +1289,97 @@ button {
   font-weight: 700;
 }
 
+.quiz-content-item .lesson-status {
+  color: #315fba;
+}
+
+.quiz-player {
+  min-height: 100%;
+  overflow: auto;
+  padding: 42px 54px;
+  background: #fff;
+  color: #1c1d1f;
+}
+
+.quiz-player h2 {
+  margin: 8px 0 26px;
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+.quiz-question-card {
+  max-width: 900px;
+  display: grid;
+  gap: 18px;
+}
+
+.quiz-question-card > strong {
+  font-size: 22px;
+  line-height: 1.45;
+}
+
+.quiz-answer-list {
+  display: grid;
+  gap: 12px;
+}
+
+.quiz-answer-option {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #b7bdc7;
+  border-radius: 6px;
+  background: #fff;
+  color: #24262b;
+  padding: 14px 18px;
+  text-align: left;
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.quiz-answer-option span {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #6a6f73;
+  border-radius: 50%;
+  font-size: 14px;
+}
+
+.quiz-answer-option.selected {
+  border-color: #315fba;
+  background: #eef4ff;
+}
+
+.quiz-answer-option.correct {
+  border-color: #218739;
+  background: #eaf7ed;
+}
+
+.quiz-answer-option.wrong {
+  border-color: #c2410c;
+  background: #fff1eb;
+}
+
+.quiz-player-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.quiz-result.correct {
+  color: #218739;
+}
+
+.quiz-result.wrong {
+  color: #c2410c;
+}
+
 .video-player,
 .empty-player {
   width: 100%;
@@ -2099,6 +2190,39 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.quiz-create-toggle {
+  width: fit-content;
+}
+
+.quiz-builder-box {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #d7dce5;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.quiz-builder-box h3 {
+  margin: 0;
+}
+
+.quiz-option-editor {
+  display: grid;
+  grid-template-columns: auto 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.quiz-option-editor input[type='radio'] {
+  width: auto;
+}
+
+.quiz-managed-row {
+  border-left: 3px solid #315fba;
 }
 
 .instructor-inline-actions,

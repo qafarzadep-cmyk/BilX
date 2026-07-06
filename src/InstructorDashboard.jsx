@@ -95,6 +95,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [courses, setCourses] = useState([])
   const [videos, setVideos] = useState([])
   const [sections, setSections] = useState([])
+  const [quizzes, setQuizzes] = useState([])
   const [trailers, setTrailers] = useState([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [form, setForm] = useState({ title: '', description: '', price: '' })
@@ -113,6 +114,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [trailerTitle, setTrailerTitle] = useState('')
   const [selectedSectionId, setSelectedSectionId] = useState('')
   const [sectionTitle, setSectionTitle] = useState('')
+  const [quizFormSectionId, setQuizFormSectionId] = useState('')
+  const [quizForm, setQuizForm] = useState({
+    title: '',
+    question: '',
+    options: ['', '', '', ''],
+    correctIndex: 0,
+  })
   const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [curriculumVideoId, setCurriculumVideoId] = useState('')
@@ -218,6 +226,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     if (ids.length === 0) {
       setVideos([])
       setSections([])
+      setQuizzes([])
       setTrailers([])
       setInstructorTab('new')
       setDataLoading(false)
@@ -227,10 +236,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const [
       { data: videoData, error: videoError },
       { data: sectionData, error: sectionError },
+      { data: quizData, error: quizError },
       { data: trailerData, error: trailerError },
     ] = await Promise.all([
       supabase.from('videos').select('*').in('course_id', ids).order('order_index', { ascending: true }),
       supabase.from('course_sections').select('*').in('course_id', ids).order('order_index', { ascending: true }),
+      supabase.from('course_quizzes').select('*').in('course_id', ids).order('order_index', { ascending: true }),
       supabase.from('course_trailers').select('*').in('course_id', ids),
     ])
 
@@ -242,6 +253,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     setVideos(videoData || [])
     setSections(sectionError ? [] : sectionData || [])
+    setQuizzes(quizError ? [] : quizData || [])
     setTrailers(trailerError ? [] : trailerData || [])
     setDataLoading(false)
   }
@@ -1059,6 +1071,75 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     await loadData(user)
   }
 
+  const resetQuizForm = () => {
+    setQuizForm({
+      title: '',
+      question: '',
+      options: ['', '', '', ''],
+      correctIndex: 0,
+    })
+  }
+
+  const startQuizForSection = (sectionId) => {
+    setQuizFormSectionId((current) => (String(current) === String(sectionId) ? '' : String(sectionId)))
+    resetQuizForm()
+  }
+
+  const updateQuizOption = (index, value) => {
+    setQuizForm((current) => ({
+      ...current,
+      options: current.options.map((option, optionIndex) => (
+        optionIndex === index ? value : option
+      )),
+    }))
+  }
+
+  const addQuiz = async (section, courseIdOverride = '') => {
+    const targetCourseId = courseIdOverride || visibleSelectedCourse?.id || requestedCourseId || selectedCourseId
+    if (!section || !targetCourseId) return
+    const cleanOptions = quizForm.options.map((option) => option.trim())
+    if (!quizForm.title.trim() || !quizForm.question.trim() || cleanOptions.some((option) => !option)) {
+      showMessage(t('quizFillAllFields'), 'error')
+      return
+    }
+
+    const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
+    const { error } = await supabase.from('course_quizzes').insert({
+      course_id: Number(targetCourseId),
+      section_id: Number(section.id),
+      title: quizForm.title.trim(),
+      order_index: sectionQuizzes.length + 1,
+      questions: [{
+        prompt: quizForm.question.trim(),
+        options: cleanOptions,
+        correctIndex: Number(quizForm.correctIndex),
+      }],
+    })
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+
+    setQuizFormSectionId('')
+    resetQuizForm()
+    showMessage(t('quizCreated'), 'success')
+    await loadData(user)
+  }
+
+  const deleteQuiz = async (quizId) => {
+    if (!window.confirm(t('confirmDeleteQuiz'))) return
+    const { error } = await supabase.from('course_quizzes').delete().eq('id', quizId)
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+
+    showMessage(t('quizDeleted'), 'success')
+    await loadData(user)
+  }
+
   const moveLesson = async (videoId, direction) => {
     const { error } = await supabase.rpc('reorder_my_lesson', {
       p_video_id: videoId,
@@ -1289,6 +1370,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const detailVideos = detailCourse
       ? videos.filter((video) => String(video.course_id) === String(detailCourse.id))
       : []
+    const detailQuizzes = detailCourse
+      ? quizzes.filter((quiz) => String(quiz.course_id) === String(detailCourse.id))
+      : []
     const detailSections = detailCourse
       ? sections
         .filter((section) => String(section.course_id) === String(detailCourse.id))
@@ -1308,6 +1392,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         const sectionTitle = getLocalizedSectionTitle(section)
         const sectionMatches = normalizeSearchText(sectionTitle).includes(normalizeSearchText(curriculumSearchTerm))
         const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
+        const sectionQuizzes = detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
         return {
           ...section,
           filteredVideos: sectionMatches
@@ -1315,11 +1400,17 @@ function InstructorDashboard({ user, profile, handleLogout }) {
             : sectionVideos.filter((video) => (
               normalizeSearchText(`${video.title || ''} ${video.duration || ''}`).includes(normalizeSearchText(curriculumSearchTerm))
             )),
+          filteredQuizzes: sectionMatches
+            ? sectionQuizzes
+            : sectionQuizzes.filter((quiz) => (
+              normalizeSearchText(`${quiz.title || ''} ${quiz.questions?.[0]?.prompt || ''}`).includes(normalizeSearchText(curriculumSearchTerm))
+            )),
         }
-      }).filter((section) => section.filteredVideos.length > 0)
+      }).filter((section) => section.filteredVideos.length > 0 || section.filteredQuizzes.length > 0)
       : detailSections.map((section) => ({
         ...section,
         filteredVideos: detailVideos.filter((video) => String(video.section_id) === String(section.id)),
+        filteredQuizzes: detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id)),
       }))
 
     return (
@@ -1534,6 +1625,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <p className="curriculum-search-empty">{t('curriculumSearchEmpty')}</p>
                         ) : visibleDetailSections.map((section, sectionIndex) => {
                           const sectionVideos = section.filteredVideos || []
+                          const sectionQuizzes = section.filteredQuizzes || []
                           const isOpen = curriculumSearchTerm ? true : curriculumOpenSections.has(String(section.id))
                           return (
                             <section
@@ -1563,7 +1655,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <button type="button" onClick={() => selectCurriculumSection(section, sectionVideos)}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                                    <small>{sectionVideos.length} {t('courseLessons')}</small>
+                                    <small>{sectionVideos.length} {t('courseLessons')}{sectionQuizzes.length ? ` | ${sectionQuizzes.length} ${t('quizLabel')}` : ''}</small>
                                   </span>
                                   <ArrowDown size={18} />
                                 </button>
@@ -1632,6 +1724,20 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   </div>
                                 )
                               })}
+                              {isOpen && sectionQuizzes.map((quiz, quizIndex) => (
+                                <div className="course-lesson-item instructor-course-lesson-item quiz-content-item" key={`quiz-${quiz.id}`}>
+                                  <button className="instructor-lesson-select" type="button">
+                                    <PlayCircle size={19} />
+                                    <span className="lesson-copy">
+                                      <strong>{sectionIndex + 1}.Q{quizIndex + 1} {quiz.title}</strong>
+                                      <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
+                                    </span>
+                                  </button>
+                                  <div className="instructor-lesson-mini-actions">
+                                    <button type="button" onClick={() => deleteQuiz(quiz.id)} title={t('delete')}><Trash2 size={14} /></button>
+                                  </div>
+                                </div>
+                              ))}
                             </section>
                           )
                         })}
@@ -1655,12 +1761,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     {activeCurriculumSection && [activeCurriculumSection].map((section) => {
                       const sectionIndex = detailSections.findIndex((item) => String(item.id) === String(section.id))
                       const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
+                      const sectionQuizzes = detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
                       return (
                         <section className="section-editor-card" key={section.id}>
                           <div className="section-editor-heading">
                             <div>
                               <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                              <small>{sectionVideos.length} {t('courseLessons')}</small>
+                              <small>{sectionVideos.length} {t('courseLessons')}{sectionQuizzes.length ? ` | ${sectionQuizzes.length} ${t('quizLabel')}` : ''}</small>
                             </div>
                             <div className="instructor-inline-actions">
                               <button className="icon-link-button" type="button" onClick={() => editSection(section)} title={t('edit')}>
@@ -1702,7 +1809,47 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 </div>
                               </div>
                             ))}
+                            {sectionQuizzes.map((quiz, quizIndex) => (
+                              <div key={`quiz-${quiz.id}`} className="lesson-row managed-lesson-row quiz-managed-row">
+                                <span>Q{quizIndex + 1}</span>
+                                <div>
+                                  <strong>{quiz.title}</strong>
+                                  <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
+                                </div>
+                                <div className="lesson-row-actions">
+                                  <button className="icon-danger-button" type="button" onClick={() => deleteQuiz(quiz.id)} title={t('delete')}><Trash2 size={16} /></button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
+                          <button className="outline-button quiz-create-toggle" type="button" onClick={() => startQuizForSection(section.id)}>
+                            <Plus size={16} /> {t('createQuiz')}
+                          </button>
+                          {String(quizFormSectionId) === String(section.id) && (
+                            <div className="quiz-builder-box">
+                              <h3>{t('createQuiz')}</h3>
+                              <label>{t('quizTitle')}</label>
+                              <input value={quizForm.title} onChange={(event) => setQuizForm({ ...quizForm, title: event.target.value })} placeholder={t('quizTitlePlaceholder')} />
+                              <label>{t('quizQuestion')}</label>
+                              <textarea rows={3} value={quizForm.question} onChange={(event) => setQuizForm({ ...quizForm, question: event.target.value })} placeholder={t('quizQuestionPlaceholder')} />
+                              {quizForm.options.map((option, optionIndex) => (
+                                <label className="quiz-option-editor" key={optionIndex}>
+                                  <input
+                                    type="radio"
+                                    name={`quiz-correct-${section.id}`}
+                                    checked={Number(quizForm.correctIndex) === optionIndex}
+                                    onChange={() => setQuizForm({ ...quizForm, correctIndex: optionIndex })}
+                                  />
+                                  <span>{t('answerLabel')} {optionIndex + 1}</span>
+                                  <input value={option} onChange={(event) => updateQuizOption(optionIndex, event.target.value)} />
+                                </label>
+                              ))}
+                              <div className="instructor-edit-actions">
+                                <button className="outline-button" type="button" onClick={() => setQuizFormSectionId('')}>{t('cancel')}</button>
+                                <button className="primary-button" type="button" onClick={() => addQuiz(section, detailCourse.id)}>{t('saveQuiz')}</button>
+                              </div>
+                            </div>
+                          )}
                           <div className="instructor-add-lesson-box">
                             <h3>{t('addLesson')}</h3>
                             <label>{t('lessonTitle')}</label>
