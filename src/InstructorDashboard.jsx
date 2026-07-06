@@ -89,6 +89,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const urlTab = searchParams.get('tab')
   const requestedCourseId = searchParams.get('course')
   const requestedLessonId = searchParams.get('lesson')
+  const requestedQuizId = searchParams.get('quiz')
   const instructorView = searchParams.get('view') || 'courses'
   const creatingCourse = searchParams.get('create') === '1'
   const initialTab = ['new', 'approved', 'pending'].includes(urlTab) ? urlTab : 'new'
@@ -125,6 +126,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [curriculumVideoId, setCurriculumVideoId] = useState('')
   const [curriculumQuizId, setCurriculumQuizId] = useState('')
+  const [curriculumQuizStarted, setCurriculumQuizStarted] = useState(false)
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
@@ -287,30 +289,32 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     () => quizzes.filter((quiz) => String(quiz.course_id) === String(requestedCourseId)),
     [requestedCourseId, quizzes]
   )
-  const curriculumActiveQuiz = curriculumCourseQuizzes.find((quiz) => String(quiz.id) === String(curriculumQuizId)) || null
+  const curriculumActiveQuiz = curriculumCourseQuizzes.find((quiz) => String(quiz.id) === String(requestedQuizId || curriculumQuizId)) || null
   const curriculumActiveVideo = curriculumCourseVideos.find((video) => String(video.id) === String(requestedLessonId || curriculumVideoId))
     || (curriculumActiveQuiz ? null : curriculumCourseVideos[0])
 
   useEffect(() => {
+    if (requestedQuizId || curriculumQuizId) return
     if (instructorView !== 'curriculum' || curriculumCourseVideos.length === 0) return
     const requestedVideo = curriculumCourseVideos.find((video) => String(video.id) === String(requestedLessonId))
     if (requestedVideo) return
     const selectedVideo = curriculumCourseVideos.find((video) => String(video.id) === String(curriculumVideoId))
     const nextVideoId = String(selectedVideo?.id || curriculumCourseVideos[0].id)
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: nextVideoId }, { replace: true })
-  }, [curriculumCourseVideos, curriculumVideoId, instructorView, requestedCourseId, requestedLessonId, setSearchParams])
+  }, [curriculumCourseVideos, curriculumQuizId, curriculumVideoId, instructorView, requestedCourseId, requestedLessonId, requestedQuizId, setSearchParams])
 
   useEffect(() => {
-    const sectionId = curriculumActiveVideo?.section_id
+    const sectionId = curriculumActiveQuiz?.section_id || curriculumActiveVideo?.section_id
     if (!sectionId) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurriculumOpenSections(new Set([String(sectionId)]))
-  }, [curriculumActiveVideo?.section_id])
+  }, [curriculumActiveQuiz?.section_id, curriculumActiveVideo?.section_id])
 
   const selectCurriculumVideo = (video) => {
     const videoId = String(video.id)
     setCurriculumVideoId(videoId)
     setCurriculumQuizId('')
+    setCurriculumQuizStarted(false)
     if (video.section_id) setSelectedSectionId(String(video.section_id))
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
   }
@@ -319,11 +323,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const quizId = String(quiz.id)
     setCurriculumQuizId(quizId)
     setCurriculumVideoId('')
+    setCurriculumQuizStarted(false)
     if (quiz.section_id) {
       setSelectedSectionId(String(quiz.section_id))
       setCurriculumOpenSections(new Set([String(quiz.section_id)]))
     }
-    setSearchParams({ course: String(requestedCourseId), view: 'curriculum' }, { replace: true })
+    setSearchParams({ course: String(requestedCourseId), view: 'curriculum', quiz: quizId }, { replace: true })
   }
 
   const selectCurriculumSection = (section, sectionVideos) => {
@@ -1426,8 +1431,20 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const activeCurriculumSection = detailSections.find(
       (section) => String(section.id) === String(selectedSectionId)
     ) || detailSections.find(
+      (section) => String(section.id) === String(curriculumActiveQuiz?.section_id)
+    ) || detailSections.find(
       (section) => String(section.id) === String(curriculumActiveVideo?.section_id)
     ) || detailSections[0]
+    const activeQuizSectionIndex = curriculumActiveQuiz
+      ? detailSections.findIndex((section) => String(section.id) === String(curriculumActiveQuiz.section_id))
+      : -1
+    const activeQuizSection = activeQuizSectionIndex >= 0 ? detailSections[activeQuizSectionIndex] : null
+    const activeQuizSectionQuizzes = activeQuizSection
+      ? detailQuizzes.filter((quiz) => String(quiz.section_id) === String(activeQuizSection.id))
+      : []
+    const activeQuizIndex = curriculumActiveQuiz
+      ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(curriculumActiveQuiz.id))
+      : -1
     const curriculumSearchTerm = curriculumSearch.trim()
     const visibleDetailSections = curriculumSearchTerm
       ? detailSections.map((section) => {
@@ -1590,9 +1607,24 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         {curriculumActiveQuiz ? (
                           <div className="quiz-player instructor-quiz-preview">
                             <p className="player-eyebrow">{t('quizLabel')}</p>
-                            <h2>{curriculumActiveQuiz.title}</h2>
-                            {curriculumActiveQuiz.questions?.[0] ? (
+                            {!curriculumQuizStarted ? (
+                              <div className="quiz-start-card">
+                                <span className="lesson-section-context">
+                                  {activeQuizSection ? getSectionLabel(activeQuizSection, activeQuizSectionIndex) : t('sectionLabel')}
+                                </span>
+                                <h2>{curriculumActiveQuiz.title}</h2>
+                                <p>{t('quizSectionIntro')}</p>
+                                <strong>{activeQuizSectionQuizzes.length} {t('quizLabel')}</strong>
+                                <button className="primary-button" type="button" onClick={() => setCurriculumQuizStarted(true)}>
+                                  {t('startQuiz')}
+                                </button>
+                              </div>
+                            ) : curriculumActiveQuiz.questions?.[0] ? (
                               <div className="quiz-question-card">
+                                <span className="lesson-section-context">
+                                  {activeQuizIndex >= 0 ? `${activeQuizIndex + 1}/${activeQuizSectionQuizzes.length}` : `1/${activeQuizSectionQuizzes.length || 1}`}
+                                </span>
+                                <h2>{curriculumActiveQuiz.title}</h2>
                                 <strong>{curriculumActiveQuiz.questions[0].prompt}</strong>
                                 <div className="quiz-answer-list">
                                   {(curriculumActiveQuiz.questions[0].options || []).map((option, optionIndex) => (
