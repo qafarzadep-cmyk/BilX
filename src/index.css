@@ -991,10 +991,10 @@ button {
 
 .lesson-heading-block h2 span {
   flex: 0 0 auto;
-  color: #183bd2;
-  font-size: 15px;
-  font-weight: 850;
-  line-height: 1;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 .player-eyebrow {
