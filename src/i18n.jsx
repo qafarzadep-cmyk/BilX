@@ -251,6 +251,7 @@ const translations = {
     quizCreated: 'Test yaradıldı.',
     quizDeleted: 'Test silindi.',
     quizFillAllFields: 'Test üçün sual və bütün cavabları doldurun.',
+    quizSetupMissing: 'Testi yadda saxlamaq üçün əvvəlcə Supabase SQL-də course_quizzes cədvəlini yaradın.',
     confirmDeleteQuiz: 'Bu testi silmək istəyirsiniz?',
     questionCountLabel: 'sual',
     checkAnswer: 'Cavabı yoxla',

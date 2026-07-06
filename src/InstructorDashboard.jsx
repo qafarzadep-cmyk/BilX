@@ -1094,6 +1094,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }))
   }
 
+  const getQuizSaveErrorMessage = (error) => {
+    const message = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
+    if (message.includes('course_quizzes') || message.includes('schema cache') || error?.code === 'PGRST205') {
+      return t('quizSetupMissing')
+    }
+    return `${t('errorOccurred')}${error.message}`
+  }
+
   const addQuiz = async (section, courseIdOverride = '') => {
     const targetCourseId = courseIdOverride || visibleSelectedCourse?.id || requestedCourseId || selectedCourseId
     if (!section || !targetCourseId) return
@@ -1104,7 +1112,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
 
     const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
-    const { error } = await supabase.from('course_quizzes').insert({
+    const quizPayload = {
       course_id: Number(targetCourseId),
       section_id: Number(section.id),
       title: quizForm.title.trim(),
@@ -1114,17 +1122,33 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         options: cleanOptions,
         correctIndex: Number(quizForm.correctIndex),
       }],
-    })
+    }
+    const { data: savedQuiz, error } = await supabase
+      .from('course_quizzes')
+      .insert(quizPayload)
+      .select()
+      .single()
 
     if (error) {
-      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      showMessage(getQuizSaveErrorMessage(error), 'error')
       return
     }
 
+    setQuizzes((current) => (
+      current.some((quiz) => String(quiz.id) === String(savedQuiz.id))
+        ? current
+        : [...current, savedQuiz]
+    ))
+    setCurriculumOpenSections(new Set([String(section.id)]))
     setQuizFormSectionId('')
     resetQuizForm()
     showMessage(t('quizCreated'), 'success')
     await loadData(user)
+    setQuizzes((current) => (
+      current.some((quiz) => String(quiz.id) === String(savedQuiz.id))
+        ? current
+        : [...current, savedQuiz]
+    ))
   }
 
   const deleteQuiz = async (quizId) => {
