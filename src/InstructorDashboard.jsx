@@ -116,6 +116,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [selectedSectionId, setSelectedSectionId] = useState('')
   const [sectionTitle, setSectionTitle] = useState('')
   const [quizFormSectionId, setQuizFormSectionId] = useState('')
+  const [editingQuizId, setEditingQuizId] = useState('')
   const [quizForm, setQuizForm] = useState({
     title: '',
     question: '',
@@ -1100,6 +1101,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const resetQuizForm = () => {
+    setEditingQuizId('')
     setQuizForm({
       title: '',
       question: '',
@@ -1112,6 +1114,23 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const startQuizForSection = (sectionId) => {
     setQuizFormSectionId((current) => (String(current) === String(sectionId) ? '' : String(sectionId)))
     resetQuizForm()
+  }
+
+  const editQuiz = (quiz) => {
+    const question = quiz.questions?.[0] || {}
+    const options = [...(question.options || [])]
+    const explanations = [...(question.explanations || [])]
+    while (options.length < 4) options.push('')
+    while (explanations.length < 4) explanations.push('')
+    setEditingQuizId(String(quiz.id))
+    setQuizFormSectionId(String(quiz.section_id))
+    setQuizForm({
+      title: quiz.title || '',
+      question: question.prompt || '',
+      options: options.slice(0, 4),
+      explanations: explanations.slice(0, 4),
+      correctIndex: Number(question.correctIndex) || 0,
+    })
   }
 
   const updateQuizOption = (index, value) => {
@@ -1140,7 +1159,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     return `${t('errorOccurred')}${error.message}`
   }
 
-  const addQuiz = async (section, courseIdOverride = '') => {
+  const saveQuiz = async (section, courseIdOverride = '') => {
     const targetCourseId = courseIdOverride || visibleSelectedCourse?.id || requestedCourseId || selectedCourseId
     if (!section || !targetCourseId) return
     const cleanOptions = quizForm.options.map((option) => option.trim())
@@ -1155,7 +1174,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       course_id: Number(targetCourseId),
       section_id: Number(section.id),
       title: quizForm.title.trim(),
-      order_index: sectionQuizzes.length + 1,
+      order_index: editingQuizId
+        ? sectionQuizzes.find((quiz) => String(quiz.id) === String(editingQuizId))?.order_index || sectionQuizzes.length + 1
+        : sectionQuizzes.length + 1,
       questions: [{
         prompt: quizForm.question.trim(),
         options: cleanOptions,
@@ -1163,9 +1184,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         correctIndex: Number(quizForm.correctIndex),
       }],
     }
-    const { data: savedQuiz, error } = await supabase
-      .from('course_quizzes')
-      .insert(quizPayload)
+    const query = editingQuizId
+      ? supabase.from('course_quizzes').update(quizPayload).eq('id', editingQuizId)
+      : supabase.from('course_quizzes').insert(quizPayload)
+    const { data: savedQuiz, error } = await query
       .select()
       .single()
 
@@ -1176,17 +1198,17 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     setQuizzes((current) => (
       current.some((quiz) => String(quiz.id) === String(savedQuiz.id))
-        ? current
+        ? current.map((quiz) => (String(quiz.id) === String(savedQuiz.id) ? savedQuiz : quiz))
         : [...current, savedQuiz]
     ))
     setCurriculumOpenSections(new Set([String(section.id)]))
     setQuizFormSectionId('')
     resetQuizForm()
-    showMessage(t('quizCreated'), 'success')
+    showMessage(editingQuizId ? t('quizUpdated') : t('quizCreated'), 'success')
     await loadData(user)
     setQuizzes((current) => (
       current.some((quiz) => String(quiz.id) === String(savedQuiz.id))
-        ? current
+        ? current.map((quiz) => (String(quiz.id) === String(savedQuiz.id) ? savedQuiz : quiz))
         : [...current, savedQuiz]
     ))
   }
@@ -1462,6 +1484,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const activeQuizIndex = curriculumActiveQuiz
       ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(curriculumActiveQuiz.id))
       : -1
+    const nextActiveQuiz = activeQuizIndex >= 0 ? activeQuizSectionQuizzes[activeQuizIndex + 1] : null
     const curriculumQuizQuestion = curriculumActiveQuiz?.questions?.[0] || null
     const curriculumQuizAnswer = curriculumActiveQuiz ? curriculumQuizAnswers[curriculumActiveQuiz.id] : undefined
     const curriculumQuizChecked = curriculumActiveQuiz ? String(curriculumQuizCheckedId) === String(curriculumActiveQuiz.id) : false
@@ -1688,6 +1711,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       {curriculumQuizIsCorrect ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                                     </strong>
                                   )}
+                                  {nextActiveQuiz && (
+                                    <button className="outline-button" type="button" onClick={() => selectCurriculumQuiz(nextActiveQuiz)}>
+                                      {t('nextButton')}
+                                    </button>
+                                  )}
                                 </div>
                                 {curriculumQuizChecked && curriculumQuizExplanation && (
                                   <div className="quiz-explanation-box">
@@ -1894,6 +1922,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     </span>
                                   </button>
                                   <div className="instructor-lesson-mini-actions">
+                                    <button type="button" onClick={() => editQuiz(quiz)} title={t('edit')}><Pencil size={14} /></button>
                                     <button type="button" onClick={() => deleteQuiz(quiz.id)} title={t('delete')}><Trash2 size={14} /></button>
                                   </div>
                                 </div>
@@ -1977,6 +2006,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
                                 </div>
                                 <div className="lesson-row-actions">
+                                  <button className="icon-link-button" type="button" onClick={() => editQuiz(quiz)} title={t('edit')}><Pencil size={16} /></button>
                                   <button className="icon-danger-button" type="button" onClick={() => deleteQuiz(quiz.id)} title={t('delete')}><Trash2 size={16} /></button>
                                 </div>
                               </div>
@@ -1987,7 +2017,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           </button>
                           {String(quizFormSectionId) === String(section.id) && (
                             <div className="quiz-builder-box">
-                              <h3>{t('createQuiz')}</h3>
+                              <h3>{editingQuizId ? t('editQuiz') : t('createQuiz')}</h3>
                               <label>{t('quizTitle')}</label>
                               <input value={quizForm.title} onChange={(event) => setQuizForm({ ...quizForm, title: event.target.value })} placeholder={t('quizTitlePlaceholder')} />
                               <label>{t('quizQuestion')}</label>
@@ -2013,8 +2043,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 </div>
                               ))}
                               <div className="instructor-edit-actions">
-                                <button className="outline-button" type="button" onClick={() => setQuizFormSectionId('')}>{t('cancel')}</button>
-                                <button className="primary-button" type="button" onClick={() => addQuiz(section, detailCourse.id)}>{t('saveQuiz')}</button>
+                                <button className="outline-button" type="button" onClick={() => {
+                                  setQuizFormSectionId('')
+                                  resetQuizForm()
+                                }}>{t('cancel')}</button>
+                                <button className="primary-button" type="button" onClick={() => saveQuiz(section, detailCourse.id)}>{t('saveQuiz')}</button>
                               </div>
                             </div>
                           )}

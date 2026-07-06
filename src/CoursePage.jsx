@@ -724,6 +724,14 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeQuizExplanation = activeQuizQuestion && activeQuizAnswer !== undefined
     ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
     : ''
+  const activeQuizSection = activeQuiz
+    ? curriculumSections.find((section) => String(section.id) === String(activeQuiz.section_id))
+    : null
+  const activeQuizSectionQuizzes = activeQuizSection?.quizzes || []
+  const activeQuizIndex = activeQuiz
+    ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(activeQuiz.id))
+    : -1
+  const nextActiveQuiz = activeQuizIndex >= 0 ? activeQuizSectionQuizzes[activeQuizIndex + 1] : null
   useEffect(() => {
     if (!playerBunnyId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -993,7 +1001,10 @@ function CoursePage({ user, profile, handleLogout }) {
                                 type="button"
                                 key={optionIndex}
                                 className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
-                                onClick={() => setQuizAnswers((current) => ({ ...current, [activeQuiz.id]: optionIndex }))}
+                                onClick={() => {
+                                  setQuizAnswers((current) => ({ ...current, [activeQuiz.id]: optionIndex }))
+                                  setCheckedQuizId(null)
+                                }}
                               >
                                 <span>{optionIndex + 1}</span>
                                 {option}
@@ -1014,6 +1025,11 @@ function CoursePage({ user, profile, handleLogout }) {
                             <strong className={Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? 'quiz-result correct' : 'quiz-result wrong'}>
                               {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                             </strong>
+                          )}
+                          {nextActiveQuiz && (
+                            <button className="outline-button" type="button" onClick={() => selectQuiz(activeQuizSection.id, nextActiveQuiz.id)}>
+                              {t('nextButton')}
+                            </button>
                           )}
                         </div>
                         {activeQuizChecked && activeQuizExplanation && (
