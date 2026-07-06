@@ -298,6 +298,23 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeSectionId = curriculumSections.find((section) => (
     section.lessons.some((lesson) => String(lesson.id) === String(activeVideo?.id))
   ))?.id
+  const activeLessonDetails = (() => {
+    if (!activeVideo?.id) return null
+
+    for (const [sectionIndex, section] of curriculumSections.entries()) {
+      const lessonIndex = section.lessons.findIndex((lesson) => String(lesson.id) === String(activeVideo.id))
+      if (lessonIndex === -1) continue
+
+      const lessonNumber = `${sectionIndex + 1}.${lessonIndex + 1}`
+      const lessonTitle = activeVideo.displayTitle || activeVideo.title || t('lessonTitle')
+      return {
+        heading: `${section.displayTitle || `${t('sectionLabel')} ${sectionIndex + 1}`} - ${t('lessonLabel')} ${lessonNumber} ${lessonTitle}`,
+        summary: `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`,
+      }
+    }
+
+    return null
+  })()
 
   useEffect(() => {
     if (activeSectionId === undefined || activeSectionId === null) return
@@ -959,9 +976,13 @@ function CoursePage({ user, profile, handleLogout }) {
                   <p className="player-eyebrow">
                     {playerVideo?.is_trailer
                       ? t('courseTrailer')
-                      : `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`}
+                      : activeLessonDetails?.summary || `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`}
                   </p>
-                  <h2>{playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}</h2>
+                  <h2>
+                    {playerVideo?.is_trailer
+                      ? playerVideo?.title || t('courseTrailer')
+                      : activeLessonDetails?.heading || playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}
+                  </h2>
                 </div>
                 {hasAccess && !playerVideo?.is_trailer && (
                 <div className="player-actions">

@@ -80,6 +80,32 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     setNotifications((items) => items.map((item) => ({ ...item, is_read: true })))
   }
 
+  const openNotification = async (notification) => {
+    if (!notification) return
+    setNotificationsOpen(false)
+
+    if (!notification.is_read) {
+      setNotifications((items) => items.map((item) => (
+        item.id === notification.id ? { ...item, is_read: true } : item
+      )))
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notification.id)
+        .eq('user_id', user.id)
+
+      if (error) {
+        setNotifications((items) => items.map((item) => (
+          item.id === notification.id ? { ...item, is_read: false } : item
+        )))
+        return
+      }
+    }
+
+    if (notification.link) navigate(notification.link)
+  }
+
   const go = (path) => {
     setOpen(false)
     navigate(path)
@@ -261,7 +287,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                       key={item.id}
                       type="button"
                       className={item.is_read ? 'notification-item' : 'notification-item unread'}
-                      onClick={() => item.link ? navigate(item.link) : null}
+                      onClick={() => openNotification(item)}
                     >
                       <strong>{item.title}</strong>
                       {item.body && <span>{item.body}</span>}
