@@ -925,6 +925,7 @@ button {
 .youtube-player-shell {
   width: 100%;
   aspect-ratio: 16 / 9;
+  overflow: hidden;
   background: #000;
 }
 
@@ -1296,36 +1297,36 @@ button {
 .quiz-player {
   min-height: 100%;
   overflow: auto;
-  padding: 42px 54px;
+  padding: 30px 54px;
   background: #fff;
   color: #1c1d1f;
 }
 
 .quiz-player h2 {
-  margin: 8px 0 26px;
-  font-size: 34px;
+  margin: 6px 0 18px;
+  font-size: 30px;
   line-height: 1.15;
 }
 
 .quiz-question-card {
   max-width: 900px;
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .quiz-question-card > strong {
-  font-size: 22px;
-  line-height: 1.45;
+  font-size: 19px;
+  line-height: 1.35;
 }
 
 .quiz-answer-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .quiz-answer-option {
   width: 100%;
-  min-height: 58px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1333,9 +1334,9 @@ button {
   border-radius: 6px;
   background: #fff;
   color: #24262b;
-  padding: 14px 18px;
+  padding: 10px 16px;
   text-align: left;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 750;
 }
 
@@ -1372,6 +1373,11 @@ button {
   flex-wrap: wrap;
 }
 
+.quiz-player-actions .primary-button {
+  min-height: 44px;
+  padding: 10px 18px;
+}
+
 .quiz-result.correct {
   color: #218739;
 }
@@ -1396,8 +1402,9 @@ button {
 }
 
 .instructor-quiz-preview {
+  height: 100%;
   max-height: 100%;
-  padding: 32px 38px;
+  padding: 26px 38px;
 }
 
 .instructor-quiz-preview h2 {
