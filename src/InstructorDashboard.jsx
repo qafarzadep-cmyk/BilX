@@ -1782,6 +1782,16 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             </button>
                           </div>
                         )}
+                        {curriculumActiveQuiz && (
+                          <div className="player-actions">
+                            <button className="outline-button" type="button" onClick={() => editQuiz(curriculumActiveQuiz)}>
+                              <Pencil size={16} /> {t('edit')}
+                            </button>
+                            <button className="danger-button" type="button" onClick={() => deleteQuiz(curriculumActiveQuiz.id)}>
+                              <Trash2 size={16} /> {t('delete')}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
