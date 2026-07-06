@@ -721,6 +721,9 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeQuizQuestion = activeQuiz?.questions?.[0] || null
   const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuiz.id] : undefined
   const activeQuizChecked = activeQuiz ? String(checkedQuizId) === String(activeQuiz.id) : false
+  const activeQuizExplanation = activeQuizQuestion && activeQuizAnswer !== undefined
+    ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
+    : ''
   useEffect(() => {
     if (!playerBunnyId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1009,10 +1012,16 @@ function CoursePage({ user, profile, handleLogout }) {
                           </button>
                           {activeQuizChecked && (
                             <strong className={Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? 'quiz-result correct' : 'quiz-result wrong'}>
-                              {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrect') : t('quizWrong')}
+                              {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                             </strong>
                           )}
                         </div>
+                        {activeQuizChecked && activeQuizExplanation && (
+                          <div className="quiz-explanation-box">
+                            <strong>{t('answerExplanation')}</strong>
+                            <p>{activeQuizExplanation}</p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="muted">{t('quizNoQuestions')}</p>

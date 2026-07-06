@@ -120,6 +120,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     title: '',
     question: '',
     options: ['', '', '', ''],
+    explanations: ['', '', '', ''],
     correctIndex: 0,
   })
   const [uploadPercent, setUploadPercent] = useState(0)
@@ -127,6 +128,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumVideoId, setCurriculumVideoId] = useState('')
   const [curriculumQuizId, setCurriculumQuizId] = useState('')
   const [curriculumQuizStarted, setCurriculumQuizStarted] = useState(false)
+  const [curriculumQuizAnswers, setCurriculumQuizAnswers] = useState({})
+  const [curriculumQuizCheckedId, setCurriculumQuizCheckedId] = useState('')
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
@@ -315,6 +318,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCurriculumVideoId(videoId)
     setCurriculumQuizId('')
     setCurriculumQuizStarted(false)
+    setCurriculumQuizCheckedId('')
     if (video.section_id) setSelectedSectionId(String(video.section_id))
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
   }
@@ -324,6 +328,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCurriculumQuizId(quizId)
     setCurriculumVideoId('')
     setCurriculumQuizStarted(false)
+    setCurriculumQuizCheckedId('')
     if (quiz.section_id) {
       setSelectedSectionId(String(quiz.section_id))
       setCurriculumOpenSections(new Set([String(quiz.section_id)]))
@@ -1099,6 +1104,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       title: '',
       question: '',
       options: ['', '', '', ''],
+      explanations: ['', '', '', ''],
       correctIndex: 0,
     })
   }
@@ -1117,6 +1123,15 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }))
   }
 
+  const updateQuizExplanation = (index, value) => {
+    setQuizForm((current) => ({
+      ...current,
+      explanations: current.explanations.map((explanation, explanationIndex) => (
+        explanationIndex === index ? value : explanation
+      )),
+    }))
+  }
+
   const getQuizSaveErrorMessage = (error) => {
     const message = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
     if (message.includes('course_quizzes') || message.includes('schema cache') || error?.code === 'PGRST205') {
@@ -1129,6 +1144,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const targetCourseId = courseIdOverride || visibleSelectedCourse?.id || requestedCourseId || selectedCourseId
     if (!section || !targetCourseId) return
     const cleanOptions = quizForm.options.map((option) => option.trim())
+    const cleanExplanations = quizForm.explanations.map((explanation) => explanation.trim())
     if (!quizForm.title.trim() || !quizForm.question.trim() || cleanOptions.some((option) => !option)) {
       showMessage(t('quizFillAllFields'), 'error')
       return
@@ -1143,6 +1159,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       questions: [{
         prompt: quizForm.question.trim(),
         options: cleanOptions,
+        explanations: cleanExplanations,
         correctIndex: Number(quizForm.correctIndex),
       }],
     }
@@ -1445,6 +1462,15 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const activeQuizIndex = curriculumActiveQuiz
       ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(curriculumActiveQuiz.id))
       : -1
+    const curriculumQuizQuestion = curriculumActiveQuiz?.questions?.[0] || null
+    const curriculumQuizAnswer = curriculumActiveQuiz ? curriculumQuizAnswers[curriculumActiveQuiz.id] : undefined
+    const curriculumQuizChecked = curriculumActiveQuiz ? String(curriculumQuizCheckedId) === String(curriculumActiveQuiz.id) : false
+    const curriculumQuizIsCorrect = curriculumQuizQuestion
+      ? Number(curriculumQuizAnswer) === Number(curriculumQuizQuestion.correctIndex)
+      : false
+    const curriculumQuizExplanation = curriculumQuizQuestion && curriculumQuizAnswer !== undefined
+      ? curriculumQuizQuestion.explanations?.[Number(curriculumQuizAnswer)] || ''
+      : ''
     const curriculumSearchTerm = curriculumSearch.trim()
     const visibleDetailSections = curriculumSearchTerm
       ? detailSections.map((section) => {
@@ -1619,24 +1645,56 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   {t('startQuiz')}
                                 </button>
                               </div>
-                            ) : curriculumActiveQuiz.questions?.[0] ? (
+                            ) : curriculumQuizQuestion ? (
                               <div className="quiz-question-card">
                                 <span className="lesson-section-context">
                                   {activeQuizIndex >= 0 ? `${activeQuizIndex + 1}/${activeQuizSectionQuizzes.length}` : `1/${activeQuizSectionQuizzes.length || 1}`}
                                 </span>
                                 <h2>{curriculumActiveQuiz.title}</h2>
-                                <strong>{curriculumActiveQuiz.questions[0].prompt}</strong>
+                                <strong>{curriculumQuizQuestion.prompt}</strong>
                                 <div className="quiz-answer-list">
-                                  {(curriculumActiveQuiz.questions[0].options || []).map((option, optionIndex) => (
-                                    <div
+                                  {(curriculumQuizQuestion.options || []).map((option, optionIndex) => {
+                                    const isSelected = Number(curriculumQuizAnswer) === optionIndex
+                                    const isCorrect = Number(curriculumQuizQuestion.correctIndex) === optionIndex
+                                    const showCorrect = curriculumQuizChecked && isCorrect
+                                    const showWrong = curriculumQuizChecked && isSelected && !isCorrect
+                                    return (
+                                    <button
+                                      type="button"
                                       key={optionIndex}
-                                      className={`quiz-answer-option${Number(curriculumActiveQuiz.questions[0].correctIndex) === optionIndex ? ' correct' : ''}`}
+                                      className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
+                                      onClick={() => {
+                                        setCurriculumQuizAnswers((current) => ({ ...current, [curriculumActiveQuiz.id]: optionIndex }))
+                                        setCurriculumQuizCheckedId('')
+                                      }}
                                     >
                                       <span>{optionIndex + 1}</span>
                                       {option}
-                                    </div>
-                                  ))}
+                                    </button>
+                                    )
+                                  })}
                                 </div>
+                                <div className="quiz-player-actions">
+                                  <button
+                                    className="primary-button"
+                                    type="button"
+                                    disabled={curriculumQuizAnswer === undefined}
+                                    onClick={() => setCurriculumQuizCheckedId(curriculumActiveQuiz.id)}
+                                  >
+                                    {t('checkAnswer')}
+                                  </button>
+                                  {curriculumQuizChecked && (
+                                    <strong className={curriculumQuizIsCorrect ? 'quiz-result correct' : 'quiz-result wrong'}>
+                                      {curriculumQuizIsCorrect ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
+                                    </strong>
+                                  )}
+                                </div>
+                                {curriculumQuizChecked && curriculumQuizExplanation && (
+                                  <div className="quiz-explanation-box">
+                                    <strong>{t('answerExplanation')}</strong>
+                                    <p>{curriculumQuizExplanation}</p>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <p className="muted">{t('quizNoQuestions')}</p>
@@ -1935,16 +1993,24 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               <label>{t('quizQuestion')}</label>
                               <textarea rows={3} value={quizForm.question} onChange={(event) => setQuizForm({ ...quizForm, question: event.target.value })} placeholder={t('quizQuestionPlaceholder')} />
                               {quizForm.options.map((option, optionIndex) => (
-                                <label className="quiz-option-editor" key={optionIndex}>
-                                  <input
-                                    type="radio"
-                                    name={`quiz-correct-${section.id}`}
-                                    checked={Number(quizForm.correctIndex) === optionIndex}
-                                    onChange={() => setQuizForm({ ...quizForm, correctIndex: optionIndex })}
-                                  />
-                                  <span>{t('answerLabel')} {optionIndex + 1}</span>
+                                <div className="quiz-option-editor" key={optionIndex}>
+                                  <label>
+                                    <input
+                                      type="radio"
+                                      name={`quiz-correct-${section.id}`}
+                                      checked={Number(quizForm.correctIndex) === optionIndex}
+                                      onChange={() => setQuizForm({ ...quizForm, correctIndex: optionIndex })}
+                                    />
+                                    <span>{t('answerLabel')} {optionIndex + 1}</span>
+                                  </label>
                                   <input value={option} onChange={(event) => updateQuizOption(optionIndex, event.target.value)} />
-                                </label>
+                                  <textarea
+                                    rows={2}
+                                    value={quizForm.explanations[optionIndex]}
+                                    onChange={(event) => updateQuizExplanation(optionIndex, event.target.value)}
+                                    placeholder={t('answerExplanationPlaceholder')}
+                                  />
+                                </div>
                               ))}
                               <div className="instructor-edit-actions">
                                 <button className="outline-button" type="button" onClick={() => setQuizFormSectionId('')}>{t('cancel')}</button>
