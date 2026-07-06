@@ -1,5 +1,5 @@
 import { Bell, BookOpen, LogOut, Pencil, Search, Shield, User, Video } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
 import { useLanguage } from './i18n'
@@ -47,37 +47,80 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     return () => document.removeEventListener('mousedown', closeOnOutside)
   }, [])
 
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return []
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(8)
+
+    return data || []
+  }, [user])
+
   useEffect(() => {
     let mounted = true
+    fetchNotifications().then((items) => {
+      if (mounted) setNotifications(items)
+    })
 
-    async function loadNotifications() {
-      if (!user) return
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(8)
-
-      if (mounted) setNotifications(data || [])
+    if (!user) {
+      return () => {
+        mounted = false
+      }
     }
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        () => {
+          fetchNotifications().then((items) => {
+            if (mounted) setNotifications(items)
+          })
+        }
+      )
+      .subscribe()
 
-    loadNotifications()
     return () => {
       mounted = false
+      supabase.removeChannel(channel)
     }
-  }, [user])
+  }, [fetchNotifications, user])
 
   const unreadCount = notifications.filter((item) => !item.is_read).length
 
+  const markNotificationIdsRead = async (ids) => {
+    const notificationIds = ids.filter(Boolean)
+    if (!user || notificationIds.length === 0) return
+
+    const readAt = new Date().toISOString()
+    setNotifications((items) => items.map((item) => (
+      notificationIds.includes(item.id) ? { ...item, is_read: true, read_at: readAt } : item
+    )))
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true, read_at: readAt })
+      .eq('user_id', user.id)
+      .in('id', notificationIds)
+
+    if (error) console.warn('Could not mark notifications as read:', error)
+    else setNotifications(await fetchNotifications())
+  }
+
   const markAllNotificationsRead = async () => {
     if (!user || unreadCount === 0) return
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false)
-    setNotifications((items) => items.map((item) => ({ ...item, is_read: true })))
+    await markNotificationIdsRead(notifications.filter((item) => !item.is_read).map((item) => item.id))
+  }
+
+  const toggleNotifications = () => {
+    const nextOpen = !notificationsOpen
+    setNotificationsOpen(nextOpen)
+    if (nextOpen && unreadCount > 0) {
+      void markNotificationIdsRead(notifications.filter((item) => !item.is_read).map((item) => item.id))
+    }
   }
 
   const openNotification = async (notification) => {
@@ -85,22 +128,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     setNotificationsOpen(false)
 
     if (!notification.is_read) {
-      setNotifications((items) => items.map((item) => (
-        item.id === notification.id ? { ...item, is_read: true } : item
-      )))
-
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notification.id)
-        .eq('user_id', user.id)
-
-      if (error) {
-        setNotifications((items) => items.map((item) => (
-          item.id === notification.id ? { ...item, is_read: false } : item
-        )))
-        return
-      }
+      await markNotificationIdsRead([notification.id])
     }
 
     if (notification.link) navigate(notification.link)
@@ -268,7 +296,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
         {user ? (
           <>
             <div ref={notificationRef} className="notification-menu">
-              <button className="icon-button" type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-label={t('notifications')}>
+              <button className="icon-button" type="button" onClick={toggleNotifications} aria-label={t('notifications')}>
                 <Bell size={18} />
                 {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
               </button>

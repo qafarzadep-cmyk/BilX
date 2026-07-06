@@ -308,7 +308,9 @@ function CoursePage({ user, profile, handleLogout }) {
       const lessonNumber = `${sectionIndex + 1}.${lessonIndex + 1}`
       const lessonTitle = activeVideo.displayTitle || activeVideo.title || t('lessonTitle')
       return {
-        heading: `${section.displayTitle || `${t('sectionLabel')} ${sectionIndex + 1}`} - ${t('lessonLabel')} ${lessonNumber} ${lessonTitle}`,
+        lessonNumber,
+        lessonTitle,
+        sectionTitle: section.displayTitle || `${t('sectionLabel')} ${sectionIndex + 1}`,
         summary: `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`,
       }
     }
@@ -978,11 +980,19 @@ function CoursePage({ user, profile, handleLogout }) {
                       ? t('courseTrailer')
                       : activeLessonDetails?.summary || `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`}
                   </p>
-                  <h2>
-                    {playerVideo?.is_trailer
-                      ? playerVideo?.title || t('courseTrailer')
-                      : activeLessonDetails?.heading || playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}
-                  </h2>
+                  {playerVideo?.is_trailer ? (
+                    <h2>{playerVideo?.title || t('courseTrailer')}</h2>
+                  ) : activeLessonDetails ? (
+                    <div className="lesson-heading-block">
+                      <span className="lesson-section-context">{activeLessonDetails.sectionTitle}</span>
+                      <h2>
+                        <span>{t('lessonLabel')} {activeLessonDetails.lessonNumber}</span>
+                        {activeLessonDetails.lessonTitle}
+                      </h2>
+                    </div>
+                  ) : (
+                    <h2>{playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}</h2>
+                  )}
                 </div>
                 {hasAccess && !playerVideo?.is_trailer && (
                 <div className="player-actions">
