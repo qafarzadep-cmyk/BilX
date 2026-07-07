@@ -1301,7 +1301,7 @@ button {
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   box-sizing: border-box;
-  padding: 20px 34px;
+  padding: 14px 34px;
   background: #fff;
   color: #1c1d1f;
 }
@@ -1312,9 +1312,9 @@ button {
 }
 
 .quiz-player h2 {
-  margin: 0 0 14px;
-  font-size: 24px;
-  line-height: 1.2;
+  margin: 0 0 8px;
+  font-size: 22px;
+  line-height: 1.15;
 }
 
 .quiz-question-card {
@@ -1323,7 +1323,7 @@ button {
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 7px;
 }
 
 .quiz-question-card > strong {
@@ -1333,7 +1333,7 @@ button {
 
 .quiz-question-prompt {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .quiz-question-prompt span {
@@ -1344,8 +1344,8 @@ button {
 
 .quiz-question-prompt strong {
   color: #1c1d1f;
-  font-size: 17px;
-  line-height: 1.3;
+  font-size: 16px;
+  line-height: 1.22;
 }
 
 .quiz-question-prompt small {
@@ -1356,12 +1356,12 @@ button {
 
 .quiz-answer-list {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .quiz-answer-option {
   width: 100%;
-  min-height: 36px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1369,15 +1369,15 @@ button {
   border-radius: 6px;
   background: #fff;
   color: #24262b;
-  padding: 6px 12px;
+  padding: 4px 12px;
   text-align: left;
   font-size: 14px;
   font-weight: 750;
 }
 
 .quiz-answer-option span {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1404,7 +1404,7 @@ button {
 .quiz-player-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-wrap: wrap;
 }
 
@@ -1415,30 +1415,32 @@ button {
 
 .quiz-result.correct {
   color: #218739;
+  font-size: 16px;
 }
 
 .quiz-result.wrong {
   color: #c2410c;
+  font-size: 16px;
 }
 
 .quiz-explanation-box {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 1px solid #d7dce5;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   background: #f8fafc;
 }
 
 .quiz-explanation-box strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .quiz-explanation-box p {
   margin: 0;
   color: #4f5f7a;
-  font-size: 14px;
-  line-height: 1.25;
+  font-size: 13px;
+  line-height: 1.2;
 }
 
 .quiz-results-card {
