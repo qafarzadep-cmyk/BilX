@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, FolderPlus, GripVertical, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardList, Eye, EyeOff, FolderPlus, GripVertical, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import { InboxPanel } from './Inbox'
@@ -156,6 +156,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     title: '',
     questions: [createEmptyQuizQuestion()],
   })
+  const [activeQuizFormQuestionIndex, setActiveQuizFormQuestionIndex] = useState(0)
   const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [curriculumVideoId, setCurriculumVideoId] = useState('')
@@ -1140,6 +1141,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
   const resetQuizForm = () => {
     setEditingQuizId('')
+    setActiveQuizFormQuestionIndex(0)
     setQuizForm({
       title: '',
       questions: [createEmptyQuizQuestion()],
@@ -1157,6 +1159,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       : [createEmptyQuizQuestion()]
     setEditingQuizId(String(quiz.id))
     setQuizFormSectionId(String(quiz.section_id))
+    setActiveQuizFormQuestionIndex(0)
     setQuizForm({
       title: quiz.title || '',
       questions: questions.map((question) => {
@@ -1229,6 +1232,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       ...current,
       questions: [...current.questions, createEmptyQuizQuestion()],
     }))
+    setActiveQuizFormQuestionIndex(quizForm.questions.length)
   }
 
   const removeQuizQuestion = (questionIndex) => {
@@ -1238,6 +1242,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         ? current.questions
         : current.questions.filter((_, index) => index !== questionIndex),
     }))
+    setActiveQuizFormQuestionIndex((current) => Math.max(0, Math.min(current, quizForm.questions.length - 2)))
   }
 
   const getQuizSaveErrorMessage = (error) => {
@@ -1655,6 +1660,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         filteredVideos: detailVideos.filter((video) => String(video.section_id) === String(section.id)),
         filteredQuizzes: detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id)),
       }))
+    const safeQuizFormQuestionIndex = Math.min(activeQuizFormQuestionIndex, Math.max(quizForm.questions.length - 1, 0))
+    const activeQuizFormQuestion = quizForm.questions[safeQuizFormQuestionIndex] || createEmptyQuizQuestion()
 
     return (
       <div className="page">
@@ -1902,39 +1909,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <div className="empty-player">{t('videoNotSupported')}</div>
                         )}
                       </div>
-                      <div className="course-player-details">
-                        <div>
-                          <p className="player-eyebrow">{t('instructorPreviewMode')}</p>
-                          <h2>{curriculumActiveQuiz?.title || curriculumActiveVideo?.title || t('lessonTitle')}</h2>
-                        </div>
-                        {curriculumActiveVideo && !curriculumActiveQuiz && (
-                          <div className="player-actions">
-                            <button className="outline-button" type="button" onClick={() => editLesson(curriculumActiveVideo)}>
-                              <Pencil size={16} /> {t('edit')}
-                            </button>
-                            <label className="outline-button instructor-replace-video-button">
-                              <Upload size={16} /> {t('replaceLessonVideo')}
-                              <input type="file" accept="video/*" disabled={loading} onChange={(event) => {
-                                replaceLessonVideo(curriculumActiveVideo, event.target.files[0] || null)
-                                event.target.value = ''
-                              }} />
-                            </label>
-                            <button className="danger-button" type="button" onClick={() => deleteLesson(curriculumActiveVideo.id)}>
-                              <Trash2 size={16} /> {t('delete')}
-                            </button>
-                          </div>
-                        )}
-                        {curriculumActiveQuiz && (
-                          <div className="player-actions">
-                            <button className="outline-button" type="button" onClick={() => editQuiz(curriculumActiveQuiz)}>
-                              <Pencil size={16} /> {t('edit')}
-                            </button>
-                            <button className="danger-button" type="button" onClick={() => deleteQuiz(curriculumActiveQuiz.id)}>
-                              <Trash2 size={16} /> {t('delete')}
-                            </button>
-                          </div>
-                        )}
-                      </div>
                     </div>
 
                     <aside className="course-lesson-panel instructor-lesson-panel">
@@ -2051,7 +2025,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     key={`${contentItem.type}-${item.id}`}
                                   >
                                     <button className="instructor-lesson-select" type="button" onClick={() => (isVideo ? selectCurriculumVideo(item) : selectCurriculumQuiz(item))}>
-                                      <PlayCircle size={19} />
+                                      {isVideo ? <PlayCircle size={19} /> : <ClipboardList size={19} />}
                                       <span className="lesson-copy">
                                         <strong>{sectionIndex + 1}.{contentIndex + 1} {item.title}</strong>
                                         <small>
@@ -2168,48 +2142,64 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               <h3>{editingQuizId ? t('editQuiz') : t('createQuiz')}</h3>
                               <label>{t('quizTitle')}</label>
                               <input value={quizForm.title} onChange={(event) => setQuizForm({ ...quizForm, title: event.target.value })} placeholder={t('quizTitlePlaceholder')} />
-                              {quizForm.questions.map((question, questionIndex) => (
-                                <div className="quiz-question-editor" key={questionIndex}>
-                                  <div className="quiz-question-editor-heading">
-                                    <strong>{t('quizQuestion')} {questionIndex + 1}</strong>
-                                    {quizForm.questions.length > 1 && (
-                                      <button className="icon-danger-button" type="button" onClick={() => removeQuizQuestion(questionIndex)} title={t('delete')}>
-                                        <Trash2 size={16} />
-                                      </button>
-                                    )}
-                                  </div>
-                                  <label>{t('quizQuestion')}</label>
-                                  <textarea
-                                    rows={3}
-                                    value={question.prompt}
-                                    onChange={(event) => updateQuizQuestionPrompt(questionIndex, event.target.value)}
-                                    placeholder={t('quizQuestionPlaceholder')}
-                                  />
-                                  {question.options.map((option, optionIndex) => (
-                                    <div className="quiz-option-editor" key={optionIndex}>
-                                      <label>
-                                        <input
-                                          type="radio"
-                                          name={`quiz-correct-${section.id}-${questionIndex}`}
-                                          checked={Number(question.correctIndex) === optionIndex}
-                                          onChange={() => updateQuizCorrectAnswer(questionIndex, optionIndex)}
-                                        />
-                                        <span>{t('answerLabel')} {optionIndex + 1}</span>
-                                      </label>
-                                      <input value={option} onChange={(event) => updateQuizOption(questionIndex, optionIndex, event.target.value)} />
-                                      <textarea
-                                        rows={2}
-                                        value={question.explanations[optionIndex]}
-                                        onChange={(event) => updateQuizExplanation(questionIndex, optionIndex, event.target.value)}
-                                        placeholder={t('answerExplanationPlaceholder')}
-                                      />
-                                    </div>
-                                  ))}
+                              <div className="quiz-question-editor">
+                                <div className="quiz-question-editor-heading">
+                                  <strong>{t('quizQuestion')} {safeQuizFormQuestionIndex + 1} / {quizForm.questions.length}</strong>
+                                  {quizForm.questions.length > 1 && (
+                                    <button className="icon-danger-button" type="button" onClick={() => removeQuizQuestion(safeQuizFormQuestionIndex)} title={t('delete')}>
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
                                 </div>
-                              ))}
-                              <button className="outline-button quiz-create-toggle" type="button" onClick={addQuizQuestion}>
-                                <Plus size={16} /> {t('addQuestion')}
-                              </button>
+                                <div className="quiz-question-step-actions">
+                                  <button
+                                    className="outline-button"
+                                    type="button"
+                                    disabled={safeQuizFormQuestionIndex === 0}
+                                    onClick={() => setActiveQuizFormQuestionIndex((current) => Math.max(0, current - 1))}
+                                  >
+                                    <ArrowLeft size={16} /> {t('previousQuestion')}
+                                  </button>
+                                  <button
+                                    className="outline-button"
+                                    type="button"
+                                    disabled={safeQuizFormQuestionIndex >= quizForm.questions.length - 1}
+                                    onClick={() => setActiveQuizFormQuestionIndex((current) => Math.min(quizForm.questions.length - 1, current + 1))}
+                                  >
+                                    {t('nextButton')} <ArrowRight size={16} />
+                                  </button>
+                                  <button className="outline-button" type="button" onClick={addQuizQuestion}>
+                                    <Plus size={16} /> {t('addQuestion')}
+                                  </button>
+                                </div>
+                                <label>{t('quizQuestion')}</label>
+                                <textarea
+                                  rows={3}
+                                  value={activeQuizFormQuestion.prompt}
+                                  onChange={(event) => updateQuizQuestionPrompt(safeQuizFormQuestionIndex, event.target.value)}
+                                  placeholder={t('quizQuestionPlaceholder')}
+                                />
+                                {activeQuizFormQuestion.options.map((option, optionIndex) => (
+                                  <div className="quiz-option-editor" key={optionIndex}>
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`quiz-correct-${section.id}-${safeQuizFormQuestionIndex}`}
+                                        checked={Number(activeQuizFormQuestion.correctIndex) === optionIndex}
+                                        onChange={() => updateQuizCorrectAnswer(safeQuizFormQuestionIndex, optionIndex)}
+                                      />
+                                      <span>{t('answerLabel')} {optionIndex + 1}</span>
+                                    </label>
+                                    <input value={option} onChange={(event) => updateQuizOption(safeQuizFormQuestionIndex, optionIndex, event.target.value)} />
+                                    <textarea
+                                      rows={2}
+                                      value={activeQuizFormQuestion.explanations[optionIndex]}
+                                      onChange={(event) => updateQuizExplanation(safeQuizFormQuestionIndex, optionIndex, event.target.value)}
+                                      placeholder={t('answerExplanationPlaceholder')}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
                               <div className="instructor-edit-actions">
                                 <button className="outline-button" type="button" onClick={() => {
                                   setQuizFormSectionId('')

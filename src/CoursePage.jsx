@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Award, CheckCircle2, ChevronDown, Circle, Clock3, ExternalLink, Lock, Play, PlayCircle, Share2, X } from 'lucide-react'
+import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, ExternalLink, Lock, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -1272,7 +1272,7 @@ function CoursePage({ user, profile, handleLogout }) {
                                 onClick={() => (isVideo ? selectLesson(section.id, item.id) : selectQuiz(section.id, item.id))}
                               >
                                 <span className="lesson-status">
-                                  {!isVideo ? <PlayCircle size={20} /> : isLocked ? <Lock size={19} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
+                                  {!isVideo ? <ClipboardList size={20} /> : isLocked ? <Lock size={19} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
                                 </span>
                                 <span className="lesson-copy">
                                   <strong>{sectionIndex + 1}.{contentIndex + 1} {item.displayTitle || item.title}</strong>

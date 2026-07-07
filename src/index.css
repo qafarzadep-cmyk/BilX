@@ -2305,6 +2305,20 @@ button {
   gap: 12px;
 }
 
+.quiz-question-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.quiz-question-step-actions .outline-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .quiz-option-editor {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
