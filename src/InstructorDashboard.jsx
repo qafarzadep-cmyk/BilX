@@ -165,6 +165,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumQuizQuestionIndex, setCurriculumQuizQuestionIndex] = useState(0)
   const [curriculumQuizAnswers, setCurriculumQuizAnswers] = useState({})
   const [curriculumQuizCheckedId, setCurriculumQuizCheckedId] = useState('')
+  const [curriculumFinishedQuizIds, setCurriculumFinishedQuizIds] = useState({})
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
@@ -366,6 +367,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCurriculumQuizStarted(false)
     setCurriculumQuizQuestionIndex(0)
     setCurriculumQuizCheckedId('')
+    setCurriculumFinishedQuizIds((current) => ({ ...current, [quizId]: false }))
     if (quiz.section_id) {
       setSelectedSectionId(String(quiz.section_id))
       setCurriculumOpenSections(new Set([String(quiz.section_id)]))
@@ -1631,19 +1633,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       ? detailSections.findIndex((section) => String(section.id) === String(curriculumActiveQuiz.section_id))
       : -1
     const activeQuizSection = activeQuizSectionIndex >= 0 ? detailSections[activeQuizSectionIndex] : null
-    const activeQuizSectionQuizzes = activeQuizSection
-      ? detailQuizzes.filter((quiz) => String(quiz.section_id) === String(activeQuizSection.id))
-      : []
-    const activeQuizIndex = curriculumActiveQuiz
-      ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(curriculumActiveQuiz.id))
-      : -1
-    const nextActiveQuiz = activeQuizIndex >= 0 ? activeQuizSectionQuizzes[activeQuizIndex + 1] : null
     const curriculumQuizQuestions = Array.isArray(curriculumActiveQuiz?.questions) ? curriculumActiveQuiz.questions : []
     const safeCurriculumQuizQuestionIndex = Math.min(curriculumQuizQuestionIndex, Math.max(curriculumQuizQuestions.length - 1, 0))
     const curriculumQuizQuestion = curriculumQuizQuestions[safeCurriculumQuizQuestionIndex] || null
     const curriculumQuizAnswerKey = curriculumActiveQuiz ? `${curriculumActiveQuiz.id}:${safeCurriculumQuizQuestionIndex}` : ''
     const curriculumQuizAnswer = curriculumActiveQuiz ? curriculumQuizAnswers[curriculumQuizAnswerKey] : undefined
     const curriculumQuizChecked = curriculumActiveQuiz ? String(curriculumQuizCheckedId) === curriculumQuizAnswerKey : false
+    const curriculumQuizFinished = curriculumActiveQuiz ? Boolean(curriculumFinishedQuizIds[curriculumActiveQuiz.id]) : false
     const curriculumQuizIsCorrect = curriculumQuizQuestion
       ? Number(curriculumQuizAnswer) === Number(curriculumQuizQuestion.correctIndex)
       : false
@@ -1651,6 +1647,26 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       ? curriculumQuizQuestion.explanations?.[Number(curriculumQuizAnswer)] || ''
       : ''
     const hasNextCurriculumQuizQuestion = safeCurriculumQuizQuestionIndex < curriculumQuizQuestions.length - 1
+    const curriculumQuizResults = curriculumQuizQuestions.map((question, index) => {
+      const answer = curriculumActiveQuiz ? curriculumQuizAnswers[`${curriculumActiveQuiz.id}:${index}`] : undefined
+      const isCorrect = Number(answer) === Number(question.correctIndex)
+      return {
+        question,
+        index,
+        answer,
+        isCorrect,
+        selectedAnswer: answer === undefined ? '' : question.options?.[Number(answer)] || '',
+        correctAnswer: question.options?.[Number(question.correctIndex)] || '',
+        options: (question.options || []).map((option, optionIndex) => ({
+          option,
+          optionIndex,
+          explanation: question.explanations?.[optionIndex] || '',
+          isSelected: Number(answer) === optionIndex,
+          isCorrect: Number(question.correctIndex) === optionIndex,
+        })),
+      }
+    })
+    const curriculumQuizCorrectCount = curriculumQuizResults.filter((result) => result.isCorrect).length
     const curriculumSearchTerm = curriculumSearch.trim()
     const visibleDetailSections = curriculumSearchTerm
       ? detailSections.map((section) => {
@@ -1814,7 +1830,33 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <div className="youtube-player-shell">
                         {curriculumActiveQuiz ? (
                           <div className="quiz-player instructor-quiz-preview">
-                            {!curriculumQuizStarted ? (
+                            {curriculumQuizFinished ? (
+                              <div className="quiz-question-card quiz-results-card">
+                                <span className="lesson-section-context">{t('quizResult')}</span>
+                                <h2>{curriculumActiveQuiz.title}</h2>
+                                <strong>{t('quizScore').replace('{correct}', curriculumQuizCorrectCount).replace('{total}', curriculumQuizQuestions.length)}</strong>
+                                <div className="quiz-result-list">
+                                  {curriculumQuizResults.map((result) => (
+                                    <div className={result.isCorrect ? 'quiz-review-item correct' : 'quiz-review-item wrong'} key={result.index}>
+                                      <strong>{result.index + 1}. {result.question.prompt}</strong>
+                                      <p>{t('yourAnswer')}: {result.selectedAnswer || t('notAnswered')}</p>
+                                      <p>{t('correctAnswerLabel')}: {result.correctAnswer}</p>
+                                      <div className="quiz-review-answer-list">
+                                        {result.options.map((option) => (
+                                          <div
+                                            className={`quiz-review-answer${option.isCorrect ? ' correct' : ''}${option.isSelected ? ' selected' : ''}`}
+                                            key={option.optionIndex}
+                                          >
+                                            <strong>{option.optionIndex + 1}. {option.option}</strong>
+                                            {option.explanation && <p>{t('answerExplanation')}: {option.explanation}</p>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : !curriculumQuizStarted ? (
                               <div className="quiz-start-card">
                                 <span className="lesson-section-context">
                                   {activeQuizSection ? getSectionLabel(activeQuizSection, activeQuizSectionIndex) : t('sectionLabel')}
@@ -1866,16 +1908,21 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       {curriculumQuizIsCorrect ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                                     </strong>
                                   )}
-                                  {(hasNextCurriculumQuizQuestion || nextActiveQuiz) && (
+                                  {hasNextCurriculumQuizQuestion ? (
                                     <button className="primary-button" type="button" disabled={curriculumQuizAnswer === undefined} onClick={() => {
-                                      if (hasNextCurriculumQuizQuestion) {
-                                        setCurriculumQuizQuestionIndex((current) => current + 1)
-                                        setCurriculumQuizCheckedId('')
-                                      } else {
-                                        selectCurriculumQuiz(nextActiveQuiz)
-                                      }
+                                      setCurriculumQuizQuestionIndex((current) => current + 1)
+                                      setCurriculumQuizCheckedId('')
                                     }}>
                                       {t('nextButton')}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="primary-button"
+                                      type="button"
+                                      disabled={curriculumQuizAnswer === undefined}
+                                      onClick={() => setCurriculumFinishedQuizIds((current) => ({ ...current, [curriculumActiveQuiz.id]: true }))}
+                                    >
+                                      {t('seeAllResults')}
                                     </button>
                                   )}
                                 </div>
