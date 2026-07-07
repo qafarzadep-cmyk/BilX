@@ -1798,7 +1798,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 </span>
                                 <h2>{curriculumActiveQuiz.title}</h2>
                                 <p>{t('quizSectionIntro')}</p>
-                                <strong>{activeQuizSectionQuizzes.length} {t('quizLabel')}</strong>
+                                <strong>{curriculumActiveQuiz.questions?.length || 0} {t('questionCountLabel')}</strong>
                                 <button className="primary-button" type="button" onClick={() => setCurriculumQuizStarted(true)}>
                                   {t('startQuiz')}
                                 </button>
