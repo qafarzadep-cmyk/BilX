@@ -69,6 +69,32 @@ function createEmptyQuizQuestion() {
   }
 }
 
+function getOrderedSectionItems(sectionId, sectionVideos, sectionQuizzes) {
+  const videos = sectionVideos
+    .filter((video) => String(video.section_id) === String(sectionId))
+    .sort((a, b) => Number(a.order_index) - Number(b.order_index) || Number(a.id) - Number(b.id))
+  const quizzes = sectionQuizzes
+    .filter((quiz) => String(quiz.section_id) === String(sectionId))
+    .sort((a, b) => Number(a.order_index) - Number(b.order_index) || Number(a.id) - Number(b.id))
+  const videoOrders = new Set(videos.map((video) => Number(video.order_index) || 0))
+  const hasLegacyQuizOverlap = quizzes.some((quiz) => videoOrders.has(Number(quiz.order_index) || 0))
+
+  return [
+    ...videos.map((item) => ({
+      type: 'video',
+      item,
+      effectiveOrder: Number(item.order_index) || 0,
+    })),
+    ...quizzes.map((item, index) => ({
+      type: 'quiz',
+      item,
+      effectiveOrder: hasLegacyQuizOverlap
+        ? videos.length + index + 1
+        : Number(item.order_index) || videos.length + index + 1,
+    })),
+  ].sort((a, b) => a.effectiveOrder - b.effectiveOrder || (a.type === 'video' ? -1 : 1))
+}
+
 function LocalizedFileInput({ accept, disabled, file, onChange, t, onFocus }) {
   const inputId = useId()
 
@@ -346,7 +372,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', quiz: quizId }, { replace: true })
   }
 
-  const selectCurriculumSection = (section, sectionVideos) => {
+  const selectCurriculumSection = (section, sectionItems) => {
     const sectionId = String(section.id)
     if (curriculumOpenSections.has(sectionId)) {
       setCurriculumOpenSections(new Set())
@@ -354,7 +380,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
     setCurriculumOpenSections(new Set([sectionId]))
     setSelectedSectionId(sectionId)
-    if (sectionVideos[0]) selectCurriculumVideo(sectionVideos[0])
+    const firstItem = sectionItems[0]
+    if (firstItem?.type === 'quiz') selectCurriculumQuiz(firstItem.item)
+    if (firstItem?.type === 'video') selectCurriculumVideo(firstItem.item)
   }
 
   useEffect(() => {
@@ -944,6 +972,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     try {
       const detectedDuration = formatVideoDuration(await getVideoDuration(lessonFile))
+      const sectionItems = getOrderedSectionItems(targetSectionId, videos, quizzes)
 
       // 1. Create the Bunny video and get a presigned upload.
       const presign = await createBunnyVideo(lessonTitle.trim())
@@ -958,7 +987,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         bunny_video_id: presign.videoId,
         video_source: 'bunny',
         section_id: Number(targetSectionId),
-        order_index: courseVideos.length + 1,
+        order_index: sectionItems.length + 1,
         is_free: lessonIsFree,
         duration: detectedDuration,
       }
@@ -1237,13 +1266,18 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
 
     const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
+    const sectionItems = getOrderedSectionItems(
+      section.id,
+      videos.filter((video) => String(video.course_id) === String(targetCourseId)),
+      quizzes.filter((quiz) => String(quiz.course_id) === String(targetCourseId)),
+    )
     const quizPayload = {
       course_id: Number(targetCourseId),
       section_id: Number(section.id),
       title: quizForm.title.trim(),
       order_index: editingQuizId
         ? sectionQuizzes.find((quiz) => String(quiz.id) === String(editingQuizId))?.order_index || sectionQuizzes.length + 1
-        : sectionQuizzes.length + 1,
+        : sectionItems.length + 1,
       questions: cleanQuestions,
     }
     const query = editingQuizId
@@ -1293,6 +1327,41 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       p_video_id: videoId,
       p_direction: direction,
     })
+
+    if (error) {
+      showMessage(`${t('errorOccurred')}${error.message}`, 'error')
+      return
+    }
+
+    showMessage(t('lessonOrderUpdated'), 'success')
+    await loadData(user)
+  }
+
+  const moveCurriculumItem = async (contentItem, direction) => {
+    const sectionId = contentItem?.item?.section_id
+    const courseId = contentItem?.item?.course_id
+    if (!sectionId || !courseId || ![-1, 1].includes(direction)) return
+
+    const sectionVideos = videos.filter((video) => String(video.course_id) === String(courseId))
+    const sectionQuizzes = quizzes.filter((quiz) => String(quiz.course_id) === String(courseId))
+    const currentItems = getOrderedSectionItems(sectionId, sectionVideos, sectionQuizzes)
+    const fromIndex = currentItems.findIndex((entry) => (
+      entry.type === contentItem.type && String(entry.item.id) === String(contentItem.item.id)
+    ))
+    const toIndex = fromIndex + direction
+    if (fromIndex < 0 || toIndex < 0 || toIndex >= currentItems.length) return
+
+    const reorderedItems = [...currentItems]
+    const [movedItem] = reorderedItems.splice(fromIndex, 1)
+    reorderedItems.splice(toIndex, 0, movedItem)
+
+    const results = await Promise.all(reorderedItems.map((entry, index) => (
+      supabase
+        .from(entry.type === 'video' ? 'videos' : 'course_quizzes')
+        .update({ order_index: index + 1 })
+        .eq('id', entry.item.id)
+    )))
+    const error = results.find((result) => result.error)?.error
 
     if (error) {
       showMessage(`${t('errorOccurred')}${error.message}`, 'error')
@@ -1872,7 +1941,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <div className="lesson-panel-header">
                         <div>
                           <h2>{t('courseContent')}</h2>
-                          <p>{detailVideos.length} {t('courseLessons')}</p>
+                          <p>{detailVideos.length + detailQuizzes.length} {t('courseLessons')}</p>
                         </div>
                       </div>
                       {detailSections.length > 0 && (
@@ -1892,6 +1961,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         ) : visibleDetailSections.map((section, sectionIndex) => {
                           const sectionVideos = section.filteredVideos || []
                           const sectionQuizzes = section.filteredQuizzes || []
+                          const sectionItems = getOrderedSectionItems(section.id, sectionVideos, sectionQuizzes)
                           const isOpen = curriculumSearchTerm ? true : curriculumOpenSections.has(String(section.id))
                           return (
                             <section
@@ -1918,10 +1988,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               }}
                             >
                               <div className="instructor-section-heading">
-                                <button type="button" onClick={() => selectCurriculumSection(section, sectionVideos)}>
+                                <button type="button" onClick={() => selectCurriculumSection(section, sectionItems)}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                                    <small>{sectionVideos.length} {t('courseLessons')}{sectionQuizzes.length ? ` | ${sectionQuizzes.length} ${t('quizLabel')}` : ''}</small>
+                                    <small>{sectionItems.length} {t('courseLessons')}</small>
                                   </span>
                                   <ArrowDown size={18} />
                                 </button>
@@ -1967,49 +2037,44 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   <button type="button" onClick={() => deleteSection(section)} title={t('delete')}><Trash2 size={15} /></button>
                                 </div>
                               </div>
-                              {isOpen && sectionVideos.map((video, lessonIndex) => {
-                                const isActive = String(video.id) === String(curriculumActiveVideo?.id)
+                              {isOpen && sectionItems.map((contentItem, contentIndex) => {
+                                const item = contentItem.item
+                                const isVideo = contentItem.type === 'video'
+                                const isActive = isVideo
+                                  ? String(item.id) === String(curriculumActiveVideo?.id)
+                                  : String(item.id) === String(curriculumActiveQuiz?.id)
                                 return (
-                                  <div className={isActive ? 'course-lesson-item active instructor-course-lesson-item' : 'course-lesson-item instructor-course-lesson-item'} key={video.id}>
-                                    <button className="instructor-lesson-select" type="button" onClick={() => selectCurriculumVideo(video)}>
+                                  <div
+                                    className={isActive
+                                      ? `course-lesson-item active instructor-course-lesson-item${isVideo ? '' : ' quiz-content-item'}`
+                                      : `course-lesson-item instructor-course-lesson-item${isVideo ? '' : ' quiz-content-item'}`}
+                                    key={`${contentItem.type}-${item.id}`}
+                                  >
+                                    <button className="instructor-lesson-select" type="button" onClick={() => (isVideo ? selectCurriculumVideo(item) : selectCurriculumQuiz(item))}>
                                       <PlayCircle size={19} />
                                       <span className="lesson-copy">
-                                        <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.title}</strong>
-                                        <small>{video.duration || t('durationMissing')}{video.is_free ? ` · ${t('previewShort')}` : ''}</small>
+                                        <strong>{sectionIndex + 1}.{contentIndex + 1} {item.title}</strong>
+                                        <small>
+                                          {isVideo
+                                            ? `${item.duration || t('durationMissing')}${item.is_free ? ` · ${t('previewShort')}` : ''}`
+                                            : `${item.questions?.length || 0} ${t('questionCountLabel')}`}
+                                        </small>
                                       </span>
                                     </button>
                                     <div className="instructor-lesson-mini-actions">
-                                      <button type="button" onClick={() => moveLesson(video.id, -1)} disabled={lessonIndex === 0} title={t('moveLessonUp')}><ArrowUp size={14} /></button>
-                                      <button type="button" onClick={() => moveLesson(video.id, 1)} disabled={lessonIndex === sectionVideos.length - 1} title={t('moveLessonDown')}><ArrowDown size={14} /></button>
-                                      <button type="button" onClick={() => editLesson(video)} title={t('edit')}><Pencil size={14} /></button>
-                                      <button type="button" onClick={() => toggleFreeLesson(video.id, !video.is_free)} title={video.is_free ? t('previewClose') : t('previewOpen')}>
-                                        {video.is_free ? <EyeOff size={14} /> : <Eye size={14} />}
-                                      </button>
-                                      <button type="button" onClick={() => deleteLesson(video.id)} title={t('delete')}><Trash2 size={14} /></button>
+                                      <button type="button" onClick={() => moveCurriculumItem(contentItem, -1)} disabled={contentIndex === 0} title={t('moveLessonUp')}><ArrowUp size={14} /></button>
+                                      <button type="button" onClick={() => moveCurriculumItem(contentItem, 1)} disabled={contentIndex === sectionItems.length - 1} title={t('moveLessonDown')}><ArrowDown size={14} /></button>
+                                      <button type="button" onClick={() => (isVideo ? editLesson(item) : editQuiz(item))} title={t('edit')}><Pencil size={14} /></button>
+                                      {isVideo && (
+                                        <button type="button" onClick={() => toggleFreeLesson(item.id, !item.is_free)} title={item.is_free ? t('previewClose') : t('previewOpen')}>
+                                          {item.is_free ? <EyeOff size={14} /> : <Eye size={14} />}
+                                        </button>
+                                      )}
+                                      <button type="button" onClick={() => (isVideo ? deleteLesson(item.id) : deleteQuiz(item.id))} title={t('delete')}><Trash2 size={14} /></button>
                                     </div>
                                   </div>
                                 )
                               })}
-                              {isOpen && sectionQuizzes.map((quiz, quizIndex) => (
-                                <div
-                                  className={String(quiz.id) === String(curriculumActiveQuiz?.id)
-                                    ? 'course-lesson-item active instructor-course-lesson-item quiz-content-item'
-                                    : 'course-lesson-item instructor-course-lesson-item quiz-content-item'}
-                                  key={`quiz-${quiz.id}`}
-                                >
-                                  <button className="instructor-lesson-select" type="button" onClick={() => selectCurriculumQuiz(quiz)}>
-                                    <PlayCircle size={19} />
-                                    <span className="lesson-copy">
-                                      <strong>{sectionIndex + 1}.Q{quizIndex + 1} {quiz.title}</strong>
-                                      <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
-                                    </span>
-                                  </button>
-                                  <div className="instructor-lesson-mini-actions">
-                                    <button type="button" onClick={() => editQuiz(quiz)} title={t('edit')}><Pencil size={14} /></button>
-                                    <button type="button" onClick={() => deleteQuiz(quiz.id)} title={t('delete')}><Trash2 size={14} /></button>
-                                  </div>
-                                </div>
-                              ))}
                             </section>
                           )
                         })}
@@ -2034,12 +2099,13 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       const sectionIndex = detailSections.findIndex((item) => String(item.id) === String(section.id))
                       const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
                       const sectionQuizzes = detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
+                      const sectionItems = getOrderedSectionItems(section.id, sectionVideos, sectionQuizzes)
                       return (
                         <section className="section-editor-card" key={section.id}>
                           <div className="section-editor-heading">
                             <div>
                               <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                              <small>{sectionVideos.length} {t('courseLessons')}{sectionQuizzes.length ? ` | ${sectionQuizzes.length} ${t('quizLabel')}` : ''}</small>
+                              <small>{sectionItems.length} {t('courseLessons')}</small>
                             </div>
                             <div className="instructor-inline-actions">
                               <button className="icon-link-button" type="button" onClick={() => editSection(section)} title={t('edit')}>
@@ -2051,49 +2117,48 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             </div>
                           </div>
                           <div className="lesson-list">
-                            {sectionVideos.length === 0 ? <p className="muted">{t('noLessonsInSection')}</p> : sectionVideos.map((video, lessonIndex) => (
-                              <div key={video.id} className="lesson-row managed-lesson-row">
-                                <span>{sectionIndex + 1}.{lessonIndex + 1}</span>
-                                <div>
-                                  <strong>{video.title}</strong>
-                                  <small>{video.duration || t('durationMissing')}{video.is_free ? ` · ${t('previewShort')}` : ''}</small>
+                            {sectionItems.length === 0 ? <p className="muted">{t('noLessonsInSection')}</p> : sectionItems.map((contentItem, contentIndex) => {
+                              const item = contentItem.item
+                              const isVideo = contentItem.type === 'video'
+                              return (
+                                <div key={`${contentItem.type}-${item.id}`} className={`lesson-row managed-lesson-row${isVideo ? '' : ' quiz-managed-row'}`}>
+                                  <span>{sectionIndex + 1}.{contentIndex + 1}</span>
+                                  <div>
+                                    <strong>{item.title}</strong>
+                                    <small>
+                                      {isVideo
+                                        ? `${item.duration || t('durationMissing')}${item.is_free ? ` · ${t('previewShort')}` : ''}`
+                                        : `${item.questions?.length || 0} ${t('questionCountLabel')}`}
+                                    </small>
+                                  </div>
+                                  <div className="lesson-row-actions">
+                                    <button className="icon-link-button" type="button" onClick={() => moveCurriculumItem(contentItem, -1)} disabled={contentIndex === 0}><ArrowUp size={16} /></button>
+                                    <button className="icon-link-button" type="button" onClick={() => moveCurriculumItem(contentItem, 1)} disabled={contentIndex === sectionItems.length - 1}><ArrowDown size={16} /></button>
+                                    <button className="icon-link-button" type="button" onClick={() => (isVideo ? editLesson(item) : editQuiz(item))} title={t('edit')}><Pencil size={16} /></button>
+                                    {isVideo && (
+                                      <>
+                                      <label className="icon-link-button instructor-file-action" title={t('replaceLessonVideo')}>
+                                        <Upload size={16} />
+                                        <input
+                                          type="file"
+                                          accept="video/*"
+                                          disabled={loading}
+                                          onChange={(event) => {
+                                            replaceLessonVideo(item, event.target.files[0] || null)
+                                            event.target.value = ''
+                                          }}
+                                        />
+                                      </label>
+                                      <button className="icon-link-button" type="button" onClick={() => toggleFreeLesson(item.id, !item.is_free)} title={item.is_free ? t('previewClose') : t('previewOpen')}>
+                                        {item.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
+                                      </button>
+                                      </>
+                                    )}
+                                    <button className="icon-danger-button" type="button" onClick={() => (isVideo ? deleteLesson(item.id) : deleteQuiz(item.id))} title={t('delete')}><Trash2 size={16} /></button>
+                                  </div>
                                 </div>
-                                <div className="lesson-row-actions">
-                                  <button className="icon-link-button" type="button" onClick={() => moveLesson(video.id, -1)} disabled={lessonIndex === 0}><ArrowUp size={16} /></button>
-                                  <button className="icon-link-button" type="button" onClick={() => moveLesson(video.id, 1)} disabled={lessonIndex === sectionVideos.length - 1}><ArrowDown size={16} /></button>
-                                  <button className="icon-link-button" type="button" onClick={() => editLesson(video)} title={t('edit')}><Pencil size={16} /></button>
-                                  <label className="icon-link-button instructor-file-action" title={t('replaceLessonVideo')}>
-                                    <Upload size={16} />
-                                    <input
-                                      type="file"
-                                      accept="video/*"
-                                      disabled={loading}
-                                      onChange={(event) => {
-                                        replaceLessonVideo(video, event.target.files[0] || null)
-                                        event.target.value = ''
-                                      }}
-                                    />
-                                  </label>
-                                  <button className="icon-link-button" type="button" onClick={() => toggleFreeLesson(video.id, !video.is_free)} title={video.is_free ? t('previewClose') : t('previewOpen')}>
-                                    {video.is_free ? <EyeOff size={16} /> : <Eye size={16} />}
-                                  </button>
-                                  <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} title={t('delete')}><Trash2 size={16} /></button>
-                                </div>
-                              </div>
-                            ))}
-                            {sectionQuizzes.map((quiz, quizIndex) => (
-                              <div key={`quiz-${quiz.id}`} className="lesson-row managed-lesson-row quiz-managed-row">
-                                <span>Q{quizIndex + 1}</span>
-                                <div>
-                                  <strong>{quiz.title}</strong>
-                                  <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
-                                </div>
-                                <div className="lesson-row-actions">
-                                  <button className="icon-link-button" type="button" onClick={() => editQuiz(quiz)} title={t('edit')}><Pencil size={16} /></button>
-                                  <button className="icon-danger-button" type="button" onClick={() => deleteQuiz(quiz.id)} title={t('delete')}><Trash2 size={16} /></button>
-                                </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                           <button className="outline-button quiz-create-toggle" type="button" onClick={() => startQuizForSection(section.id)}>
                             <Plus size={16} /> {t('createQuiz')}

@@ -122,6 +122,32 @@ function normalizeSearchText(value) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+function getOrderedSectionItems(sectionId, sectionVideos, sectionQuizzes) {
+  const videos = sectionVideos
+    .filter((video) => String(video.section_id) === String(sectionId))
+    .sort((a, b) => Number(a.order_index) - Number(b.order_index) || Number(a.id) - Number(b.id))
+  const quizzes = sectionQuizzes
+    .filter((quiz) => String(quiz.section_id) === String(sectionId))
+    .sort((a, b) => Number(a.order_index) - Number(b.order_index) || Number(a.id) - Number(b.id))
+  const videoOrders = new Set(videos.map((video) => Number(video.order_index) || 0))
+  const hasLegacyQuizOverlap = quizzes.some((quiz) => videoOrders.has(Number(quiz.order_index) || 0))
+
+  return [
+    ...videos.map((item) => ({
+      type: 'video',
+      item,
+      effectiveOrder: Number(item.order_index) || 0,
+    })),
+    ...quizzes.map((item, index) => ({
+      type: 'quiz',
+      item,
+      effectiveOrder: hasLegacyQuizOverlap
+        ? videos.length + index + 1
+        : Number(item.order_index) || videos.length + index + 1,
+    })),
+  ].sort((a, b) => a.effectiveOrder - b.effectiveOrder || (a.type === 'video' ? -1 : 1))
+}
+
 function CoursePage({ user, profile, handleLogout }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -265,6 +291,7 @@ function CoursePage({ user, profile, handleLogout }) {
         return String(lesson.section_id) === String(section.id)
       })
       const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
+      const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       const numberedTitle = `${t('sectionLabel')} ${sectionIndex + 1}`
@@ -277,6 +304,7 @@ function CoursePage({ user, profile, handleLogout }) {
           : numberedTitle,
         lessons: sectionLessons,
         quizzes: sectionQuizzes,
+        items: sectionItems,
         completed,
         duration: formatSectionDuration(duration, t),
       }
@@ -299,11 +327,13 @@ function CoursePage({ user, profile, handleLogout }) {
         : (section.quizzes || []).filter((quiz) => (
           normalizeSearchText(`${quiz.title || ''} ${quiz.questions?.[0]?.prompt || ''}`).includes(query)
         ))
+      const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       return {
         ...section,
         lessons: sectionLessons,
         quizzes: sectionQuizzes,
+        items: sectionItems,
         completed: sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length,
         duration: formatSectionDuration(duration, t),
       }
@@ -316,8 +346,15 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeLessonDetails = (() => {
     if (!activeVideo?.id) return null
 
+    const allSectionItems = curriculumSections.flatMap((section) => section.items || [])
+    const activeContentIndex = allSectionItems.findIndex((entry) => (
+      entry.type === 'video' && String(entry.item.id) === String(activeVideo.id)
+    ))
+
     for (const [sectionIndex, section] of curriculumSections.entries()) {
-      const lessonIndex = section.lessons.findIndex((lesson) => String(lesson.id) === String(activeVideo.id))
+      const lessonIndex = (section.items || []).findIndex((entry) => (
+        entry.type === 'video' && String(entry.item.id) === String(activeVideo.id)
+      ))
       if (lessonIndex === -1) continue
 
       const lessonNumber = `${sectionIndex + 1}.${lessonIndex + 1}`
@@ -326,7 +363,7 @@ function CoursePage({ user, profile, handleLogout }) {
         lessonNumber,
         lessonTitle,
         sectionTitle: section.displayTitle || `${t('sectionLabel')} ${sectionIndex + 1}`,
-        summary: `${t('lessonLabel')} ${activeLessonIndex + 1} / ${lessons.length}`,
+        summary: `${t('lessonLabel')} ${activeContentIndex + 1} / ${allSectionItems.length}`,
       }
     }
 
@@ -1211,56 +1248,42 @@ function CoursePage({ user, profile, handleLogout }) {
                         <span>
                           <strong>{section.displayTitle}</strong>
                           <small>
-                            {section.completed}/{section.lessons.length}
+                            {section.completed}/{section.items?.length || section.lessons.length}
                             {section.duration ? ` | ${section.duration}` : ''}
-                            {section.quizzes?.length ? ` | ${section.quizzes.length} ${t('quizLabel')}` : ''}
                           </small>
                         </span>
                         <ChevronDown size={20} />
                       </button>
                       {isExpanded && (
                         <div className="curriculum-section-lessons">
-                          {section.lessons.map((video, lessonIndex) => {
-                            const isActive = String(video.id) === String(activeVideo?.id)
-                            const isWatched = watchedIds.has(String(video.id))
-                            const isLocked = video.locked
+                          {(section.items || []).map((contentItem, contentIndex) => {
+                            const item = contentItem.item
+                            const isVideo = contentItem.type === 'video'
+                            const isActive = isVideo
+                              ? String(item.id) === String(activeVideo?.id)
+                              : String(item.id) === String(activeQuiz?.id)
+                            const isWatched = isVideo && watchedIds.has(String(item.id))
+                            const isLocked = isVideo && item.locked
 
                             return (
                               <button
-                                key={video.id}
-                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isLocked ? ' locked' : ''}`}
-                                onClick={() => selectLesson(section.id, video.id)}
+                                key={`${contentItem.type}-${item.id}`}
+                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}`}
+                                onClick={() => (isVideo ? selectLesson(section.id, item.id) : selectQuiz(section.id, item.id))}
                               >
                                 <span className="lesson-status">
-                                  {isLocked ? <Lock size={19} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
+                                  {!isVideo ? <PlayCircle size={20} /> : isLocked ? <Lock size={19} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
                                 </span>
                                 <span className="lesson-copy">
-                                  <strong>{sectionIndex + 1}.{lessonIndex + 1} {video.displayTitle || video.title}</strong>
-                                  {(video.duration || isLocked) && (
+                                  <strong>{sectionIndex + 1}.{contentIndex + 1} {item.displayTitle || item.title}</strong>
+                                  {isVideo ? (item.duration || isLocked) && (
                                     <small>
-                                      {video.duration && <><Clock3 size={14} /> {video.duration}</>}
-                                      {isLocked && <span>{video.duration ? ' | ' : ''}{t('unlockFullCourse')}</span>}
+                                      {item.duration && <><Clock3 size={14} /> {item.duration}</>}
+                                      {isLocked && <span>{item.duration ? ' | ' : ''}{t('unlockFullCourse')}</span>}
                                     </small>
+                                  ) : (
+                                    <small>{item.questions?.length || 0} {t('questionCountLabel')}</small>
                                   )}
-                                </span>
-                              </button>
-                            )
-                          })}
-                          {(section.quizzes || []).map((quiz, quizIndex) => {
-                            const isActive = String(quiz.id) === String(activeQuiz?.id)
-
-                            return (
-                              <button
-                                key={`quiz-${quiz.id}`}
-                                className={isActive ? 'course-lesson-item active quiz-content-item' : 'course-lesson-item quiz-content-item'}
-                                onClick={() => selectQuiz(section.id, quiz.id)}
-                              >
-                                <span className="lesson-status">
-                                  <PlayCircle size={20} />
-                                </span>
-                                <span className="lesson-copy">
-                                  <strong>{sectionIndex + 1}.Q{quizIndex + 1} {quiz.title}</strong>
-                                  <small>{quiz.questions?.length || 0} {t('questionCountLabel')}</small>
                                 </span>
                               </button>
                             )
