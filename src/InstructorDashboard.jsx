@@ -1245,6 +1245,23 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setActiveQuizFormQuestionIndex((current) => Math.max(0, Math.min(current, quizForm.questions.length - 2)))
   }
 
+  const quizQuestionIsComplete = (question) => (
+    question?.prompt?.trim()
+    && question.options.every((option) => option.trim())
+  )
+
+  const saveCurrentQuizQuestion = () => {
+    if (!quizQuestionIsComplete(quizForm.questions[activeQuizFormQuestionIndex])) {
+      showMessage(t('quizFillAllFields'), 'error')
+      return
+    }
+
+    showMessage(t('quizQuestionSaved'), 'success')
+    if (activeQuizFormQuestionIndex < quizForm.questions.length - 1) {
+      setActiveQuizFormQuestionIndex((current) => current + 1)
+    }
+  }
+
   const getQuizSaveErrorMessage = (error) => {
     const message = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
     if (message.includes('course_quizzes') || message.includes('schema cache') || error?.code === 'PGRST205') {
@@ -2171,6 +2188,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   <button className="outline-button" type="button" onClick={addQuizQuestion}>
                                     <Plus size={16} /> {t('addQuestion')}
                                   </button>
+                                  <button className="primary-button" type="button" onClick={saveCurrentQuizQuestion}>
+                                    {t('saveQuestion')}
+                                  </button>
                                 </div>
                                 <label>{t('quizQuestion')}</label>
                                 <textarea
@@ -2205,7 +2225,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   setQuizFormSectionId('')
                                   resetQuizForm()
                                 }}>{t('cancel')}</button>
-                                <button className="primary-button" type="button" onClick={() => saveQuiz(section, detailCourse.id)}>{t('saveQuiz')}</button>
+                                {safeQuizFormQuestionIndex === quizForm.questions.length - 1 && (
+                                  <button className="primary-button" type="button" onClick={() => saveQuiz(section, detailCourse.id)}>{t('saveQuiz')}</button>
+                                )}
                               </div>
                             </div>
                           )}

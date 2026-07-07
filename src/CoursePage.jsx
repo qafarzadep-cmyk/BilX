@@ -180,6 +180,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [activeQuizQuestionIndex, setActiveQuizQuestionIndex] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState({})
   const [checkedQuizId, setCheckedQuizId] = useState(null)
+  const [finishedQuizIds, setFinishedQuizIds] = useState({})
   const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
   const [curriculumSearch, setCurriculumSearch] = useState('')
   // Signed, short-lived Bunny embed URL for the lesson currently on screen.
@@ -427,6 +428,7 @@ function CoursePage({ user, profile, handleLogout }) {
     setActiveQuizId(quizId)
     setActiveQuizQuestionIndex(0)
     setCheckedQuizId(null)
+    setFinishedQuizIds((current) => ({ ...current, [quizId]: false }))
   }
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
@@ -764,17 +766,24 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeQuizAnswerKey = activeQuiz ? `${activeQuiz.id}:${safeActiveQuizQuestionIndex}` : ''
   const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuizAnswerKey] : undefined
   const activeQuizChecked = activeQuiz ? String(checkedQuizId) === activeQuizAnswerKey : false
+  const activeQuizFinished = activeQuiz ? Boolean(finishedQuizIds[activeQuiz.id]) : false
   const activeQuizExplanation = activeQuizQuestion && activeQuizAnswer !== undefined
     ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
     : ''
-  const activeQuizSection = activeQuiz
-    ? curriculumSections.find((section) => String(section.id) === String(activeQuiz.section_id))
-    : null
-  const activeQuizSectionQuizzes = activeQuizSection?.quizzes || []
-  const activeQuizIndex = activeQuiz
-    ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(activeQuiz.id))
-    : -1
-  const nextActiveQuiz = activeQuizIndex >= 0 ? activeQuizSectionQuizzes[activeQuizIndex + 1] : null
+  const activeQuizResults = activeQuizQuestions.map((question, index) => {
+    const answer = activeQuiz ? quizAnswers[`${activeQuiz.id}:${index}`] : undefined
+    const isCorrect = Number(answer) === Number(question.correctIndex)
+    return {
+      question,
+      index,
+      answer,
+      isCorrect,
+      selectedAnswer: answer !== undefined ? question.options?.[Number(answer)] || '' : '',
+      correctAnswer: question.options?.[Number(question.correctIndex)] || '',
+      explanation: answer !== undefined ? question.explanations?.[Number(answer)] || '' : '',
+    }
+  })
+  const activeQuizCorrectCount = activeQuizResults.filter((result) => result.isCorrect).length
   const hasNextActiveQuizQuestion = safeActiveQuizQuestionIndex < activeQuizQuestions.length - 1
   useEffect(() => {
     if (!playerBunnyId) {
@@ -1031,7 +1040,22 @@ function CoursePage({ user, profile, handleLogout }) {
                   <div className="quiz-player">
                     <p className="player-eyebrow">{t('quizLabel')}</p>
                     <h2>{activeQuiz.title}</h2>
-                    {activeQuizQuestion ? (
+                    {activeQuizFinished ? (
+                      <div className="quiz-question-card quiz-results-card">
+                        <span className="lesson-section-context">{t('quizResult')}</span>
+                        <strong>{t('quizScore').replace('{correct}', activeQuizCorrectCount).replace('{total}', activeQuizQuestions.length)}</strong>
+                        <div className="quiz-result-list">
+                          {activeQuizResults.map((result) => (
+                            <div className={result.isCorrect ? 'quiz-review-item correct' : 'quiz-review-item wrong'} key={result.index}>
+                              <strong>{result.index + 1}. {result.question.prompt}</strong>
+                              <p>{t('yourAnswer')}: {result.selectedAnswer || t('notAnswered')}</p>
+                              <p>{t('correctAnswerLabel')}: {result.correctAnswer}</p>
+                              {result.explanation && <p>{t('answerExplanation')}: {result.explanation}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : activeQuizQuestion ? (
                       <div className="quiz-question-card">
                         <span className="lesson-section-context">{`${safeActiveQuizQuestionIndex + 1}/${activeQuizQuestions.length || 1}`}</span>
                         <strong>{activeQuizQuestion.prompt}</strong>
@@ -1071,16 +1095,21 @@ function CoursePage({ user, profile, handleLogout }) {
                               {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                             </strong>
                           )}
-                          {(hasNextActiveQuizQuestion || nextActiveQuiz) && (
+                          {hasNextActiveQuizQuestion ? (
                             <button className="outline-button" type="button" onClick={() => {
-                              if (hasNextActiveQuizQuestion) {
-                                setActiveQuizQuestionIndex((current) => current + 1)
-                                setCheckedQuizId(null)
-                              } else {
-                                selectQuiz(activeQuizSection.id, nextActiveQuiz.id)
-                              }
+                              setActiveQuizQuestionIndex((current) => current + 1)
+                              setCheckedQuizId(null)
                             }}>
                               {t('nextButton')}
+                            </button>
+                          ) : (
+                            <button
+                              className="outline-button"
+                              type="button"
+                              disabled={activeQuizAnswer === undefined}
+                              onClick={() => setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))}
+                            >
+                              {t('finishQuiz')}
                             </button>
                           )}
                         </div>
