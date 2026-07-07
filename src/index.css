@@ -1301,7 +1301,7 @@ button {
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   box-sizing: border-box;
-  padding: 14px 34px;
+  padding: 20px 34px;
   background: #fff;
   color: #1c1d1f;
 }
@@ -1312,9 +1312,9 @@ button {
 }
 
 .quiz-player h2 {
-  margin: 2px 0 8px;
+  margin: 0 0 14px;
   font-size: 24px;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .quiz-question-card {
@@ -1323,12 +1323,35 @@ button {
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 10px;
 }
 
 .quiz-question-card > strong {
   font-size: 16px;
   line-height: 1.22;
+}
+
+.quiz-question-prompt {
+  display: grid;
+  gap: 6px;
+}
+
+.quiz-question-prompt span {
+  color: #4f5f7a;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.quiz-question-prompt strong {
+  color: #1c1d1f;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.quiz-question-prompt small {
+  color: #7a8394;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .quiz-answer-list {
@@ -1461,6 +1484,11 @@ button {
   height: 100%;
   max-height: 100%;
   padding: 12px 34px;
+}
+
+.instructor-quiz-preview > .quiz-start-card,
+.instructor-quiz-preview > .quiz-question-card {
+  grid-row: 1 / -1;
 }
 
 .instructor-quiz-preview h2 {

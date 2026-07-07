@@ -1038,7 +1038,6 @@ function CoursePage({ user, profile, handleLogout }) {
                   <div className="empty-player">{t('previewCourse')}</div>
                 ) : activeQuiz ? (
                   <div className="quiz-player">
-                    <p className="player-eyebrow">{t('quizLabel')}</p>
                     <h2>{activeQuiz.title}</h2>
                     {activeQuizFinished ? (
                       <div className="quiz-question-card quiz-results-card">
@@ -1058,7 +1057,11 @@ function CoursePage({ user, profile, handleLogout }) {
                     ) : activeQuizQuestion ? (
                       <div className="quiz-question-card">
                         <span className="lesson-section-context">{`${safeActiveQuizQuestionIndex + 1}/${activeQuizQuestions.length || 1}`}</span>
-                        <strong>{activeQuizQuestion.prompt}</strong>
+                        <div className="quiz-question-prompt">
+                          <span>{t('quizQuestion')} {safeActiveQuizQuestionIndex + 1}</span>
+                          <strong>{activeQuizQuestion.prompt}</strong>
+                          <small>{t('chooseCorrectOption')}</small>
+                        </div>
                         <div className="quiz-answer-list">
                           {(activeQuizQuestion.options || []).map((option, optionIndex) => {
                             const isSelected = Number(activeQuizAnswer) === optionIndex
@@ -1072,7 +1075,7 @@ function CoursePage({ user, profile, handleLogout }) {
                                 className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
                                 onClick={() => {
                                   setQuizAnswers((current) => ({ ...current, [activeQuizAnswerKey]: optionIndex }))
-                                  setCheckedQuizId(null)
+                                  setCheckedQuizId(activeQuizAnswerKey)
                                 }}
                               >
                                 <span>{optionIndex + 1}</span>
@@ -1082,14 +1085,6 @@ function CoursePage({ user, profile, handleLogout }) {
                           })}
                         </div>
                         <div className="quiz-player-actions">
-                          <button
-                            className="primary-button"
-                            type="button"
-                            disabled={activeQuizAnswer === undefined}
-                            onClick={() => setCheckedQuizId(activeQuizAnswerKey)}
-                          >
-                            {t('checkAnswer')}
-                          </button>
                           {activeQuizChecked && (
                             <strong className={Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? 'quiz-result correct' : 'quiz-result wrong'}>
                               {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrectCongrats') : t('quizWrongAnswer')}

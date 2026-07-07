@@ -1814,7 +1814,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <div className="youtube-player-shell">
                         {curriculumActiveQuiz ? (
                           <div className="quiz-player instructor-quiz-preview">
-                            <p className="player-eyebrow">{t('quizLabel')}</p>
                             {!curriculumQuizStarted ? (
                               <div className="quiz-start-card">
                                 <span className="lesson-section-context">
@@ -1833,7 +1832,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   {`${safeCurriculumQuizQuestionIndex + 1}/${curriculumQuizQuestions.length || 1}`}
                                 </span>
                                 <h2>{curriculumActiveQuiz.title}</h2>
-                                <strong>{curriculumQuizQuestion.prompt}</strong>
+                                <div className="quiz-question-prompt">
+                                  <span>{t('quizQuestion')} {safeCurriculumQuizQuestionIndex + 1}</span>
+                                  <strong>{curriculumQuizQuestion.prompt}</strong>
+                                  <small>{t('chooseCorrectOption')}</small>
+                                </div>
                                 <div className="quiz-answer-list">
                                   {(curriculumQuizQuestion.options || []).map((option, optionIndex) => {
                                     const isSelected = Number(curriculumQuizAnswer) === optionIndex
@@ -1847,7 +1850,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
                                       onClick={() => {
                                         setCurriculumQuizAnswers((current) => ({ ...current, [curriculumQuizAnswerKey]: optionIndex }))
-                                        setCurriculumQuizCheckedId('')
+                                        setCurriculumQuizCheckedId(curriculumQuizAnswerKey)
                                       }}
                                     >
                                       <span>{optionIndex + 1}</span>
@@ -1857,14 +1860,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   })}
                                 </div>
                                 <div className="quiz-player-actions">
-                                  <button
-                                    className="primary-button"
-                                    type="button"
-                                    disabled={curriculumQuizAnswer === undefined}
-                                    onClick={() => setCurriculumQuizCheckedId(curriculumQuizAnswerKey)}
-                                  >
-                                    {t('checkAnswer')}
-                                  </button>
                                   {curriculumQuizChecked && (
                                     <strong className={curriculumQuizIsCorrect ? 'quiz-result correct' : 'quiz-result wrong'}>
                                       {curriculumQuizIsCorrect ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
