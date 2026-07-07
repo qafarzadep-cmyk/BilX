@@ -1089,6 +1089,7 @@ function CoursePage({ user, profile, handleLogout }) {
                               <button
                                 type="button"
                                 key={optionIndex}
+                                disabled={activeQuizChecked}
                                 className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
                                 onClick={() => {
                                   setQuizAnswers((current) => ({ ...current, [activeQuizAnswerKey]: optionIndex }))
@@ -1108,7 +1109,7 @@ function CoursePage({ user, profile, handleLogout }) {
                             </strong>
                           )}
                           {hasNextActiveQuizQuestion ? (
-                            <button className="outline-button" type="button" disabled={activeQuizAnswer === undefined} onClick={() => {
+                            <button className="primary-button" type="button" disabled={activeQuizAnswer === undefined} onClick={() => {
                               setActiveQuizQuestionIndex((current) => current + 1)
                               setCheckedQuizId(null)
                             }}>
@@ -1116,7 +1117,7 @@ function CoursePage({ user, profile, handleLogout }) {
                             </button>
                           ) : (
                             <button
-                              className="outline-button"
+                              className="primary-button"
                               type="button"
                               disabled={activeQuizAnswer === undefined}
                               onClick={() => setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))}

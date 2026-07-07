@@ -1847,6 +1847,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     <button
                                       type="button"
                                       key={optionIndex}
+                                      disabled={curriculumQuizChecked}
                                       className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
                                       onClick={() => {
                                         setCurriculumQuizAnswers((current) => ({ ...current, [curriculumQuizAnswerKey]: optionIndex }))
@@ -1866,7 +1867,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     </strong>
                                   )}
                                   {(hasNextCurriculumQuizQuestion || nextActiveQuiz) && (
-                                    <button className="outline-button" type="button" disabled={curriculumQuizAnswer === undefined} onClick={() => {
+                                    <button className="primary-button" type="button" disabled={curriculumQuizAnswer === undefined} onClick={() => {
                                       if (hasNextCurriculumQuizQuestion) {
                                         setCurriculumQuizQuestionIndex((current) => current + 1)
                                         setCurriculumQuizCheckedId('')

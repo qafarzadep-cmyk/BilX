@@ -1386,6 +1386,11 @@ button {
   font-size: 13px;
 }
 
+.quiz-answer-option:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 .quiz-answer-option.selected {
   border-color: #315fba;
   background: #eef4ff;
