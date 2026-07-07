@@ -1871,7 +1871,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     </strong>
                                   )}
                                   {(hasNextCurriculumQuizQuestion || nextActiveQuiz) && (
-                                    <button className="outline-button" type="button" onClick={() => {
+                                    <button className="outline-button" type="button" disabled={curriculumQuizAnswer === undefined} onClick={() => {
                                       if (hasNextCurriculumQuizQuestion) {
                                         setCurriculumQuizQuestionIndex((current) => current + 1)
                                         setCurriculumQuizCheckedId('')

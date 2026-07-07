@@ -1096,7 +1096,7 @@ function CoursePage({ user, profile, handleLogout }) {
                             </strong>
                           )}
                           {hasNextActiveQuizQuestion ? (
-                            <button className="outline-button" type="button" onClick={() => {
+                            <button className="outline-button" type="button" disabled={activeQuizAnswer === undefined} onClick={() => {
                               setActiveQuizQuestionIndex((current) => current + 1)
                               setCheckedQuizId(null)
                             }}>
