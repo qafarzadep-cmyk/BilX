@@ -151,6 +151,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [requested, setRequested] = useState(false)
   const [activeVideoId, setActiveVideoId] = useState(null)
   const [activeQuizId, setActiveQuizId] = useState(null)
+  const [activeQuizQuestionIndex, setActiveQuizQuestionIndex] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState({})
   const [checkedQuizId, setCheckedQuizId] = useState(null)
   const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
@@ -361,6 +362,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return
     }
     setActiveQuizId(null)
+    setActiveQuizQuestionIndex(0)
     setCheckedQuizId(null)
     const sectionKey = String(sectionId)
     setExpandedSectionIds((current) => {
@@ -386,6 +388,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return next
     })
     setActiveQuizId(quizId)
+    setActiveQuizQuestionIndex(0)
     setCheckedQuizId(null)
   }
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
@@ -718,9 +721,12 @@ function CoursePage({ user, profile, handleLogout }) {
       : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
-  const activeQuizQuestion = activeQuiz?.questions?.[0] || null
-  const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuiz.id] : undefined
-  const activeQuizChecked = activeQuiz ? String(checkedQuizId) === String(activeQuiz.id) : false
+  const activeQuizQuestions = Array.isArray(activeQuiz?.questions) ? activeQuiz.questions : []
+  const safeActiveQuizQuestionIndex = Math.min(activeQuizQuestionIndex, Math.max(activeQuizQuestions.length - 1, 0))
+  const activeQuizQuestion = activeQuizQuestions[safeActiveQuizQuestionIndex] || null
+  const activeQuizAnswerKey = activeQuiz ? `${activeQuiz.id}:${safeActiveQuizQuestionIndex}` : ''
+  const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuizAnswerKey] : undefined
+  const activeQuizChecked = activeQuiz ? String(checkedQuizId) === activeQuizAnswerKey : false
   const activeQuizExplanation = activeQuizQuestion && activeQuizAnswer !== undefined
     ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
     : ''
@@ -732,6 +738,7 @@ function CoursePage({ user, profile, handleLogout }) {
     ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(activeQuiz.id))
     : -1
   const nextActiveQuiz = activeQuizIndex >= 0 ? activeQuizSectionQuizzes[activeQuizIndex + 1] : null
+  const hasNextActiveQuizQuestion = safeActiveQuizQuestionIndex < activeQuizQuestions.length - 1
   useEffect(() => {
     if (!playerBunnyId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -989,6 +996,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <h2>{activeQuiz.title}</h2>
                     {activeQuizQuestion ? (
                       <div className="quiz-question-card">
+                        <span className="lesson-section-context">{`${safeActiveQuizQuestionIndex + 1}/${activeQuizQuestions.length || 1}`}</span>
                         <strong>{activeQuizQuestion.prompt}</strong>
                         <div className="quiz-answer-list">
                           {(activeQuizQuestion.options || []).map((option, optionIndex) => {
@@ -1002,7 +1010,7 @@ function CoursePage({ user, profile, handleLogout }) {
                                 key={optionIndex}
                                 className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
                                 onClick={() => {
-                                  setQuizAnswers((current) => ({ ...current, [activeQuiz.id]: optionIndex }))
+                                  setQuizAnswers((current) => ({ ...current, [activeQuizAnswerKey]: optionIndex }))
                                   setCheckedQuizId(null)
                                 }}
                               >
@@ -1017,7 +1025,7 @@ function CoursePage({ user, profile, handleLogout }) {
                             className="primary-button"
                             type="button"
                             disabled={activeQuizAnswer === undefined}
-                            onClick={() => setCheckedQuizId(activeQuiz.id)}
+                            onClick={() => setCheckedQuizId(activeQuizAnswerKey)}
                           >
                             {t('checkAnswer')}
                           </button>
@@ -1026,8 +1034,15 @@ function CoursePage({ user, profile, handleLogout }) {
                               {Number(activeQuizAnswer) === Number(activeQuizQuestion.correctIndex) ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                             </strong>
                           )}
-                          {nextActiveQuiz && (
-                            <button className="outline-button" type="button" onClick={() => selectQuiz(activeQuizSection.id, nextActiveQuiz.id)}>
+                          {(hasNextActiveQuizQuestion || nextActiveQuiz) && (
+                            <button className="outline-button" type="button" onClick={() => {
+                              if (hasNextActiveQuizQuestion) {
+                                setActiveQuizQuestionIndex((current) => current + 1)
+                                setCheckedQuizId(null)
+                              } else {
+                                selectQuiz(activeQuizSection.id, nextActiveQuiz.id)
+                              }
+                            }}>
                               {t('nextButton')}
                             </button>
                           )}

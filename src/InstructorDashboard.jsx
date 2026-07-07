@@ -60,6 +60,15 @@ function normalizeSearchText(value) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+function createEmptyQuizQuestion() {
+  return {
+    prompt: '',
+    options: ['', '', '', ''],
+    explanations: ['', '', '', ''],
+    correctIndex: 0,
+  }
+}
+
 function LocalizedFileInput({ accept, disabled, file, onChange, t, onFocus }) {
   const inputId = useId()
 
@@ -119,16 +128,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [editingQuizId, setEditingQuizId] = useState('')
   const [quizForm, setQuizForm] = useState({
     title: '',
-    question: '',
-    options: ['', '', '', ''],
-    explanations: ['', '', '', ''],
-    correctIndex: 0,
+    questions: [createEmptyQuizQuestion()],
   })
   const [uploadPercent, setUploadPercent] = useState(0)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [curriculumVideoId, setCurriculumVideoId] = useState('')
   const [curriculumQuizId, setCurriculumQuizId] = useState('')
   const [curriculumQuizStarted, setCurriculumQuizStarted] = useState(false)
+  const [curriculumQuizQuestionIndex, setCurriculumQuizQuestionIndex] = useState(0)
   const [curriculumQuizAnswers, setCurriculumQuizAnswers] = useState({})
   const [curriculumQuizCheckedId, setCurriculumQuizCheckedId] = useState('')
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
@@ -319,6 +326,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCurriculumVideoId(videoId)
     setCurriculumQuizId('')
     setCurriculumQuizStarted(false)
+    setCurriculumQuizQuestionIndex(0)
     setCurriculumQuizCheckedId('')
     if (video.section_id) setSelectedSectionId(String(video.section_id))
     setSearchParams({ course: String(requestedCourseId), view: 'curriculum', lesson: videoId }, { replace: true })
@@ -329,6 +337,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setCurriculumQuizId(quizId)
     setCurriculumVideoId('')
     setCurriculumQuizStarted(false)
+    setCurriculumQuizQuestionIndex(0)
     setCurriculumQuizCheckedId('')
     if (quiz.section_id) {
       setSelectedSectionId(String(quiz.section_id))
@@ -1104,10 +1113,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     setEditingQuizId('')
     setQuizForm({
       title: '',
-      question: '',
-      options: ['', '', '', ''],
-      explanations: ['', '', '', ''],
-      correctIndex: 0,
+      questions: [createEmptyQuizQuestion()],
     })
   }
 
@@ -1117,37 +1123,91 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   }
 
   const editQuiz = (quiz) => {
-    const question = quiz.questions?.[0] || {}
-    const options = [...(question.options || [])]
-    const explanations = [...(question.explanations || [])]
-    while (options.length < 4) options.push('')
-    while (explanations.length < 4) explanations.push('')
+    const questions = Array.isArray(quiz.questions) && quiz.questions.length > 0
+      ? quiz.questions
+      : [createEmptyQuizQuestion()]
     setEditingQuizId(String(quiz.id))
     setQuizFormSectionId(String(quiz.section_id))
     setQuizForm({
       title: quiz.title || '',
-      question: question.prompt || '',
-      options: options.slice(0, 4),
-      explanations: explanations.slice(0, 4),
-      correctIndex: Number(question.correctIndex) || 0,
+      questions: questions.map((question) => {
+        const options = [...(question.options || [])]
+        const explanations = [...(question.explanations || [])]
+        while (options.length < 4) options.push('')
+        while (explanations.length < 4) explanations.push('')
+        return {
+          prompt: question.prompt || '',
+          options: options.slice(0, 4),
+          explanations: explanations.slice(0, 4),
+          correctIndex: Number(question.correctIndex) || 0,
+        }
+      }),
     })
   }
 
-  const updateQuizOption = (index, value) => {
+  const updateQuizQuestionPrompt = (questionIndex, value) => {
     setQuizForm((current) => ({
       ...current,
-      options: current.options.map((option, optionIndex) => (
-        optionIndex === index ? value : option
+      questions: current.questions.map((question, index) => (
+        index === questionIndex ? { ...question, prompt: value } : question
       )),
     }))
   }
 
-  const updateQuizExplanation = (index, value) => {
+  const updateQuizOption = (questionIndex, optionIndex, value) => {
     setQuizForm((current) => ({
       ...current,
-      explanations: current.explanations.map((explanation, explanationIndex) => (
-        explanationIndex === index ? value : explanation
+      questions: current.questions.map((question, index) => (
+        index === questionIndex
+          ? {
+              ...question,
+              options: question.options.map((option, currentOptionIndex) => (
+                currentOptionIndex === optionIndex ? value : option
+              )),
+            }
+          : question
       )),
+    }))
+  }
+
+  const updateQuizExplanation = (questionIndex, optionIndex, value) => {
+    setQuizForm((current) => ({
+      ...current,
+      questions: current.questions.map((question, index) => (
+        index === questionIndex
+          ? {
+              ...question,
+              explanations: question.explanations.map((explanation, currentExplanationIndex) => (
+                currentExplanationIndex === optionIndex ? value : explanation
+              )),
+            }
+          : question
+      )),
+    }))
+  }
+
+  const updateQuizCorrectAnswer = (questionIndex, optionIndex) => {
+    setQuizForm((current) => ({
+      ...current,
+      questions: current.questions.map((question, index) => (
+        index === questionIndex ? { ...question, correctIndex: optionIndex } : question
+      )),
+    }))
+  }
+
+  const addQuizQuestion = () => {
+    setQuizForm((current) => ({
+      ...current,
+      questions: [...current.questions, createEmptyQuizQuestion()],
+    }))
+  }
+
+  const removeQuizQuestion = (questionIndex) => {
+    setQuizForm((current) => ({
+      ...current,
+      questions: current.questions.length === 1
+        ? current.questions
+        : current.questions.filter((_, index) => index !== questionIndex),
     }))
   }
 
@@ -1162,9 +1222,16 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const saveQuiz = async (section, courseIdOverride = '') => {
     const targetCourseId = courseIdOverride || visibleSelectedCourse?.id || requestedCourseId || selectedCourseId
     if (!section || !targetCourseId) return
-    const cleanOptions = quizForm.options.map((option) => option.trim())
-    const cleanExplanations = quizForm.explanations.map((explanation) => explanation.trim())
-    if (!quizForm.title.trim() || !quizForm.question.trim() || cleanOptions.some((option) => !option)) {
+    const cleanQuestions = quizForm.questions.map((question) => ({
+      prompt: question.prompt.trim(),
+      options: question.options.map((option) => option.trim()),
+      explanations: question.explanations.map((explanation) => explanation.trim()),
+      correctIndex: Number(question.correctIndex),
+    }))
+    if (
+      !quizForm.title.trim()
+      || cleanQuestions.some((question) => !question.prompt || question.options.some((option) => !option))
+    ) {
       showMessage(t('quizFillAllFields'), 'error')
       return
     }
@@ -1177,12 +1244,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       order_index: editingQuizId
         ? sectionQuizzes.find((quiz) => String(quiz.id) === String(editingQuizId))?.order_index || sectionQuizzes.length + 1
         : sectionQuizzes.length + 1,
-      questions: [{
-        prompt: quizForm.question.trim(),
-        options: cleanOptions,
-        explanations: cleanExplanations,
-        correctIndex: Number(quizForm.correctIndex),
-      }],
+      questions: cleanQuestions,
     }
     const query = editingQuizId
       ? supabase.from('course_quizzes').update(quizPayload).eq('id', editingQuizId)
@@ -1485,15 +1547,19 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       ? activeQuizSectionQuizzes.findIndex((quiz) => String(quiz.id) === String(curriculumActiveQuiz.id))
       : -1
     const nextActiveQuiz = activeQuizIndex >= 0 ? activeQuizSectionQuizzes[activeQuizIndex + 1] : null
-    const curriculumQuizQuestion = curriculumActiveQuiz?.questions?.[0] || null
-    const curriculumQuizAnswer = curriculumActiveQuiz ? curriculumQuizAnswers[curriculumActiveQuiz.id] : undefined
-    const curriculumQuizChecked = curriculumActiveQuiz ? String(curriculumQuizCheckedId) === String(curriculumActiveQuiz.id) : false
+    const curriculumQuizQuestions = Array.isArray(curriculumActiveQuiz?.questions) ? curriculumActiveQuiz.questions : []
+    const safeCurriculumQuizQuestionIndex = Math.min(curriculumQuizQuestionIndex, Math.max(curriculumQuizQuestions.length - 1, 0))
+    const curriculumQuizQuestion = curriculumQuizQuestions[safeCurriculumQuizQuestionIndex] || null
+    const curriculumQuizAnswerKey = curriculumActiveQuiz ? `${curriculumActiveQuiz.id}:${safeCurriculumQuizQuestionIndex}` : ''
+    const curriculumQuizAnswer = curriculumActiveQuiz ? curriculumQuizAnswers[curriculumQuizAnswerKey] : undefined
+    const curriculumQuizChecked = curriculumActiveQuiz ? String(curriculumQuizCheckedId) === curriculumQuizAnswerKey : false
     const curriculumQuizIsCorrect = curriculumQuizQuestion
       ? Number(curriculumQuizAnswer) === Number(curriculumQuizQuestion.correctIndex)
       : false
     const curriculumQuizExplanation = curriculumQuizQuestion && curriculumQuizAnswer !== undefined
       ? curriculumQuizQuestion.explanations?.[Number(curriculumQuizAnswer)] || ''
       : ''
+    const hasNextCurriculumQuizQuestion = safeCurriculumQuizQuestionIndex < curriculumQuizQuestions.length - 1
     const curriculumSearchTerm = curriculumSearch.trim()
     const visibleDetailSections = curriculumSearchTerm
       ? detailSections.map((section) => {
@@ -1671,7 +1737,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             ) : curriculumQuizQuestion ? (
                               <div className="quiz-question-card">
                                 <span className="lesson-section-context">
-                                  {activeQuizIndex >= 0 ? `${activeQuizIndex + 1}/${activeQuizSectionQuizzes.length}` : `1/${activeQuizSectionQuizzes.length || 1}`}
+                                  {`${safeCurriculumQuizQuestionIndex + 1}/${curriculumQuizQuestions.length || 1}`}
                                 </span>
                                 <h2>{curriculumActiveQuiz.title}</h2>
                                 <strong>{curriculumQuizQuestion.prompt}</strong>
@@ -1687,7 +1753,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       key={optionIndex}
                                       className={`quiz-answer-option${isSelected ? ' selected' : ''}${showCorrect ? ' correct' : ''}${showWrong ? ' wrong' : ''}`}
                                       onClick={() => {
-                                        setCurriculumQuizAnswers((current) => ({ ...current, [curriculumActiveQuiz.id]: optionIndex }))
+                                        setCurriculumQuizAnswers((current) => ({ ...current, [curriculumQuizAnswerKey]: optionIndex }))
                                         setCurriculumQuizCheckedId('')
                                       }}
                                     >
@@ -1702,7 +1768,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                     className="primary-button"
                                     type="button"
                                     disabled={curriculumQuizAnswer === undefined}
-                                    onClick={() => setCurriculumQuizCheckedId(curriculumActiveQuiz.id)}
+                                    onClick={() => setCurriculumQuizCheckedId(curriculumQuizAnswerKey)}
                                   >
                                     {t('checkAnswer')}
                                   </button>
@@ -1711,8 +1777,15 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       {curriculumQuizIsCorrect ? t('quizCorrectCongrats') : t('quizWrongAnswer')}
                                     </strong>
                                   )}
-                                  {nextActiveQuiz && (
-                                    <button className="outline-button" type="button" onClick={() => selectCurriculumQuiz(nextActiveQuiz)}>
+                                  {(hasNextCurriculumQuizQuestion || nextActiveQuiz) && (
+                                    <button className="outline-button" type="button" onClick={() => {
+                                      if (hasNextCurriculumQuizQuestion) {
+                                        setCurriculumQuizQuestionIndex((current) => current + 1)
+                                        setCurriculumQuizCheckedId('')
+                                      } else {
+                                        selectCurriculumQuiz(nextActiveQuiz)
+                                      }
+                                    }}>
                                       {t('nextButton')}
                                     </button>
                                   )}
@@ -2030,28 +2103,48 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                               <h3>{editingQuizId ? t('editQuiz') : t('createQuiz')}</h3>
                               <label>{t('quizTitle')}</label>
                               <input value={quizForm.title} onChange={(event) => setQuizForm({ ...quizForm, title: event.target.value })} placeholder={t('quizTitlePlaceholder')} />
-                              <label>{t('quizQuestion')}</label>
-                              <textarea rows={3} value={quizForm.question} onChange={(event) => setQuizForm({ ...quizForm, question: event.target.value })} placeholder={t('quizQuestionPlaceholder')} />
-                              {quizForm.options.map((option, optionIndex) => (
-                                <div className="quiz-option-editor" key={optionIndex}>
-                                  <label>
-                                    <input
-                                      type="radio"
-                                      name={`quiz-correct-${section.id}`}
-                                      checked={Number(quizForm.correctIndex) === optionIndex}
-                                      onChange={() => setQuizForm({ ...quizForm, correctIndex: optionIndex })}
-                                    />
-                                    <span>{t('answerLabel')} {optionIndex + 1}</span>
-                                  </label>
-                                  <input value={option} onChange={(event) => updateQuizOption(optionIndex, event.target.value)} />
+                              {quizForm.questions.map((question, questionIndex) => (
+                                <div className="quiz-question-editor" key={questionIndex}>
+                                  <div className="quiz-question-editor-heading">
+                                    <strong>{t('quizQuestion')} {questionIndex + 1}</strong>
+                                    {quizForm.questions.length > 1 && (
+                                      <button className="icon-danger-button" type="button" onClick={() => removeQuizQuestion(questionIndex)} title={t('delete')}>
+                                        <Trash2 size={16} />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <label>{t('quizQuestion')}</label>
                                   <textarea
-                                    rows={2}
-                                    value={quizForm.explanations[optionIndex]}
-                                    onChange={(event) => updateQuizExplanation(optionIndex, event.target.value)}
-                                    placeholder={t('answerExplanationPlaceholder')}
+                                    rows={3}
+                                    value={question.prompt}
+                                    onChange={(event) => updateQuizQuestionPrompt(questionIndex, event.target.value)}
+                                    placeholder={t('quizQuestionPlaceholder')}
                                   />
+                                  {question.options.map((option, optionIndex) => (
+                                    <div className="quiz-option-editor" key={optionIndex}>
+                                      <label>
+                                        <input
+                                          type="radio"
+                                          name={`quiz-correct-${section.id}-${questionIndex}`}
+                                          checked={Number(question.correctIndex) === optionIndex}
+                                          onChange={() => updateQuizCorrectAnswer(questionIndex, optionIndex)}
+                                        />
+                                        <span>{t('answerLabel')} {optionIndex + 1}</span>
+                                      </label>
+                                      <input value={option} onChange={(event) => updateQuizOption(questionIndex, optionIndex, event.target.value)} />
+                                      <textarea
+                                        rows={2}
+                                        value={question.explanations[optionIndex]}
+                                        onChange={(event) => updateQuizExplanation(questionIndex, optionIndex, event.target.value)}
+                                        placeholder={t('answerExplanationPlaceholder')}
+                                      />
+                                    </div>
+                                  ))}
                                 </div>
                               ))}
+                              <button className="outline-button quiz-create-toggle" type="button" onClick={addQuizQuestion}>
+                                <Plus size={16} /> {t('addQuestion')}
+                              </button>
                               <div className="instructor-edit-actions">
                                 <button className="outline-button" type="button" onClick={() => {
                                   setQuizFormSectionId('')

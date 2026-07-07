@@ -2289,6 +2289,22 @@ button {
   margin: 0;
 }
 
+.quiz-question-editor {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #d7dce5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.quiz-question-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .quiz-option-editor {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
