@@ -781,6 +781,13 @@ function CoursePage({ user, profile, handleLogout }) {
       selectedAnswer: answer !== undefined ? question.options?.[Number(answer)] || '' : '',
       correctAnswer: question.options?.[Number(question.correctIndex)] || '',
       explanation: answer !== undefined ? question.explanations?.[Number(answer)] || '' : '',
+      options: (question.options || []).map((option, optionIndex) => ({
+        option,
+        optionIndex,
+        explanation: question.explanations?.[optionIndex] || '',
+        isSelected: Number(answer) === optionIndex,
+        isCorrect: Number(question.correctIndex) === optionIndex,
+      })),
     }
   })
   const activeQuizCorrectCount = activeQuizResults.filter((result) => result.isCorrect).length
@@ -1049,7 +1056,17 @@ function CoursePage({ user, profile, handleLogout }) {
                               <strong>{result.index + 1}. {result.question.prompt}</strong>
                               <p>{t('yourAnswer')}: {result.selectedAnswer || t('notAnswered')}</p>
                               <p>{t('correctAnswerLabel')}: {result.correctAnswer}</p>
-                              {result.explanation && <p>{t('answerExplanation')}: {result.explanation}</p>}
+                              <div className="quiz-review-answer-list">
+                                {result.options.map((option) => (
+                                  <div
+                                    className={`quiz-review-answer${option.isCorrect ? ' correct' : ''}${option.isSelected ? ' selected' : ''}`}
+                                    key={option.optionIndex}
+                                  >
+                                    <strong>{option.optionIndex + 1}. {option.option}</strong>
+                                    {option.explanation && <p>{t('answerExplanation')}: {option.explanation}</p>}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1104,7 +1121,7 @@ function CoursePage({ user, profile, handleLogout }) {
                               disabled={activeQuizAnswer === undefined}
                               onClick={() => setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))}
                             >
-                              {t('finishQuiz')}
+                              {t('seeAllResults')}
                             </button>
                           )}
                         </div>

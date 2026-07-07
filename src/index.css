@@ -1449,7 +1449,7 @@ button {
 
 .quiz-result-list {
   min-height: 0;
-  max-height: 220px;
+  max-height: 260px;
   display: grid;
   gap: 8px;
   overflow-y: auto;
@@ -1480,6 +1480,37 @@ button {
   color: #4f5f7a;
   font-size: 13px;
   line-height: 1.3;
+}
+
+.quiz-review-answer-list {
+  display: grid;
+  gap: 5px;
+}
+
+.quiz-review-answer {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #d7dce5;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.quiz-review-answer.correct {
+  border-color: #218739;
+}
+
+.quiz-review-answer.selected:not(.correct) {
+  border-color: #c2410c;
+}
+
+.quiz-review-answer strong {
+  font-size: 13px;
+}
+
+.quiz-review-answer p {
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .instructor-quiz-preview {
