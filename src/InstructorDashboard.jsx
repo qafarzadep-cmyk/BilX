@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardList, Eye, EyeOff, FolderPlus, GripVertical, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardList, Eye, EyeOff, FolderPlus, GripVertical, Maximize2, Minimize2, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import { InboxPanel } from './Inbox'
@@ -176,6 +176,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const [curriculumQuizAnswers, setCurriculumQuizAnswers] = useState({})
   const [curriculumQuizCheckedId, setCurriculumQuizCheckedId] = useState('')
   const [curriculumFinishedQuizIds, setCurriculumFinishedQuizIds] = useState({})
+  const [curriculumQuizExpanded, setCurriculumQuizExpanded] = useState(false)
   const [curriculumSignedUrl, setCurriculumSignedUrl] = useState('')
   const [curriculumPlaybackError, setCurriculumPlaybackError] = useState(false)
   const [curriculumOpenSections, setCurriculumOpenSections] = useState(() => new Set())
@@ -227,6 +228,22 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   useEffect(() => () => {
     if (coverPreviewUrlRef.current) URL.revokeObjectURL(coverPreviewUrlRef.current)
   }, [])
+
+  useEffect(() => {
+    if (!curriculumQuizExpanded) return undefined
+
+    document.body.classList.add('quiz-fullscreen-open')
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setCurriculumQuizExpanded(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.classList.remove('quiz-fullscreen-open')
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [curriculumQuizExpanded])
 
   const showMessage = (text, type = 'notice') => {
     setMessage(text)
@@ -1660,6 +1677,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const curriculumQuizAnswer = curriculumActiveQuiz ? curriculumQuizAnswers[curriculumQuizAnswerKey] : undefined
     const curriculumQuizChecked = curriculumActiveQuiz ? String(curriculumQuizCheckedId) === curriculumQuizAnswerKey : false
     const curriculumQuizFinished = curriculumActiveQuiz ? Boolean(curriculumFinishedQuizIds[curriculumActiveQuiz.id]) : false
+    const curriculumQuizIsExpanded = Boolean(curriculumActiveQuiz && curriculumQuizExpanded)
     const curriculumQuizIsCorrect = curriculumQuizQuestion
       ? Number(curriculumQuizAnswer) === Number(curriculumQuizQuestion.correctIndex)
       : false
@@ -1849,13 +1867,25 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                     <div className="course-player-main">
                       <div className="youtube-player-shell">
                         {curriculumActiveQuiz ? (
-                          <div className="quiz-player instructor-quiz-preview">
+                          <div className={curriculumQuizIsExpanded ? 'quiz-player instructor-quiz-preview quiz-player-expanded' : 'quiz-player instructor-quiz-preview'}>
+                            <div className="quiz-player-header">
+                              <h2>{curriculumActiveQuiz.title}</h2>
+                              <button
+                                className="quiz-expand-button"
+                                type="button"
+                                onClick={() => setCurriculumQuizExpanded((current) => !current)}
+                                title={curriculumQuizIsExpanded ? t('collapseQuiz') : t('expandQuiz')}
+                                aria-label={curriculumQuizIsExpanded ? t('collapseQuiz') : t('expandQuiz')}
+                              >
+                                {curriculumQuizIsExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                              </button>
+                            </div>
                             {curriculumQuizFinished ? (
                               <div className="quiz-question-card quiz-results-card">
                                 <span className="lesson-section-context">{t('quizResult')}</span>
-                                <h2>{curriculumActiveQuiz.title}</h2>
                                 <strong>{t('quizScore').replace('{correct}', curriculumQuizCorrectCount).replace('{total}', curriculumQuizQuestions.length)}</strong>
                                 <QuizResultSummary correctCount={curriculumQuizCorrectCount} totalCount={curriculumQuizQuestions.length} t={t} />
+                                <h3 className="quiz-review-heading">{t('quizCheckAnswers')}</h3>
                                 <div className="quiz-result-list">
                                   {curriculumQuizResults.map((result) => (
                                     <div className={result.isCorrect ? 'quiz-review-item correct' : 'quiz-review-item wrong'} key={result.index}>
@@ -1882,7 +1912,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <span className="lesson-section-context">
                                   {activeQuizSection ? getSectionLabel(activeQuizSection, activeQuizSectionIndex) : t('sectionLabel')}
                                 </span>
-                                <h2>{curriculumActiveQuiz.title}</h2>
                                 <p>{t('quizSectionIntro')}</p>
                                 <strong>{curriculumActiveQuiz.questions?.length || 0} {t('questionCountLabel')}</strong>
                                 <button className="primary-button" type="button" onClick={() => setCurriculumQuizStarted(true)}>
@@ -1894,7 +1923,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <span className="lesson-section-context">
                                   {`${safeCurriculumQuizQuestionIndex + 1}/${curriculumQuizQuestions.length || 1}`}
                                 </span>
-                                <h2>{curriculumActiveQuiz.title}</h2>
                                 <div className="quiz-question-prompt">
                                   <span>{t('quizQuestion')} {safeCurriculumQuizQuestionIndex + 1}</span>
                                   <strong>{curriculumQuizQuestion.prompt}</strong>

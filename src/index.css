@@ -1306,6 +1306,51 @@ button {
   color: #1c1d1f;
 }
 
+body.quiz-fullscreen-open {
+  overflow: hidden;
+}
+
+.quiz-player-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  width: 100vw;
+  height: 100dvh;
+  padding: 18px clamp(16px, 4vw, 56px);
+  background: #fff;
+}
+
+.quiz-player-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.quiz-player-header h2,
+.quiz-player .quiz-player-header h2 {
+  min-width: 0;
+  margin: 0;
+}
+
+.quiz-expand-button {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d7dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #1435c3;
+  box-shadow: 0 4px 14px rgba(28, 29, 31, 0.08);
+}
+
+.quiz-expand-button:hover {
+  background: #f4f6ff;
+}
+
 .quiz-player .player-eyebrow {
   margin-bottom: 4px;
   font-size: 12px;
@@ -1324,6 +1369,17 @@ button {
   display: grid;
   align-content: start;
   gap: 7px;
+}
+
+.quiz-player-expanded .quiz-question-card {
+  width: min(1120px, 100%);
+  max-width: none;
+  height: 100%;
+}
+
+.quiz-player-expanded .quiz-question-card:not(.quiz-results-card) {
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .quiz-question-card > strong {
@@ -1452,6 +1508,11 @@ button {
   align-content: start;
 }
 
+.quiz-player-expanded .quiz-results-card {
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
 .quiz-result-summary {
   display: grid;
   gap: 8px;
@@ -1519,6 +1580,13 @@ button {
   line-height: 1.35;
 }
 
+.quiz-review-heading {
+  margin: 10px 0 2px;
+  color: #1c1d1f;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
 .quiz-result-list {
   min-height: 0;
   max-height: 260px;
@@ -1526,6 +1594,10 @@ button {
   gap: 8px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.quiz-player-expanded .quiz-result-list {
+  max-height: none;
 }
 
 .quiz-review-item {
@@ -1593,7 +1665,7 @@ button {
 
 .instructor-quiz-preview > .quiz-start-card,
 .instructor-quiz-preview > .quiz-question-card {
-  grid-row: 1 / -1;
+  grid-row: auto;
 }
 
 .instructor-quiz-preview h2 {

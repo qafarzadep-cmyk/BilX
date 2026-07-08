@@ -1,5 +1,6 @@
 function getQuizResultMessageKey(correctCount, wrongCount) {
   if (wrongCount === 0) return 'quizResultAllCorrect'
+  if (wrongCount === 1) return 'quizResultOneWrong'
   return wrongCount > correctCount ? 'quizResultNeedsReview' : 'quizResultLightReview'
 }
 

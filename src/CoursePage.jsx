@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, ExternalLink, Lock, Play, PlayCircle, Share2, X } from 'lucide-react'
+import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, ExternalLink, Lock, Maximize2, Minimize2, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -182,6 +182,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [quizAnswers, setQuizAnswers] = useState({})
   const [checkedQuizId, setCheckedQuizId] = useState(null)
   const [finishedQuizIds, setFinishedQuizIds] = useState({})
+  const [quizExpanded, setQuizExpanded] = useState(false)
   const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
   const [curriculumSearch, setCurriculumSearch] = useState('')
   // Signed, short-lived Bunny embed URL for the lesson currently on screen.
@@ -768,6 +769,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuizAnswerKey] : undefined
   const activeQuizChecked = activeQuiz ? String(checkedQuizId) === activeQuizAnswerKey : false
   const activeQuizFinished = activeQuiz ? Boolean(finishedQuizIds[activeQuiz.id]) : false
+  const activeQuizExpanded = Boolean(activeQuiz && quizExpanded)
   const activeQuizExplanation = activeQuizQuestion && activeQuizAnswer !== undefined
     ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
     : ''
@@ -793,6 +795,23 @@ function CoursePage({ user, profile, handleLogout }) {
   })
   const activeQuizCorrectCount = activeQuizResults.filter((result) => result.isCorrect).length
   const hasNextActiveQuizQuestion = safeActiveQuizQuestionIndex < activeQuizQuestions.length - 1
+
+  useEffect(() => {
+    if (!activeQuizExpanded) return undefined
+
+    document.body.classList.add('quiz-fullscreen-open')
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setQuizExpanded(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.classList.remove('quiz-fullscreen-open')
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [activeQuizExpanded])
+
   useEffect(() => {
     if (!playerBunnyId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1045,13 +1064,25 @@ function CoursePage({ user, profile, handleLogout }) {
                 {previewModalOpen ? (
                   <div className="empty-player">{t('previewCourse')}</div>
                 ) : activeQuiz ? (
-                  <div className="quiz-player">
-                    <h2>{activeQuiz.title}</h2>
+                  <div className={activeQuizExpanded ? 'quiz-player quiz-player-expanded' : 'quiz-player'}>
+                    <div className="quiz-player-header">
+                      <h2>{activeQuiz.title}</h2>
+                      <button
+                        className="quiz-expand-button"
+                        type="button"
+                        onClick={() => setQuizExpanded((current) => !current)}
+                        title={activeQuizExpanded ? t('collapseQuiz') : t('expandQuiz')}
+                        aria-label={activeQuizExpanded ? t('collapseQuiz') : t('expandQuiz')}
+                      >
+                        {activeQuizExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                      </button>
+                    </div>
                     {activeQuizFinished ? (
                       <div className="quiz-question-card quiz-results-card">
                         <span className="lesson-section-context">{t('quizResult')}</span>
                         <strong>{t('quizScore').replace('{correct}', activeQuizCorrectCount).replace('{total}', activeQuizQuestions.length)}</strong>
                         <QuizResultSummary correctCount={activeQuizCorrectCount} totalCount={activeQuizQuestions.length} t={t} />
+                        <h3 className="quiz-review-heading">{t('quizCheckAnswers')}</h3>
                         <div className="quiz-result-list">
                           {activeQuizResults.map((result) => (
                             <div className={result.isCorrect ? 'quiz-review-item correct' : 'quiz-review-item wrong'} key={result.index}>
