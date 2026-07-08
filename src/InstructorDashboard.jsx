@@ -5,6 +5,7 @@ import * as tus from 'tus-js-client'
 import { getCourseAuthorName } from './courseAuthors'
 import { InboxPanel } from './Inbox'
 import Navbar from './Navbar'
+import QuizResultSummary from './QuizResultSummary'
 import { useLanguage } from './i18n'
 import { supabase } from './supabase'
 
@@ -1854,6 +1855,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <span className="lesson-section-context">{t('quizResult')}</span>
                                 <h2>{curriculumActiveQuiz.title}</h2>
                                 <strong>{t('quizScore').replace('{correct}', curriculumQuizCorrectCount).replace('{total}', curriculumQuizQuestions.length)}</strong>
+                                <QuizResultSummary correctCount={curriculumQuizCorrectCount} totalCount={curriculumQuizQuestions.length} t={t} />
                                 <div className="quiz-result-list">
                                   {curriculumQuizResults.map((result) => (
                                     <div className={result.isCorrect ? 'quiz-review-item correct' : 'quiz-review-item wrong'} key={result.index}>

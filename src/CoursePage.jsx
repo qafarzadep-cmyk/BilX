@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import Navbar from './Navbar'
+import QuizResultSummary from './QuizResultSummary'
 import { useLanguage } from './i18n'
 import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
@@ -1050,6 +1051,7 @@ function CoursePage({ user, profile, handleLogout }) {
                       <div className="quiz-question-card quiz-results-card">
                         <span className="lesson-section-context">{t('quizResult')}</span>
                         <strong>{t('quizScore').replace('{correct}', activeQuizCorrectCount).replace('{total}', activeQuizQuestions.length)}</strong>
+                        <QuizResultSummary correctCount={activeQuizCorrectCount} totalCount={activeQuizQuestions.length} t={t} />
                         <div className="quiz-result-list">
                           {activeQuizResults.map((result) => (
                             <div className={result.isCorrect ? 'quiz-review-item correct' : 'quiz-review-item wrong'} key={result.index}>
