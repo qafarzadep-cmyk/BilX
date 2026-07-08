@@ -2040,7 +2040,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <button type="button" onClick={() => selectCurriculumSection(section, sectionItems)}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                                    <small>{sectionItems.length} {t('courseLessons')}</small>
+                                    <small>{sectionVideos.length} {t('courseLessons')} | {sectionQuizzes.length} {t('quizLabel')}</small>
                                   </span>
                                   <ArrowDown size={18} />
                                 </button>
@@ -2154,7 +2154,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <div className="section-editor-heading">
                             <div>
                               <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                              <small>{sectionItems.length} {t('courseLessons')}</small>
+                              <small>{sectionVideos.length} {t('courseLessons')} | {sectionQuizzes.length} {t('quizLabel')}</small>
                             </div>
                             <div className="instructor-inline-actions">
                               <button className="icon-link-button" type="button" onClick={() => editSection(section)} title={t('edit')}>

@@ -1291,6 +1291,7 @@ function CoursePage({ user, profile, handleLogout }) {
                           <strong>{section.displayTitle}</strong>
                           <small>
                             {section.completed}/{section.items?.length || section.lessons.length}
+                            {` | ${section.lessons.length} ${t('courseLessons')} | ${section.quizzes?.length || 0} ${t('quizLabel')}`}
                             {section.duration ? ` | ${section.duration}` : ''}
                           </small>
                         </span>
@@ -1419,7 +1420,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <section className="locked-curriculum-section" key={section.id}>
                       <div className="curriculum-section-heading">
                         <strong>{section.displayTitle}</strong>
-                        <small>{section.lessons.length} {t('courseLessons')}{section.duration ? ` | ${section.duration}` : ''}</small>
+                        <small>{section.lessons.length} {t('courseLessons')} | {section.quizzes?.length || 0} {t('quizLabel')}{section.duration ? ` | ${section.duration}` : ''}</small>
                       </div>
                       {section.lessons.map((video, lessonIndex) => (
                         <div key={video.id} className="locked-lesson">
