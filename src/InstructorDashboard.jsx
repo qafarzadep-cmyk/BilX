@@ -1253,6 +1253,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     && question.options.every((option) => option.trim())
   )
 
+  const quizQuestionHasContent = (question) => (
+    question?.prompt?.trim()
+    || question.options.some((option) => option.trim())
+    || question.explanations.some((explanation) => explanation.trim())
+  )
+
   const saveCurrentQuizQuestion = () => {
     const currentQuestionIndex = Math.min(activeQuizFormQuestionIndex, Math.max(quizForm.questions.length - 1, 0))
     if (!quizQuestionIsComplete(quizForm.questions[currentQuestionIndex])) {
@@ -1284,7 +1290,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const saveQuiz = async (section, courseIdOverride = '') => {
     const targetCourseId = courseIdOverride || visibleSelectedCourse?.id || requestedCourseId || selectedCourseId
     if (!section || !targetCourseId) return
-    const cleanQuestions = quizForm.questions.map((question) => ({
+    const questionsToSave = quizForm.questions.filter(quizQuestionHasContent)
+    const cleanQuestions = questionsToSave.map((question) => ({
       prompt: question.prompt.trim(),
       options: question.options.map((option) => option.trim()),
       explanations: question.explanations.map((explanation) => explanation.trim()),
@@ -1292,7 +1299,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }))
     if (
       !quizForm.title.trim()
-      || cleanQuestions.some((question) => !question.prompt || question.options.some((option) => !option))
+      || cleanQuestions.length === 0
     ) {
       showMessage(t('quizFillAllFields'), 'error')
       return
@@ -1320,6 +1327,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
     if (error) {
       showMessage(getQuizSaveErrorMessage(error), 'error')
+      return
+    }
+    if (!savedQuiz?.id) {
+      showMessage(getQuizSaveErrorMessage({ message: 'Quiz was saved, but Supabase did not return the saved row.' }), 'error')
+      await loadData(user)
       return
     }
 
