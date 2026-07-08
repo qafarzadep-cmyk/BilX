@@ -1238,14 +1238,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }))
   }
 
-  const addQuizQuestion = () => {
-    setQuizForm((current) => ({
-      ...current,
-      questions: [...current.questions, createEmptyQuizQuestion()],
-    }))
-    setActiveQuizFormQuestionIndex(quizForm.questions.length)
-  }
-
   const removeQuizQuestion = (questionIndex) => {
     setQuizForm((current) => ({
       ...current,
@@ -2243,12 +2235,6 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   >
                                     {t('nextButton')} <ArrowRight size={16} />
                                   </button>
-                                  <button className="outline-button" type="button" onClick={addQuizQuestion}>
-                                    <Plus size={16} /> {t('addQuestion')}
-                                  </button>
-                                  <button className="primary-button" type="button" onClick={saveCurrentQuizQuestion}>
-                                    {t('saveQuestion')}
-                                  </button>
                                 </div>
                                 <label>{t('quizQuestion')}</label>
                                 <textarea
@@ -2283,6 +2269,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   setQuizFormSectionId('')
                                   resetQuizForm()
                                 }}>{t('cancel')}</button>
+                                <button className="outline-button" type="button" onClick={saveCurrentQuizQuestion}>
+                                  {t('saveQuestion')}
+                                </button>
                                 {safeQuizFormQuestionIndex === quizForm.questions.length - 1 && (
                                   <button className="primary-button" type="button" onClick={() => saveQuiz(section, detailCourse.id)}>{t('saveQuiz')}</button>
                                 )}
