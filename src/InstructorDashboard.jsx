@@ -1253,15 +1253,23 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   )
 
   const saveCurrentQuizQuestion = () => {
-    if (!quizQuestionIsComplete(quizForm.questions[activeQuizFormQuestionIndex])) {
+    const currentQuestionIndex = Math.min(activeQuizFormQuestionIndex, Math.max(quizForm.questions.length - 1, 0))
+    if (!quizQuestionIsComplete(quizForm.questions[currentQuestionIndex])) {
       showMessage(t('quizFillAllFields'), 'error')
       return
     }
 
     showMessage(t('quizQuestionSaved'), 'success')
-    if (activeQuizFormQuestionIndex < quizForm.questions.length - 1) {
-      setActiveQuizFormQuestionIndex((current) => current + 1)
+    if (currentQuestionIndex < quizForm.questions.length - 1) {
+      setActiveQuizFormQuestionIndex(currentQuestionIndex + 1)
+      return
     }
+
+    setQuizForm((current) => ({
+      ...current,
+      questions: [...current.questions, createEmptyQuizQuestion()],
+    }))
+    setActiveQuizFormQuestionIndex(currentQuestionIndex + 1)
   }
 
   const getQuizSaveErrorMessage = (error) => {
