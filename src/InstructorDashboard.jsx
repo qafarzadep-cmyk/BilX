@@ -95,6 +95,15 @@ function getOrderedSectionItems(sectionId, sectionVideos, sectionQuizzes) {
   ].sort((a, b) => a.effectiveOrder - b.effectiveOrder || (a.type === 'video' ? -1 : 1))
 }
 
+function getNextSectionOrderIndex(sectionId, sectionVideos, sectionQuizzes) {
+  const sectionItems = [
+    ...sectionVideos.filter((video) => String(video.section_id) === String(sectionId)),
+    ...sectionQuizzes.filter((quiz) => String(quiz.section_id) === String(sectionId)),
+  ]
+  const highestOrder = sectionItems.reduce((maxOrder, item) => Math.max(maxOrder, Number(item.order_index) || 0), 0)
+  return highestOrder + 1
+}
+
 function LocalizedFileInput({ accept, disabled, file, onChange, t, onFocus }) {
   const inputId = useId()
 
@@ -1298,18 +1307,16 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     }
 
     const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
-    const sectionItems = getOrderedSectionItems(
-      section.id,
-      videos.filter((video) => String(video.course_id) === String(targetCourseId)),
-      quizzes.filter((quiz) => String(quiz.course_id) === String(targetCourseId)),
-    )
+    const courseVideos = videos.filter((video) => String(video.course_id) === String(targetCourseId))
+    const courseQuizzes = quizzes.filter((quiz) => String(quiz.course_id) === String(targetCourseId))
+    const nextSectionOrderIndex = getNextSectionOrderIndex(section.id, courseVideos, courseQuizzes)
     const quizPayload = {
       course_id: Number(targetCourseId),
       section_id: Number(section.id),
       title: quizForm.title.trim(),
       order_index: editingQuizId
-        ? sectionQuizzes.find((quiz) => String(quiz.id) === String(editingQuizId))?.order_index || sectionQuizzes.length + 1
-        : sectionItems.length + 1,
+        ? sectionQuizzes.find((quiz) => String(quiz.id) === String(editingQuizId))?.order_index || nextSectionOrderIndex
+        : nextSectionOrderIndex,
       questions: cleanQuestions,
     }
     const query = editingQuizId
