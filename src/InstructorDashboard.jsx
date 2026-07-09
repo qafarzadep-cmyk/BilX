@@ -31,6 +31,31 @@ function formatVideoDuration(totalSeconds) {
   return parts.map((part, index) => index === 0 ? String(part) : String(part).padStart(2, '0')).join(':')
 }
 
+function durationToSeconds(value) {
+  const parts = String(value || '').split(':').map(Number)
+  if (parts.some(Number.isNaN)) return 0
+  return parts.reduce((total, part) => total * 60 + part, 0)
+}
+
+function formatSectionDuration(seconds, t) {
+  if (!seconds) return ''
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.ceil((seconds % 3600) / 60)
+  return hours > 0
+    ? `${hours}${t('hourShort')} ${minutes}${t('minuteShort')}`
+    : `${minutes}${t('minuteShort')}`
+}
+
+function getVideoDurationTotal(videos) {
+  return (videos || []).reduce((total, video) => total + durationToSeconds(video.duration), 0)
+}
+
+function getQuizQuestionCount(quizzes) {
+  return (quizzes || []).reduce((total, quiz) => (
+    total + (Array.isArray(quiz.questions) ? quiz.questions.length : 0)
+  ), 0)
+}
+
 function isYouTubeUrl(url) {
   if (!url) return false
   try {
@@ -1651,6 +1676,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     const detailQuizzes = detailCourse
       ? quizzes.filter((quiz) => String(quiz.course_id) === String(detailCourse.id))
       : []
+    const detailDuration = formatSectionDuration(getVideoDurationTotal(detailVideos), t)
+    const detailQuestionCount = getQuizQuestionCount(detailQuizzes)
     const detailSections = detailCourse
       ? sections
         .filter((section) => String(section.course_id) === String(detailCourse.id))
@@ -1817,18 +1844,29 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               ) : (
                 <section className="instructor-course-card-grid">
                   {cardCourses.map((course) => (
-                    <button className="home-course-card instructor-course-card" type="button" key={course.id} onClick={() => openCourse(course)}>
-                      <img className="home-course-thumb" src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
-                      <span className="home-course-card-body">
-                        <span className={`instructor-status-pill status-${getCourseStatus(course)}`}>
-                          {t(getCourseStatusLabel(getCourseStatus(course)))}
-                        </span>
-                        <h3>{course.title}</h3>
-                        <span className="home-course-instructor">{getCourseAuthorName(course)}</span>
-                        <span className="home-course-meta">{videos.filter((video) => video.course_id === course.id).length} {t('courseLessons')}</span>
-                        <strong className="home-course-price">{course.price || 0} AZN</strong>
-                      </span>
-                    </button>
+                    (() => {
+                      const courseVideos = videos.filter((video) => String(video.course_id) === String(course.id))
+                      const courseQuizzes = quizzes.filter((quiz) => String(quiz.course_id) === String(course.id))
+                      const courseDuration = formatSectionDuration(getVideoDurationTotal(courseVideos), t)
+                      const questionCount = getQuizQuestionCount(courseQuizzes)
+
+                      return (
+                        <button className="home-course-card instructor-course-card" type="button" key={course.id} onClick={() => openCourse(course)}>
+                          <img className="home-course-thumb" src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                          <span className="home-course-card-body">
+                            <span className={`instructor-status-pill status-${getCourseStatus(course)}`}>
+                              {t(getCourseStatusLabel(getCourseStatus(course)))}
+                            </span>
+                            <h3>{course.title}</h3>
+                            <span className="home-course-instructor">{getCourseAuthorName(course)}</span>
+                            <span className="home-course-meta">
+                              {courseVideos.length} {t('courseLessons')}{courseDuration ? ` | ${courseDuration}` : ''} | {courseQuizzes.length} {t('quizLabel')} | {questionCount} {t('questionCountLabel')}
+                            </span>
+                            <strong className="home-course-price">{course.price || 0} AZN</strong>
+                          </span>
+                        </button>
+                      )
+                    })()
                   ))}
                 </section>
               )}
@@ -2024,7 +2062,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <div className="lesson-panel-header">
                         <div>
                           <h2>{t('courseContent')}</h2>
-                          <p>{detailVideos.length + detailQuizzes.length} {t('courseLessons')}</p>
+                          <p>{detailVideos.length} {t('courseLessons')}{detailDuration ? ` | ${detailDuration}` : ''} | {detailQuizzes.length} {t('quizLabel')} | {detailQuestionCount} {t('questionCountLabel')}</p>
                         </div>
                       </div>
                       {detailSections.length > 0 && (
@@ -2045,6 +2083,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           const sectionVideos = section.filteredVideos || []
                           const sectionQuizzes = section.filteredQuizzes || []
                           const sectionItems = getOrderedSectionItems(section.id, sectionVideos, sectionQuizzes)
+                          const sectionDuration = formatSectionDuration(getVideoDurationTotal(sectionVideos), t)
+                          const sectionQuestionCount = getQuizQuestionCount(sectionQuizzes)
                           const isOpen = curriculumSearchTerm ? true : curriculumOpenSections.has(String(section.id))
                           return (
                             <section
@@ -2074,7 +2114,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <button type="button" onClick={() => selectCurriculumSection(section, sectionItems)}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                                    <small>{sectionVideos.length} {t('courseLessons')} | {sectionQuizzes.length} {t('quizLabel')}</small>
+                                    <small>{sectionVideos.length} {t('courseLessons')}{sectionDuration ? ` | ${sectionDuration}` : ''} | {sectionQuizzes.length} {t('quizLabel')} | {sectionQuestionCount} {t('questionCountLabel')}</small>
                                   </span>
                                   <ArrowDown size={18} />
                                 </button>
@@ -2183,12 +2223,14 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       const sectionVideos = detailVideos.filter((video) => String(video.section_id) === String(section.id))
                       const sectionQuizzes = detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
                       const sectionItems = getOrderedSectionItems(section.id, sectionVideos, sectionQuizzes)
+                      const sectionDuration = formatSectionDuration(getVideoDurationTotal(sectionVideos), t)
+                      const sectionQuestionCount = getQuizQuestionCount(sectionQuizzes)
                       return (
                         <section className="section-editor-card" key={section.id}>
                           <div className="section-editor-heading">
                             <div>
                               <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                              <small>{sectionVideos.length} {t('courseLessons')} | {sectionQuizzes.length} {t('quizLabel')}</small>
+                              <small>{sectionVideos.length} {t('courseLessons')}{sectionDuration ? ` | ${sectionDuration}` : ''} | {sectionQuizzes.length} {t('quizLabel')} | {sectionQuestionCount} {t('questionCountLabel')}</small>
                             </div>
                             <div className="instructor-inline-actions">
                               <button className="icon-link-button" type="button" onClick={() => editSection(section)} title={t('edit')}>
@@ -2534,7 +2576,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   <span className="instructor-videos-icon"><PlayCircle size={22} /></span>
                   <span className="instructor-videos-copy">
                     <strong>{t('addYourLessons')}</strong>
-                    <small>{detailVideos.length} {t('courseLessons')}</small>
+                    <small>{detailVideos.length} {t('courseLessons')}{detailDuration ? ` | ${detailDuration}` : ''} | {detailQuizzes.length} {t('quizLabel')} | {detailQuestionCount} {t('questionCountLabel')}</small>
                   </span>
                   <Plus size={20} />
                 </button>
@@ -2663,6 +2705,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 </div>
               ) : visibleCourses.map((course) => {
                 const instructorName = getCourseAuthorName(course)
+                const courseVideos = videos.filter((video) => String(video.course_id) === String(course.id))
+                const courseQuizzes = quizzes.filter((quiz) => String(quiz.course_id) === String(course.id))
+                const courseDuration = formatSectionDuration(getVideoDurationTotal(courseVideos), t)
+                const questionCount = getQuizQuestionCount(courseQuizzes)
 
                 return (
                   <div key={course.id} className={String(course.id) === String(selectedCourseId) ? 'course-row active' : 'course-row'}>
@@ -2671,7 +2717,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <span>
                         <strong>{course.title}</strong>
                         {instructorName && <small>{t('instructorLabel')}: {instructorName}</small>}
-                        <small>{t(getCourseStatusLabel(getCourseStatus(course)))} · {course.price} AZN · {videos.filter((video) => video.course_id === course.id).length} {t('courseLessons')}</small>
+                        <small>{t(getCourseStatusLabel(getCourseStatus(course)))} · {course.price} AZN · {courseVideos.length} {t('courseLessons')}{courseDuration ? ` | ${courseDuration}` : ''} | {courseQuizzes.length} {t('quizLabel')} | {questionCount} {t('questionCountLabel')}</small>
                       </span>
                     </button>
                   </div>

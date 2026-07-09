@@ -116,6 +116,12 @@ function formatSectionDuration(seconds, t) {
     : `${minutes}${t('minuteShort')}`
 }
 
+function getQuizQuestionCount(quizzes) {
+  return (quizzes || []).reduce((total, quiz) => (
+    total + (Array.isArray(quiz.questions) ? quiz.questions.length : 0)
+  ), 0)
+}
+
 function normalizeSearchText(value) {
   return String(value || '')
     .toLocaleLowerCase('az-AZ')
@@ -281,6 +287,7 @@ function CoursePage({ user, profile, handleLogout }) {
     lessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0),
     t
   )
+  const totalQuizQuestionCount = getQuizQuestionCount(quizzes)
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     const effective = orderedSections.length > 0
@@ -297,6 +304,7 @@ function CoursePage({ user, profile, handleLogout }) {
       const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
+      const questionCount = getQuizQuestionCount(sectionQuizzes)
       const numberedTitle = `${t('sectionLabel')} ${sectionIndex + 1}`
       const defaultTitle = `Section ${sectionIndex + 1}`
 
@@ -310,6 +318,7 @@ function CoursePage({ user, profile, handleLogout }) {
         items: sectionItems,
         completed,
         duration: formatSectionDuration(duration, t),
+        questionCount,
       }
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
   }, [lessons, quizzes, sections, t, watchedIds])
@@ -332,6 +341,7 @@ function CoursePage({ user, profile, handleLogout }) {
         ))
       const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
+      const questionCount = getQuizQuestionCount(sectionQuizzes)
       return {
         ...section,
         lessons: sectionLessons,
@@ -339,6 +349,7 @@ function CoursePage({ user, profile, handleLogout }) {
         items: sectionItems,
         completed: sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length,
         duration: formatSectionDuration(duration, t),
+        questionCount,
       }
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0)
   }, [curriculumSearchTerm, curriculumSections, t, watchedIds])
@@ -1027,6 +1038,8 @@ function CoursePage({ user, profile, handleLogout }) {
             <div className="tag-row">
               <span>{lessons.length} {t('courseLessons')}</span>
               {fullCourseDuration && <span>{fullCourseDuration}</span>}
+              <span>{quizzes.length} {t('quizLabel')}</span>
+              <span>{totalQuizQuestionCount} {t('questionCountLabel')}</span>
               <span>{t('lifetimeAccess')}</span>
             </div>
             <button type="button" className="outline-button share-button" onClick={handleShare}>
@@ -1279,7 +1292,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   <p>
                     {hasAccess
                       ? `${completedCount}/${lessons.length} ${t('completedLabel')}`
-                      : `${lessons.length} ${t('courseLessons')}${fullCourseDuration ? ` | ${fullCourseDuration}` : ''}`}
+                      : `${lessons.length} ${t('courseLessons')}${fullCourseDuration ? ` | ${fullCourseDuration}` : ''} | ${quizzes.length} ${t('quizLabel')} | ${totalQuizQuestionCount} ${t('questionCountLabel')}`}
                   </p>
                 </div>
                 {hasAccess ? (
@@ -1324,8 +1337,9 @@ function CoursePage({ user, profile, handleLogout }) {
                           <strong>{section.displayTitle}</strong>
                           <small>
                             {section.completed}/{section.items?.length || section.lessons.length}
-                            {` | ${section.lessons.length} ${t('courseLessons')} | ${section.quizzes?.length || 0} ${t('quizLabel')}`}
+                            {` | ${section.lessons.length} ${t('courseLessons')}`}
                             {section.duration ? ` | ${section.duration}` : ''}
+                            {` | ${section.quizzes?.length || 0} ${t('quizLabel')} | ${section.questionCount || 0} ${t('questionCountLabel')}`}
                           </small>
                         </span>
                         <ChevronDown size={20} />
@@ -1453,7 +1467,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <section className="locked-curriculum-section" key={section.id}>
                       <div className="curriculum-section-heading">
                         <strong>{section.displayTitle}</strong>
-                        <small>{section.lessons.length} {t('courseLessons')} | {section.quizzes?.length || 0} {t('quizLabel')}{section.duration ? ` | ${section.duration}` : ''}</small>
+                        <small>{section.lessons.length} {t('courseLessons')}{section.duration ? ` | ${section.duration}` : ''} | {section.quizzes?.length || 0} {t('quizLabel')} | {section.questionCount || 0} {t('questionCountLabel')}</small>
                       </div>
                       {section.lessons.map((video, lessonIndex) => (
                         <div key={video.id} className="locked-lesson">
