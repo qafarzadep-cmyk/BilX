@@ -56,6 +56,12 @@ function getQuizQuestionCount(quizzes) {
   ), 0)
 }
 
+function formatCourseContentSummary(lessonCount, duration, quizCount, questionCount, t) {
+  const lessonPart = `${lessonCount} ${t('courseLessons')}${duration ? ` / ${duration}` : ''}`
+  const quizPart = `${quizCount} ${t('quizLabel')} / ${questionCount} ${t('questionCountLabel')}`
+  return `${lessonPart} | ${quizPart}`
+}
+
 function isYouTubeUrl(url) {
   if (!url) return false
   try {
@@ -1860,7 +1866,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                             <h3>{course.title}</h3>
                             <span className="home-course-instructor">{getCourseAuthorName(course)}</span>
                             <span className="home-course-meta">
-                              {courseVideos.length} {t('courseLessons')}{courseDuration ? ` | ${courseDuration}` : ''} | {courseQuizzes.length} {t('quizLabel')} | {questionCount} {t('questionCountLabel')}
+                              {formatCourseContentSummary(courseVideos.length, courseDuration, courseQuizzes.length, questionCount, t)}
                             </span>
                             <strong className="home-course-price">{course.price || 0} AZN</strong>
                           </span>
@@ -2062,7 +2068,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <div className="lesson-panel-header">
                         <div>
                           <h2>{t('courseContent')}</h2>
-                          <p>{detailVideos.length} {t('courseLessons')}{detailDuration ? ` | ${detailDuration}` : ''} | {detailQuizzes.length} {t('quizLabel')} | {detailQuestionCount} {t('questionCountLabel')}</p>
+                          <p>{formatCourseContentSummary(detailVideos.length, detailDuration, detailQuizzes.length, detailQuestionCount, t)}</p>
                         </div>
                       </div>
                       {detailSections.length > 0 && (
@@ -2114,7 +2120,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 <button type="button" onClick={() => selectCurriculumSection(section, sectionItems)}>
                                   <span>
                                     <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                                    <small>{sectionVideos.length} {t('courseLessons')}{sectionDuration ? ` | ${sectionDuration}` : ''} | {sectionQuizzes.length} {t('quizLabel')} | {sectionQuestionCount} {t('questionCountLabel')}</small>
+                                    <small>{formatCourseContentSummary(sectionVideos.length, sectionDuration, sectionQuizzes.length, sectionQuestionCount, t)}</small>
                                   </span>
                                   <ArrowDown size={18} />
                                 </button>
@@ -2230,7 +2236,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <div className="section-editor-heading">
                             <div>
                               <strong>{sectionIndex + 1}. {getLocalizedSectionTitle(section, sectionIndex)}</strong>
-                              <small>{sectionVideos.length} {t('courseLessons')}{sectionDuration ? ` | ${sectionDuration}` : ''} | {sectionQuizzes.length} {t('quizLabel')} | {sectionQuestionCount} {t('questionCountLabel')}</small>
+                              <small>{formatCourseContentSummary(sectionVideos.length, sectionDuration, sectionQuizzes.length, sectionQuestionCount, t)}</small>
                             </div>
                             <div className="instructor-inline-actions">
                               <button className="icon-link-button" type="button" onClick={() => editSection(section)} title={t('edit')}>
@@ -2576,7 +2582,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   <span className="instructor-videos-icon"><PlayCircle size={22} /></span>
                   <span className="instructor-videos-copy">
                     <strong>{t('addYourLessons')}</strong>
-                    <small>{detailVideos.length} {t('courseLessons')}{detailDuration ? ` | ${detailDuration}` : ''} | {detailQuizzes.length} {t('quizLabel')} | {detailQuestionCount} {t('questionCountLabel')}</small>
+                    <small>{formatCourseContentSummary(detailVideos.length, detailDuration, detailQuizzes.length, detailQuestionCount, t)}</small>
                   </span>
                   <Plus size={20} />
                 </button>
@@ -2717,7 +2723,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       <span>
                         <strong>{course.title}</strong>
                         {instructorName && <small>{t('instructorLabel')}: {instructorName}</small>}
-                        <small>{t(getCourseStatusLabel(getCourseStatus(course)))} · {course.price} AZN · {courseVideos.length} {t('courseLessons')}{courseDuration ? ` | ${courseDuration}` : ''} | {courseQuizzes.length} {t('quizLabel')} | {questionCount} {t('questionCountLabel')}</small>
+                        <small>{t(getCourseStatusLabel(getCourseStatus(course)))} · {course.price} AZN · {formatCourseContentSummary(courseVideos.length, courseDuration, courseQuizzes.length, questionCount, t)}</small>
                       </span>
                     </button>
                   </div>

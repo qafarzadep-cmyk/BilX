@@ -122,6 +122,12 @@ function getQuizQuestionCount(quizzes) {
   ), 0)
 }
 
+function formatCourseContentSummary(lessonCount, duration, quizCount, questionCount, t) {
+  const lessonPart = `${lessonCount} ${t('courseLessons')}${duration ? ` / ${duration}` : ''}`
+  const quizPart = `${quizCount} ${t('quizLabel')} / ${questionCount} ${t('questionCountLabel')}`
+  return `${lessonPart} | ${quizPart}`
+}
+
 function normalizeSearchText(value) {
   return String(value || '')
     .toLocaleLowerCase('az-AZ')
@@ -288,6 +294,13 @@ function CoursePage({ user, profile, handleLogout }) {
     t
   )
   const totalQuizQuestionCount = getQuizQuestionCount(quizzes)
+  const courseContentSummary = formatCourseContentSummary(
+    lessons.length,
+    fullCourseDuration,
+    quizzes.length,
+    totalQuizQuestionCount,
+    t
+  )
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     const effective = orderedSections.length > 0
@@ -1036,10 +1049,8 @@ function CoursePage({ user, profile, handleLogout }) {
             )}
             <p>{course.description}</p>
             <div className="tag-row">
-              <span>{lessons.length} {t('courseLessons')}</span>
-              {fullCourseDuration && <span>{fullCourseDuration}</span>}
-              <span>{quizzes.length} {t('quizLabel')}</span>
-              <span>{totalQuizQuestionCount} {t('questionCountLabel')}</span>
+              <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
+              <span>{quizzes.length} {t('quizLabel')} / {totalQuizQuestionCount} {t('questionCountLabel')}</span>
               <span>{t('lifetimeAccess')}</span>
             </div>
             <button type="button" className="outline-button share-button" onClick={handleShare}>
@@ -1292,7 +1303,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   <p>
                     {hasAccess
                       ? `${completedCount}/${lessons.length} ${t('completedLabel')}`
-                      : `${lessons.length} ${t('courseLessons')}${fullCourseDuration ? ` | ${fullCourseDuration}` : ''} | ${quizzes.length} ${t('quizLabel')} | ${totalQuizQuestionCount} ${t('questionCountLabel')}`}
+                      : courseContentSummary}
                   </p>
                 </div>
                 {hasAccess ? (
@@ -1337,9 +1348,7 @@ function CoursePage({ user, profile, handleLogout }) {
                           <strong>{section.displayTitle}</strong>
                           <small>
                             {section.completed}/{section.items?.length || section.lessons.length}
-                            {` | ${section.lessons.length} ${t('courseLessons')}`}
-                            {section.duration ? ` | ${section.duration}` : ''}
-                            {` | ${section.quizzes?.length || 0} ${t('quizLabel')} | ${section.questionCount || 0} ${t('questionCountLabel')}`}
+                            {` | ${formatCourseContentSummary(section.lessons.length, section.duration, section.quizzes?.length || 0, section.questionCount || 0, t)}`}
                           </small>
                         </span>
                         <ChevronDown size={20} />
@@ -1467,7 +1476,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <section className="locked-curriculum-section" key={section.id}>
                       <div className="curriculum-section-heading">
                         <strong>{section.displayTitle}</strong>
-                        <small>{section.lessons.length} {t('courseLessons')}{section.duration ? ` | ${section.duration}` : ''} | {section.quizzes?.length || 0} {t('quizLabel')} | {section.questionCount || 0} {t('questionCountLabel')}</small>
+                        <small>{formatCourseContentSummary(section.lessons.length, section.duration, section.quizzes?.length || 0, section.questionCount || 0, t)}</small>
                       </div>
                       {section.lessons.map((video, lessonIndex) => (
                         <div key={video.id} className="locked-lesson">
