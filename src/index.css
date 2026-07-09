@@ -1524,7 +1524,7 @@ body.quiz-fullscreen-open {
 
 .quiz-result-counts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1554,6 +1554,11 @@ body.quiz-fullscreen-open {
 
 .quiz-result-count.wrong {
   border-color: #c2410c;
+}
+
+.quiz-result-count.percent {
+  justify-content: center;
+  border-color: #2563eb;
 }
 
 .quiz-result-chart {

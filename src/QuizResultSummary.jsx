@@ -10,6 +10,7 @@ export default function QuizResultSummary({ correctCount, totalCount, t }) {
   const wrongCount = Math.max(safeTotal - safeCorrect, 0)
   const correctPercent = safeTotal > 0 ? (safeCorrect / safeTotal) * 100 : 0
   const wrongPercent = safeTotal > 0 ? (wrongCount / safeTotal) * 100 : 0
+  const roundedCorrectPercent = Math.round(correctPercent)
 
   return (
     <div className="quiz-result-summary">
@@ -21,6 +22,9 @@ export default function QuizResultSummary({ correctCount, totalCount, t }) {
         <span className="quiz-result-count wrong">
           <strong>{wrongCount}</strong>
           {t('quizWrongCount')}
+        </span>
+        <span className="quiz-result-count percent" aria-label={`${roundedCorrectPercent}%`}>
+          <strong>{roundedCorrectPercent}%</strong>
         </span>
       </div>
       <div
