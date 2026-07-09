@@ -1524,7 +1524,7 @@ body.quiz-fullscreen-open {
 
 .quiz-result-counts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1556,18 +1556,26 @@ body.quiz-fullscreen-open {
   border-color: #c2410c;
 }
 
-.quiz-result-count.percent {
-  justify-content: center;
-  border-color: #2563eb;
-}
-
 .quiz-result-chart {
   display: flex;
+  align-items: stretch;
   width: 100%;
-  height: 14px;
+  height: 22px;
   overflow: hidden;
   border-radius: 999px;
   background: #e5e7eb;
+}
+
+.quiz-result-chart-correct,
+.quiz-result-chart-wrong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .quiz-result-chart-correct {

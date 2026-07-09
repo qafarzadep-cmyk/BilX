@@ -11,6 +11,7 @@ export default function QuizResultSummary({ correctCount, totalCount, t }) {
   const correctPercent = safeTotal > 0 ? (safeCorrect / safeTotal) * 100 : 0
   const wrongPercent = safeTotal > 0 ? (wrongCount / safeTotal) * 100 : 0
   const roundedCorrectPercent = Math.round(correctPercent)
+  const roundedWrongPercent = Math.max(0, 100 - roundedCorrectPercent)
 
   return (
     <div className="quiz-result-summary">
@@ -23,16 +24,21 @@ export default function QuizResultSummary({ correctCount, totalCount, t }) {
           <strong>{wrongCount}</strong>
           {t('quizWrongCount')}
         </span>
-        <span className="quiz-result-count percent" aria-label={`${roundedCorrectPercent}%`}>
-          <strong>{roundedCorrectPercent}%</strong>
-        </span>
       </div>
       <div
         className="quiz-result-chart"
-        aria-label={`${t('quizCorrectCount')}: ${safeCorrect}, ${t('quizWrongCount')}: ${wrongCount}`}
+        aria-label={`${t('quizCorrectCount')}: ${roundedCorrectPercent}%, ${t('quizWrongCount')}: ${roundedWrongPercent}%`}
       >
-        {safeCorrect > 0 && <span className="quiz-result-chart-correct" style={{ width: `${correctPercent}%` }} />}
-        {wrongCount > 0 && <span className="quiz-result-chart-wrong" style={{ width: `${wrongPercent}%` }} />}
+        {safeCorrect > 0 && (
+          <span className="quiz-result-chart-correct" style={{ width: `${correctPercent}%` }}>
+            {roundedCorrectPercent}%
+          </span>
+        )}
+        {wrongCount > 0 && (
+          <span className="quiz-result-chart-wrong" style={{ width: `${wrongPercent}%` }}>
+            {roundedWrongPercent}%
+          </span>
+        )}
       </div>
       <p>{t(getQuizResultMessageKey(safeCorrect, wrongCount))}</p>
     </div>
