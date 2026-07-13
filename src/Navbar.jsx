@@ -2,6 +2,7 @@ import { Bell, BookOpen, LogOut, Pencil, Search, Shield, User, Video } from 'luc
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
+import bilxLogo from './assets/bilx-logo.png'
 import { useLanguage } from './i18n'
 import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
@@ -276,7 +277,9 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
 
   return (
     <nav className="top-nav">
-      <button className="logo-button" onClick={() => navigate('/')}>BilX</button>
+      <button className="logo-button" onClick={() => navigate('/')} aria-label="BilX">
+        <img src={bilxLogo} alt="BilX" />
+      </button>
 
       <div className="nav-search">
         <Search size={18} />

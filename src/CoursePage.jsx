@@ -396,6 +396,12 @@ function CoursePage({ user, profile, handleLogout }) {
 
     return null
   })()
+  const orderedCurriculumLessons = useMemo(() => (
+    curriculumSections
+      .flatMap((section) => section.items || [])
+      .filter((entry) => entry.type === 'video' && !entry.item.locked)
+      .map((entry) => entry.item)
+  ), [curriculumSections])
 
   useEffect(() => {
     if (activeSectionId === undefined || activeSectionId === null) return
@@ -688,8 +694,9 @@ function CoursePage({ user, profile, handleLogout }) {
     if (!currentId || String(advancingVideoIdRef.current) === String(currentId)) return
     if (expectedVideoId !== null && String(expectedVideoId) !== String(currentId)) return
 
-    const index = lessons.findIndex((video) => String(video.id) === String(currentId))
-    const nextVideo = lessons[index + 1]
+    const orderedLessons = orderedCurriculumLessons.length > 0 ? orderedCurriculumLessons : lessons
+    const index = orderedLessons.findIndex((video) => String(video.id) === String(currentId))
+    const nextVideo = orderedLessons[index + 1]
     if (!nextVideo) {
       void markWatched(currentId)
       return
@@ -701,7 +708,7 @@ function CoursePage({ user, profile, handleLogout }) {
     activeVideoIdRef.current = nextVideo.id
     setActiveVideoId(nextVideo.id)
     void markWatched(currentId)
-  }, [lessons, markWatched])
+  }, [lessons, markWatched, orderedCurriculumLessons])
 
   const getCurrentPlaybackSeconds = () => {
     if (legacyVideoRef.current) return legacyVideoRef.current.currentTime || 0

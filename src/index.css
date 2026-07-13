@@ -47,15 +47,23 @@ button {
 }
 
 .logo-button {
+  width: 96px;
+  min-width: 96px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
   border: 0;
   background: transparent;
-  color: #1435c3;
-  font-size: 24px;
-  font-weight: 900;
-  padding: 0 4px 0 0;
-  white-space: nowrap;
-  letter-spacing: 0;
-  line-height: 1;
+  padding: 0;
+}
+
+.logo-button img {
+  width: 90px;
+  height: 30px;
+  display: block;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .nav-text-button {
