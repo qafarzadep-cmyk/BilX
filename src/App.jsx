@@ -43,6 +43,7 @@ const UPCOMING_COURSES = [
   'Coğrafiya Abituriyent hazırlığı',
   'Ədəbiyyat Abituriyent hazırlığı',
   'İnformatika Abituriyent hazırlığı',
+  'IELTS hazırlığı',
 ].map((title, index) => ({
   id: `upcoming-${index + 1}`,
   title,
