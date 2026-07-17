@@ -1,4 +1,4 @@
-import { Bell, BookOpen, LogOut, Pencil, Search, Shield, User, Video } from 'lucide-react'
+import { Bell, BookOpen, LogOut, Mail, Pencil, Search, Shield, User, Video } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
@@ -327,6 +327,9 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                 </div>
               )}
             </div>
+            <button className="icon-button nav-inbox-button" type="button" onClick={() => navigate('/inbox')} aria-label={t('inbox')} title={t('inbox')}>
+              <Mail size={18} />
+            </button>
             <div className="nav-role-stack">
               <span className="nav-role-pill">{roleLabel}</span>
               {!isAdmin(user) && !isInstructor && (
@@ -363,7 +366,6 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                     <>
                       <button type="button" onClick={() => go('/profile')}><User size={16} /> {t('profileLabel')}</button>
                       <button type="button" onClick={() => go('/profile')}><BookOpen size={16} /> {t('myCoursesTitle')}</button>
-                      <button type="button" onClick={() => go('/inbox')}><BookOpen size={16} /> {t('inbox')}</button>
                     </>
                   )}
                   {role === 'instructor' && (
@@ -375,7 +377,6 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                   {isAdmin(user) && (
                     <>
                       <button type="button" onClick={() => go('/admin')}><Shield size={16} /> {t('adminPanel')}</button>
-                      <button type="button" onClick={() => go('/inbox')}><BookOpen size={16} /> {t('inbox')}</button>
                     </>
                   )}
                   <button type="button" onClick={openNameEditor}><Pencil size={16} /> {t('changeName')}</button>

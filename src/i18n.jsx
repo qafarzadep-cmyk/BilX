@@ -49,7 +49,7 @@ const translations = {
     videoUploadFailed: 'Video yüklənmədi.',
     videoServiceUnavailable: 'Video yükləmə servisi əlçatmaz deyil. Funksiyalar yalnız Vercel-də (və ya `vercel dev`) işləyir — sadə `npm run dev` ilə işləmir.',
     notifications: 'Bildirişlər',
-    inbox: 'Inbox',
+    inbox: 'Mesajlar',
     inboxIntro: 'Admin və müəllimlərlə əlaqə saxlayın.',
     adminInboxIntro: 'Tələbə və müəllimlərlə mesajlaşın.',
     chooseRecipient: 'Kimə yazırsınız?',
