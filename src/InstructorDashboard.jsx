@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardList, Eye, EyeOff, FolderPlus, GripVertical, Maximize2, Minimize2, Pencil, PlayCircle, Plus, Trash2, Upload } from 'lucide-react'
 import * as tus from 'tus-js-client'
@@ -217,6 +217,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const sectionDragOrderRef = useRef([])
   const sectionDragOriginalSectionsRef = useRef([])
   const sectionDropCompletedRef = useRef(false)
+  const curriculumLessonListRef = useRef(null)
+  const activeCurriculumItemRef = useRef(null)
   const [detailsEditing, setDetailsEditing] = useState(false)
   const [mediaEditing, setMediaEditing] = useState(false)
   const [coverEditing, setCoverEditing] = useState(false)
@@ -389,6 +391,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
   const curriculumActiveQuiz = curriculumCourseQuizzes.find((quiz) => String(quiz.id) === String(requestedQuizId || curriculumQuizId)) || null
   const curriculumActiveVideo = curriculumCourseVideos.find((video) => String(video.id) === String(requestedLessonId || curriculumVideoId))
     || (curriculumActiveQuiz ? null : curriculumCourseVideos[0])
+  const activeCurriculumItemKey = curriculumActiveQuiz
+    ? `quiz-${curriculumActiveQuiz.id}`
+    : curriculumActiveVideo
+      ? `video-${curriculumActiveVideo.id}`
+      : ''
 
   useEffect(() => {
     if (requestedQuizId || curriculumQuizId) return
@@ -406,6 +413,62 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurriculumOpenSections(new Set([String(sectionId)]))
   }, [curriculumActiveQuiz?.section_id, curriculumActiveVideo?.section_id])
+
+  useLayoutEffect(() => {
+    if (instructorView !== 'curriculum' || dataLoading || !activeCurriculumItemKey) return undefined
+    const timers = []
+    let frameId = 0
+
+    const getScrollParent = (element) => {
+      let parent = element?.parentElement
+      while (parent) {
+        const style = window.getComputedStyle(parent)
+        const canScroll = /(auto|scroll)/.test(`${style.overflowY}${style.overflow}`)
+        if (canScroll && parent.scrollHeight > parent.clientHeight) return parent
+        parent = parent.parentElement
+      }
+      return curriculumLessonListRef.current
+    }
+
+    const scrollActiveItemIntoView = () => {
+      const activeItem = curriculumLessonListRef.current?.querySelector('[data-active-curriculum-item="true"]')
+        || activeCurriculumItemRef.current
+      if (!activeItem) return
+      const list = getScrollParent(activeItem)
+      if (!list) return
+      const listRect = list.getBoundingClientRect()
+      const activeRect = activeItem.getBoundingClientRect()
+      const nextScrollTop = list.scrollTop
+        + activeRect.top
+        - listRect.top
+        - ((list.clientHeight - activeRect.height) / 2)
+
+      list.scrollTo({
+        top: Math.max(0, nextScrollTop),
+        behavior: 'auto',
+      })
+      activeItem.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' })
+    }
+
+    scrollActiveItemIntoView()
+    frameId = window.requestAnimationFrame(scrollActiveItemIntoView)
+    ;[60, 180, 420, 900].forEach((delay) => {
+      timers.push(window.setTimeout(scrollActiveItemIntoView, delay))
+    })
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      timers.forEach((timerId) => window.clearTimeout(timerId))
+    }
+  }, [
+    activeCurriculumItemKey,
+    curriculumActiveQuiz?.id,
+    curriculumActiveVideo?.id,
+    curriculumOpenSections,
+    dataLoading,
+    instructorView,
+    requestedCourseId,
+  ])
 
   const selectCurriculumVideo = (video) => {
     const videoId = String(video.id)
@@ -1219,6 +1282,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
       : [createEmptyQuizQuestion()]
     setEditingQuizId(String(quiz.id))
     setQuizFormSectionId(String(quiz.section_id))
+    if (quiz.section_id) {
+      setSelectedSectionId(String(quiz.section_id))
+      setCurriculumOpenSections(new Set([String(quiz.section_id)]))
+    }
     setActiveQuizFormQuestionIndex(0)
     setQuizForm({
       title: quiz.title || '',
@@ -1764,6 +1831,27 @@ function InstructorDashboard({ user, profile, handleLogout }) {
         filteredVideos: detailVideos.filter((video) => String(video.section_id) === String(section.id)),
         filteredQuizzes: detailQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id)),
       }))
+    const activeVideoSectionIndex = curriculumActiveVideo
+      ? detailSections.findIndex((section) => String(section.id) === String(curriculumActiveVideo.section_id))
+      : -1
+    const activeVideoSection = activeVideoSectionIndex >= 0 ? detailSections[activeVideoSectionIndex] : null
+    const activeVideoSectionItems = activeVideoSection
+      ? getOrderedSectionItems(
+        activeVideoSection.id,
+        detailVideos.filter((video) => String(video.section_id) === String(activeVideoSection.id)),
+        detailQuizzes.filter((quiz) => String(quiz.section_id) === String(activeVideoSection.id)),
+      )
+      : []
+    const activeVideoItemIndex = curriculumActiveVideo
+      ? activeVideoSectionItems.findIndex((contentItem) => (
+        contentItem.type === 'video' && String(contentItem.item.id) === String(curriculumActiveVideo.id)
+      ))
+      : -1
+    const activeVideoTitle = curriculumActiveVideo
+      ? activeVideoSectionIndex >= 0 && activeVideoItemIndex >= 0
+        ? `${activeVideoSectionIndex + 1}.${activeVideoItemIndex + 1} ${curriculumActiveVideo.title}`
+        : curriculumActiveVideo.title
+      : ''
     const safeQuizFormQuestionIndex = Math.min(activeQuizFormQuestionIndex, Math.max(quizForm.questions.length - 1, 0))
     const activeQuizFormQuestion = quizForm.questions[safeQuizFormQuestionIndex] || createEmptyQuizQuestion()
 
@@ -2062,6 +2150,11 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           <div className="empty-player">{t('videoNotSupported')}</div>
                         )}
                       </div>
+                      {activeVideoTitle && (
+                        <div className="instructor-active-video-title">
+                          <h2>{activeVideoTitle}</h2>
+                        </div>
+                      )}
                     </div>
 
                     <aside className="course-lesson-panel instructor-lesson-panel">
@@ -2082,7 +2175,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           />
                         </div>
                       )}
-                      <div className="course-lesson-list">
+                      <div className="course-lesson-list" ref={curriculumLessonListRef}>
                         {visibleDetailSections.length === 0 ? (
                           <p className="curriculum-search-empty">{t('curriculumSearchEmpty')}</p>
                         ) : visibleDetailSections.map((section, sectionIndex) => {
@@ -2174,6 +2267,9 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                   : String(item.id) === String(curriculumActiveQuiz?.id)
                                 return (
                                   <div
+                                    ref={isActive ? activeCurriculumItemRef : null}
+                                    data-active-curriculum-item={isActive ? 'true' : undefined}
+                                    data-curriculum-item-key={`${contentItem.type}-${item.id}`}
                                     className={isActive
                                       ? `course-lesson-item active instructor-course-lesson-item${isVideo ? '' : ' quiz-content-item'}`
                                       : `course-lesson-item instructor-course-lesson-item${isVideo ? '' : ' quiz-content-item'}`}

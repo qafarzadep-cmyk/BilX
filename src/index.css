@@ -1126,6 +1126,7 @@ button {
 }
 
 .course-lesson-list {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
 }
@@ -2418,6 +2419,19 @@ body.quiz-fullscreen-open {
 .instructor-course-player-layout .course-player-main {
   align-self: start;
   background: #fff;
+}
+
+.instructor-active-video-title {
+  padding: 18px 22px;
+  border-top: 1px solid #eef0f2;
+  background: #fff;
+}
+
+.instructor-active-video-title h2 {
+  margin: 0;
+  color: #1c1d1f;
+  font-size: 22px;
+  line-height: 1.25;
 }
 
 .instructor-replace-video-button {
