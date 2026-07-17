@@ -666,6 +666,13 @@ button {
   line-height: 1;
 }
 
+.course-search-highlight {
+  border-radius: 4px;
+  background: #fff2a8;
+  color: inherit;
+  padding: 0 2px;
+}
+
 .home-course-section {
   position: relative;
 }

@@ -63,6 +63,46 @@ function normalizeSearchText(value) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+function getNormalizedIndexMap(value) {
+  const source = String(value || '')
+  let normalized = ''
+  const indexMap = []
+
+  Array.from(source).forEach((character, sourceIndex) => {
+    const normalizedCharacter = character
+      .toLocaleLowerCase('az-AZ')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+    Array.from(normalizedCharacter).forEach((nextCharacter) => {
+      normalized += nextCharacter
+      indexMap.push(sourceIndex)
+    })
+  })
+
+  return { normalized, indexMap }
+}
+
+function HighlightedText({ text, query }) {
+  const source = String(text || '')
+  const normalizedQuery = normalizeSearchText(query).trim()
+  if (!source || !normalizedQuery) return source
+
+  const { normalized, indexMap } = getNormalizedIndexMap(source)
+  const matchIndex = normalized.indexOf(normalizedQuery)
+  if (matchIndex < 0) return source
+
+  const matchStart = indexMap[matchIndex]
+  const matchEnd = (indexMap[matchIndex + normalizedQuery.length - 1] ?? matchStart) + 1
+
+  return (
+    <>
+      {source.slice(0, matchStart)}
+      <mark className="course-search-highlight">{source.slice(matchStart, matchEnd)}</mark>
+      {source.slice(matchEnd)}
+    </>
+  )
+}
+
 function getPageTitle(pathname) {
   if (pathname === '/') return 'BilX | Onlayn video kurslar'
   if (pathname === '/login') return 'BilX | Giriş'
@@ -347,8 +387,8 @@ function Home({ user, profile, handleLogout }) {
                     >
                       <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
                       <div className="course-card-body">
-                        <h3>{course.title}</h3>
-                        {course.description && <p>{course.description}</p>}
+                        <h3><HighlightedText text={course.title} query={search} /></h3>
+                        {course.description && <p><HighlightedText text={course.description} query={search} /></p>}
                         {instructorName && (
                           <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
                             {instructorName}
@@ -369,8 +409,8 @@ function Home({ user, profile, handleLogout }) {
                       <span>{course.title.charAt(0)}</span>
                     </div>
                     <div className="course-card-body">
-                      <h3>{course.title}</h3>
-                      <p>{t('upcomingCourseText')}</p>
+                      <h3><HighlightedText text={course.title} query={search} /></h3>
+                      <p><HighlightedText text={t('upcomingCourseText')} query={search} /></p>
                       <span className="upcoming-course-badge">{t('upcomingCourseLabel')}</span>
                     </div>
                   </article>
