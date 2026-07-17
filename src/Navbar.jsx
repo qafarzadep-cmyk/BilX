@@ -30,7 +30,9 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'BilX'
   const firstLetter = name.charAt(0).toUpperCase()
   const isInstructor = role === 'instructor'
-  const isTeacherMode = location.pathname.startsWith('/instructor') || location.pathname.startsWith('/edit-course')
+  const isTeacherMode = location.pathname.startsWith('/instructor')
+    || location.pathname.startsWith('/edit-course')
+    || (location.pathname.startsWith('/inbox') && new URLSearchParams(location.search).get('mode') === 'teacher')
 
   const roleLabel = isAdmin(user)
     ? t('roleAdmin')
