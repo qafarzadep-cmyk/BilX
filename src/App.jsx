@@ -133,6 +133,8 @@ function Home({ user, profile, handleLogout }) {
   const filteredUpcomingCourses = UPCOMING_COURSES.filter((course) =>
     course.title.toLowerCase().includes(search.toLowerCase())
   )
+  const visibleUpcomingCourses = search.trim() ? filteredUpcomingCourses : UPCOMING_COURSES
+  const hasVisibleCourses = filteredCourses.length > 0 || visibleUpcomingCourses.length > 0
   // Only highlight a "Featured" shelf when there are enough courses for it to be
   // meaningful — otherwise it just repeats the grid. Hidden while searching.
   const showFeatured = !search.trim() && filteredCourses.length > 6
@@ -235,7 +237,7 @@ function Home({ user, profile, handleLogout }) {
               ))}
             </div>
           </section>
-        ) : filteredCourses.length === 0 && filteredUpcomingCourses.length === 0 ? (
+        ) : !hasVisibleCourses ? (
           <section className="home-course-section" aria-label={t('coursesTitle')}>
             <div className="home-course-header">
               <h2>{t('coursesTitle')}</h2>
@@ -332,7 +334,7 @@ function Home({ user, profile, handleLogout }) {
                     </article>
                   )
                 })}
-                {filteredUpcomingCourses.map((course) => (
+                {visibleUpcomingCourses.map((course) => (
                   <article
                     key={course.id}
                     className="course-card upcoming-course-card"
