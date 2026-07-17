@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
 import { ADMIN_EMAIL } from './profileApi'
 import { supabase } from './supabase'
 
-export function InboxPanel({ user, compact = false, adminMode = false }) {
+export function InboxPanel({ user, profile, compact = false, adminMode = false, teacherMode = false }) {
   const navigate = useNavigate()
   const { t } = useLanguage()
   const [messages, setMessages] = useState([])
@@ -21,6 +21,7 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const isInstructorInbox = teacherMode && !adminMode
 
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
@@ -104,11 +105,19 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
       .sort((a, b) => new Date(b.latest.created_at) - new Date(a.latest.created_at))
   }, [messages, getCounterpart, getPersonProfile])
 
+  const getConversationCategory = useCallback((conversation) => {
+    const email = conversation.profile?.email || conversation.person?.email || ''
+    const role = conversation.profile?.role || ''
+    if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return 'admin'
+    if (role === 'instructor') return 'instructor'
+    return 'student'
+  }, [])
+
   const filteredConversations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
-    if (!query) return conversations
-
     return conversations.filter((conversation) => {
+      if (!adminMode && getConversationCategory(conversation) !== recipientType) return false
+      if (!query) return true
       const profile = conversation.profile || {}
       const searchable = [
         profile.name,
@@ -118,7 +127,7 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
       ].join(' ').toLowerCase()
       return searchable.includes(query)
     })
-  }, [conversations, searchTerm])
+  }, [adminMode, conversations, getConversationCategory, recipientType, searchTerm])
 
   const selectedConversation = useMemo(() => {
     if (!filteredConversations.length) return null
@@ -220,7 +229,7 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
       }
     } else if (recipientType === 'admin') {
       recipientEmail = ADMIN_EMAIL
-    } else {
+    } else if (recipientType === 'instructor') {
       const selectedCourse = courseOptions.find((course) => String(course.id) === String(selectedCourseId))
       if (!selectedCourse) {
         setMessage(t('selectCoursePrompt'))
@@ -228,6 +237,9 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
       }
       recipientId = selectedCourse.instructor_id
       courseId = selectedCourse.id
+    } else {
+      setMessage(t('selectConversationPrompt'))
+      return
     }
 
     setLoading(true)
@@ -298,7 +310,7 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
         <aside className="inbox-sidebar">
           <div className="inbox-sidebar-head">
             <h2>{t('inbox')}</h2>
-            <p>{adminMode ? t('adminInboxIntro') : t('inboxIntro')}</p>
+            <p>{adminMode ? t('adminInboxIntro') : isInstructorInbox ? t('teacherInboxIntro') : t('inboxIntro')}</p>
           </div>
 
           <label className="sr-only" htmlFor="inbox-search">{t('inboxSearchLabel')}</label>
@@ -330,22 +342,24 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
                   onClick={() => {
                     setRecipientType('admin')
                     setReplyTo(null)
+                    setSelectedConversationKey('')
                   }}
                 >
-                  {t('contactAdmin')}
+                  {t('adminIncomingMessages')}
                 </button>
                 <button
                   type="button"
-                  className={recipientType === 'instructor' ? 'active' : ''}
+                  className={recipientType === (isInstructorInbox ? 'student' : 'instructor') ? 'active' : ''}
                   onClick={() => {
-                    setRecipientType('instructor')
+                    setRecipientType(isInstructorInbox ? 'student' : 'instructor')
                     setReplyTo(null)
+                    setSelectedConversationKey('')
                   }}
                 >
-                  {t('contactTeacher')}
+                  {isInstructorInbox ? t('studentIncomingMessages') : t('teacherIncomingMessages')}
                 </button>
               </div>
-              {recipientType === 'instructor' && (
+              {recipientType === 'instructor' && !isInstructorInbox && (
                 <select
                   value={selectedCourseId}
                   onChange={(event) => setSelectedCourseId(event.target.value)}
@@ -488,11 +502,14 @@ export function InboxPanel({ user, compact = false, adminMode = false }) {
 }
 
 function Inbox({ user, profile, handleLogout }) {
+  const [searchParams] = useSearchParams()
+  const teacherMode = searchParams.get('mode') === 'teacher'
+
   return (
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
       <main className="content-shell">
-        <InboxPanel user={user} />
+        <InboxPanel user={user} profile={profile} teacherMode={teacherMode} />
       </main>
     </div>
   )

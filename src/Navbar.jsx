@@ -327,7 +327,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                 </div>
               )}
             </div>
-            <button className="icon-button nav-inbox-button" type="button" onClick={() => navigate('/inbox')} aria-label={t('inbox')} title={t('inbox')}>
+            <button className="icon-button nav-inbox-button" type="button" onClick={() => navigate(isTeacherMode ? '/inbox?mode=teacher' : '/inbox')} aria-label={t('inbox')} title={t('inbox')}>
               <Mail size={18} />
             </button>
             <div className="nav-role-stack">
