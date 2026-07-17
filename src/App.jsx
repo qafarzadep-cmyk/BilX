@@ -33,6 +33,21 @@ const HOME_STEPS = [
   ['3', 'step3Title', 'step3Text'],
 ]
 
+const UPCOMING_COURSES = [
+  'Azərbaycan dili Abituriyent hazırlığı',
+  'Riyaziyyat Abituriyent hazırlığı',
+  'Fizika Abituriyent hazırlığı',
+  'Kimya Abituriyent hazırlığı',
+  'Biologiya Abituriyent hazırlığı',
+  'Tarix Abituriyent hazırlığı',
+  'Coğrafiya Abituriyent hazırlığı',
+  'Ədəbiyyat Abituriyent hazırlığı',
+  'İnformatika Abituriyent hazırlığı',
+].map((title, index) => ({
+  id: `upcoming-${index + 1}`,
+  title,
+}))
+
 function getPageTitle(pathname) {
   if (pathname === '/') return 'BilX | Onlayn video kurslar'
   if (pathname === '/login') return 'BilX | Giriş'
@@ -115,6 +130,9 @@ function Home({ user, profile, handleLogout }) {
   const filteredCourses = courses.filter((course) =>
     `${course.title || ''} ${course.description || ''}`.toLowerCase().includes(search.toLowerCase())
   )
+  const filteredUpcomingCourses = UPCOMING_COURSES.filter((course) =>
+    course.title.toLowerCase().includes(search.toLowerCase())
+  )
   // Only highlight a "Featured" shelf when there are enough courses for it to be
   // meaningful — otherwise it just repeats the grid. Hidden while searching.
   const showFeatured = !search.trim() && filteredCourses.length > 6
@@ -184,7 +202,7 @@ function Home({ user, profile, handleLogout }) {
             <button className="outline-button large" onClick={goTeach}>{t('heroBecomeInstructor')}</button>
           </div>
           <div className="home-hero-stats">
-            <div><strong>{courses.length}+</strong><span>{t('coursesTitle')}</span></div>
+            <div><strong>{courses.length + UPCOMING_COURSES.length}+</strong><span>{t('coursesTitle')}</span></div>
             <div><strong>∞</strong><span>{t('valueAccessTitle')}</span></div>
             <div><strong>★</strong><span>{t('valueVideoTitle')}</span></div>
           </div>
@@ -217,7 +235,7 @@ function Home({ user, profile, handleLogout }) {
               ))}
             </div>
           </section>
-        ) : filteredCourses.length === 0 ? (
+        ) : filteredCourses.length === 0 && filteredUpcomingCourses.length === 0 ? (
           <section className="home-course-section" aria-label={t('coursesTitle')}>
             <div className="home-course-header">
               <h2>{t('coursesTitle')}</h2>
@@ -314,6 +332,22 @@ function Home({ user, profile, handleLogout }) {
                     </article>
                   )
                 })}
+                {filteredUpcomingCourses.map((course) => (
+                  <article
+                    key={course.id}
+                    className="course-card upcoming-course-card"
+                    aria-label={`${course.title} - ${t('upcomingCourseLabel')}`}
+                  >
+                    <div className="course-card-upcoming-thumb" aria-hidden="true">
+                      <span>{course.title.charAt(0)}</span>
+                    </div>
+                    <div className="course-card-body">
+                      <h3>{course.title}</h3>
+                      <p>{t('upcomingCourseText')}</p>
+                      <span className="upcoming-course-badge">{t('upcomingCourseLabel')}</span>
+                    </div>
+                  </article>
+                ))}
               </div>
             </section>
           </>
