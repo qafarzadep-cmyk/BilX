@@ -242,17 +242,18 @@ function AdminDashboard({ user, profile, handleLogout }) {
       setMessage(`${t('errorOccurred')}${error.message}`)
       return
     }
+    const inboxLink = selectedUser.role === 'instructor' ? '/inbox?mode=teacher' : '/inbox'
     await supabase.rpc('create_notification', {
       p_user_id: selectedUser.userId,
       p_title: t('inboxNewMessageTitle'),
       p_body: t('inboxNewMessageBody'),
-      p_link: '/inbox',
+      p_link: inboxLink,
     })
     if (selectedUser.role === 'instructor') {
       await sendEmailNotification({
         type: 'inbox',
         instructorId: selectedUser.userId,
-        link: `${window.location.origin}/inbox`,
+        link: `${window.location.origin}${inboxLink}`,
       })
     }
     setAdminMessageBody('')

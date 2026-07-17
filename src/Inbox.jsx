@@ -21,7 +21,8 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const isInstructorInbox = teacherMode && !adminMode
+  const canUseTeacherInbox = profile?.role === 'instructor'
+  const isInstructorInbox = teacherMode && canUseTeacherInbox && !adminMode
 
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
@@ -215,12 +216,16 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     let recipientEmail = null
     let courseId = null
 
+    let recipientRole = null
+
     if (replyTo) {
       recipientId = replyTo.id || null
       recipientEmail = replyTo.email || null
+      recipientRole = getPersonProfile(replyTo)?.role || null
     } else if (selectedConversation) {
       recipientId = selectedConversation.profile?.id || null
       recipientEmail = selectedConversation.profile?.email || null
+      recipientRole = selectedConversation.profile?.role || null
     } else if (adminMode) {
       recipientEmail = recipientEmailInput.trim()
       if (!recipientEmail) {
@@ -237,6 +242,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
       }
       recipientId = selectedCourse.instructor_id
       courseId = selectedCourse.id
+      recipientRole = 'instructor'
     } else {
       setMessage(t('selectConversationPrompt'))
       return
@@ -262,12 +268,14 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
       return
     }
 
+    const inboxLink = recipientRole === 'instructor' ? '/inbox?mode=teacher' : '/inbox'
+
     if (recipientId) {
       await supabase.rpc('create_notification', {
         p_user_id: recipientId,
         p_title: t('inboxNewMessageTitle'),
         p_body: t('inboxNewMessageBody'),
-        p_link: '/inbox',
+        p_link: inboxLink,
       })
     }
 
@@ -276,7 +284,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
       courseId,
       courseTitle: courseOptions.find((course) => String(course.id) === String(courseId))?.title,
       instructorId: recipientId,
-      link: `${window.location.origin}/inbox`,
+      link: `${window.location.origin}${inboxLink}`,
     })
 
     const nextPerson = { id: recipientId || null, email: recipientEmail || '' }
@@ -503,7 +511,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
 function Inbox({ user, profile, handleLogout }) {
   const [searchParams] = useSearchParams()
-  const teacherMode = searchParams.get('mode') === 'teacher'
+  const teacherMode = searchParams.get('mode') === 'teacher' && profile?.role === 'instructor'
 
   return (
     <div className="page">
