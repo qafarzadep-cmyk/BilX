@@ -46,6 +46,11 @@ const UPCOMING_COURSES = [
   'IELTS hazırlığı',
   'Magistratura hazırlığı',
   'Dövlət qulluğu hazırlığı',
+  'SAT hazırlığı',
+  'Rus dili danışıq dərsi',
+  'Alman dili danışıq dərsi',
+  'Çin dili danışıq dərsi',
+  'Koreya dili danışıq dərsi',
 ].map((title, index) => ({
   id: `upcoming-${index + 1}`,
   title,
