@@ -56,6 +56,13 @@ const UPCOMING_COURSES = [
   title,
 }))
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLocaleLowerCase('az-AZ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 function getPageTitle(pathname) {
   if (pathname === '/') return 'BilX | Onlayn video kurslar'
   if (pathname === '/login') return 'BilX | Giriş'
@@ -143,17 +150,19 @@ function Home({ user, profile, handleLogout }) {
     return () => window.clearTimeout(timeoutId)
   }, [loadingCourses, search])
 
+  const normalizedSearch = normalizeSearchText(search)
+  const searchIsActive = Boolean(search.trim())
   const filteredCourses = courses.filter((course) =>
-    `${course.title || ''} ${course.description || ''}`.toLowerCase().includes(search.toLowerCase())
+    normalizeSearchText(`${course.title || ''} ${course.description || ''}`).includes(normalizedSearch)
   )
   const filteredUpcomingCourses = UPCOMING_COURSES.filter((course) =>
-    course.title.toLowerCase().includes(search.toLowerCase())
+    normalizeSearchText(course.title).includes(normalizedSearch)
   )
-  const visibleUpcomingCourses = search.trim() ? filteredUpcomingCourses : UPCOMING_COURSES
+  const visibleUpcomingCourses = searchIsActive ? filteredUpcomingCourses : UPCOMING_COURSES
   const hasVisibleCourses = filteredCourses.length > 0 || visibleUpcomingCourses.length > 0
   // Only highlight a "Featured" shelf when there are enough courses for it to be
   // meaningful — otherwise it just repeats the grid. Hidden while searching.
-  const showFeatured = !search.trim() && filteredCourses.length > 6
+  const showFeatured = !searchIsActive && filteredCourses.length > 6
   const featuredCourses = filteredCourses.slice(0, 8)
 
   const scrollCourses = (direction) => {
@@ -318,7 +327,7 @@ function Home({ user, profile, handleLogout }) {
             </section>
             )}
 
-            <section className="home-grid-section reveal" aria-label={t('allCoursesTitle')}>
+            <section className={searchIsActive ? 'home-grid-section in' : 'home-grid-section reveal'} aria-label={t('allCoursesTitle')}>
               <div className="section-heading">
                 <h2>{showFeatured ? t('allCoursesTitle') : t('coursesTitle')}</h2>
                 <p>{t('allCoursesSubtitle')}</p>
