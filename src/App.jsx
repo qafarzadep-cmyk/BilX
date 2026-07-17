@@ -135,6 +135,14 @@ function Home({ user, profile, handleLogout }) {
     return () => observer.disconnect()
   }, [loadingCourses, courses.length])
 
+  useEffect(() => {
+    if (loadingCourses || !search.trim()) return undefined
+    const timeoutId = window.setTimeout(() => {
+      coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 120)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadingCourses, search])
+
   const filteredCourses = courses.filter((course) =>
     `${course.title || ''} ${course.description || ''}`.toLowerCase().includes(search.toLowerCase())
   )
