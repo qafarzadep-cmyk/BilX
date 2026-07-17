@@ -103,7 +103,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
 
     const { error } = await supabase
       .from('notifications')
-      .update({ is_read: true, read_at: readAt })
+      .update({ is_read: true })
       .eq('user_id', user.id)
       .in('id', notificationIds)
 
