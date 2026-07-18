@@ -2487,6 +2487,14 @@ body.quiz-fullscreen-open {
   background: #fff;
 }
 
+.instructor-lesson-panel {
+  overflow: hidden;
+}
+
+.instructor-lesson-panel .lesson-panel-header {
+  padding-top: 24px;
+}
+
 .instructor-active-video-title {
   padding: 18px 22px;
   border-top: 1px solid #eef0f2;
@@ -3850,6 +3858,7 @@ th {
 }
 
 html {
+  scroll-padding-top: 84px;
   scroll-behavior: smooth;
 }
 
