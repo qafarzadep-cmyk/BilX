@@ -309,6 +309,7 @@ function CoursePage({ user, profile, handleLogout }) {
       : [{ id: 'default', title: 'Section 1', order_index: 1 }]
 
     return effective.map((section, sectionIndex) => {
+      const sectionNumber = Number(section.order_index) || sectionIndex + 1
       const sectionLessons = lessons.filter((lesson) => {
         if (section.id === 'default') return true
         if (!lesson.section_id && sectionIndex === 0) return true
@@ -319,11 +320,12 @@ function CoursePage({ user, profile, handleLogout }) {
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       const questionCount = getQuizQuestionCount(sectionQuizzes)
-      const numberedTitle = `${t('sectionLabel')} ${sectionIndex + 1}`
-      const defaultTitle = `Section ${sectionIndex + 1}`
+      const numberedTitle = `${t('sectionLabel')} ${sectionNumber}`
+      const defaultTitle = `Section ${sectionNumber}`
 
       return {
         ...section,
+        sectionNumber,
         displayTitle: section.title && section.title !== defaultTitle
           ? `${numberedTitle}: ${section.title}`
           : numberedTitle,
@@ -385,12 +387,12 @@ function CoursePage({ user, profile, handleLogout }) {
       ))
       if (lessonIndex === -1) continue
 
-      const lessonNumber = `${sectionIndex + 1}.${lessonIndex + 1}`
+      const lessonNumber = `${section.sectionNumber || sectionIndex + 1}.${lessonIndex + 1}`
       const lessonTitle = activeVideo.displayTitle || activeVideo.title || t('lessonTitle')
       return {
         lessonNumber,
         lessonTitle,
-        sectionTitle: section.displayTitle || `${t('sectionLabel')} ${sectionIndex + 1}`,
+        sectionTitle: section.displayTitle || `${t('sectionLabel')} ${section.sectionNumber || sectionIndex + 1}`,
         summary: `${t('lessonLabel')} ${activeContentIndex + 1} / ${allSectionItems.length}`,
       }
     }
@@ -1382,7 +1384,7 @@ function CoursePage({ user, profile, handleLogout }) {
                                   {isLocked ? <Lock size={19} /> : !isVideo ? <ClipboardList size={20} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
                                 </span>
                                 <span className="lesson-copy">
-                                  <strong>{sectionIndex + 1}.{contentIndex + 1} {item.displayTitle || item.title}</strong>
+                                  <strong>{section.sectionNumber || sectionIndex + 1}.{contentIndex + 1} {item.displayTitle || item.title}</strong>
                                   {isVideo ? (item.duration || isLocked) && (
                                     <small>
                                       {item.duration && <><Clock3 size={14} /> {item.duration}</>}
@@ -1494,7 +1496,7 @@ function CoursePage({ user, profile, handleLogout }) {
                         const isVideo = contentItem.type === 'video'
                         return (
                           <div key={`${contentItem.type}-${item.id}`} className="locked-lesson">
-                            <span>{sectionIndex + 1}.{itemIndex + 1}</span>
+                            <span>{section.sectionNumber || sectionIndex + 1}.{itemIndex + 1}</span>
                             {item.displayTitle || item.title}
                             <small>{isVideo && previewLessons.some((lesson) => String(lesson.id) === String(item.id)) ? t('coursePreview') : t('locked')}</small>
                           </div>
