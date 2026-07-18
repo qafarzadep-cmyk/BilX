@@ -5628,12 +5628,23 @@ td button + .outline-button {
   grid-template-columns: 1fr;
 }
 
+.inbox-page-shell {
+  height: calc(100dvh - 72px);
+  padding-top: 44px;
+  padding-bottom: 28px;
+}
+
+.inbox-page-shell .inbox-grid {
+  height: 100%;
+  min-height: 0;
+}
+
 .inbox-messenger {
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
   gap: 0;
-  height: min(760px, calc(100dvh - 150px));
-  min-height: 620px;
+  height: 100%;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
 }
@@ -5896,7 +5907,7 @@ td button + .outline-button {
 
   .inbox-messenger {
     grid-template-columns: 1fr;
-    height: calc(100dvh - 120px);
+    height: 100%;
     min-height: 520px;
   }
 

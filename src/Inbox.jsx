@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
@@ -20,7 +20,9 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const [replyTo, setReplyTo] = useState(null)
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingInbox, setLoadingInbox] = useState(true)
   const [message, setMessage] = useState('')
+  const chatEndRef = useRef(null)
   const canUseTeacherInbox = profile?.role === 'instructor'
   const isInstructorInbox = teacherMode && canUseTeacherInbox && !adminMode
 
@@ -164,7 +166,12 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     let mounted = true
 
     async function loadInbox() {
-      if (!user) return
+      if (!user) {
+        if (mounted) setLoadingInbox(false)
+        return
+      }
+
+      setLoadingInbox(true)
 
       const { data: enrollmentData } = await supabase
         .from('enrollments')
@@ -180,6 +187,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
       }
 
       if (mounted) await loadMessages()
+      if (mounted) setLoadingInbox(false)
     }
 
     loadInbox()
@@ -187,6 +195,11 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
       mounted = false
     }
   }, [loadMessages, user])
+
+  useEffect(() => {
+    if (loadingInbox || !selectedConversation) return
+    chatEndRef.current?.scrollIntoView({ block: 'end' })
+  }, [body, loadingInbox, selectedConversation, selectedConversation?.messages.length])
 
   const selectConversation = (conversation) => {
     const profile = conversation.profile || getPersonProfile(conversation.person)
@@ -209,7 +222,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
   const handleSend = async (event) => {
     event.preventDefault()
-    if (!user || !body.trim()) return
+    if (loading || !user || !body.trim()) return
 
     const trimmedBody = body.trim()
     let recipientId = null
@@ -300,6 +313,12 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     await loadMessages()
   }
 
+  const handleComposerKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey) return
+    event.preventDefault()
+    event.currentTarget.form?.requestSubmit()
+  }
+
   if (!user) {
     return (
       <div className="empty-box compact">
@@ -384,7 +403,9 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
           )}
 
           <div className="inbox-thread-list">
-            {messages.length === 0 ? (
+            {loadingInbox ? (
+              <p className="muted">{t('loading')}</p>
+            ) : messages.length === 0 ? (
               <p className="muted">{t('noInboxMessages')}</p>
             ) : filteredConversations.length === 0 ? (
               <p className="muted">{t('inboxSearchEmpty')}</p>
@@ -439,7 +460,11 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
           {message && <div className="notice-box inbox-notice">{message}</div>}
 
           <div className="inbox-chat-scroll">
-            {selectedConversation ? (
+            {loadingInbox ? (
+              <div className="inbox-empty-chat">
+                <p>{t('loading')}</p>
+              </div>
+            ) : selectedConversation ? (
               selectedConversation.messages.map((item) => {
                 const isMine = item.sender_id === user?.id || item.sender_email === user?.email
                 const person = getMessagePerson(item, 'sender')
@@ -466,6 +491,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
                 )}
               </div>
             )}
+            <div ref={chatEndRef} />
           </div>
 
           <form className="inbox-composer" onSubmit={handleSend}>
@@ -473,6 +499,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
               rows={1}
               value={body}
               onChange={(event) => setBody(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
               placeholder={t('messagePlaceholder')}
             />
             <button className="primary-button" disabled={loading}>
@@ -516,7 +543,7 @@ function Inbox({ user, profile, handleLogout }) {
   return (
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
-      <main className="content-shell">
+      <main className="content-shell inbox-page-shell">
         <InboxPanel user={user} profile={profile} teacherMode={teacherMode} />
       </main>
     </div>
