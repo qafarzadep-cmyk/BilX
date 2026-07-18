@@ -256,7 +256,9 @@ function CoursePage({ user, profile, handleLogout }) {
     })
   }, [adminPreview, courseInstructorId, hasAccess, lessonPreviews, playableById, t, userId, videos])
 
-  const activeQuiz = quizzes.find((quiz) => String(quiz.id) === String(activeQuizId)) || null
+  const activeQuiz = quizzes.find((quiz) => String(quiz.id) === String(activeQuizId))
+    || quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId))
+    || null
   const activeVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
 
   useEffect(() => {
@@ -456,7 +458,8 @@ function CoursePage({ user, profile, handleLogout }) {
   }
 
   const selectQuiz = (sectionId, quizId) => {
-    if (!canViewFullCourse) {
+    const quiz = outlineQuizzes.find((item) => String(item.id) === String(quizId))
+    if (!canViewFullCourse && !quiz?.is_free) {
       toast(t('unlockFullCourse'))
       return
     }
@@ -1384,7 +1387,7 @@ function CoursePage({ user, profile, handleLogout }) {
                               ? String(item.id) === String(activeVideo?.id)
                               : String(item.id) === String(activeQuiz?.id)
                             const isWatched = isVideo && watchedIds.has(String(item.id))
-                            const isLocked = isVideo ? item.locked : !canViewFullCourse
+                            const isLocked = isVideo ? item.locked : !(canViewFullCourse || item.is_free)
 
                             return (
                               <button

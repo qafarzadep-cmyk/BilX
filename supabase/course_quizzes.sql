@@ -7,14 +7,19 @@ create table if not exists public.course_quizzes (
   section_id bigint not null references public.course_sections(id) on delete cascade,
   title text not null,
   questions jsonb not null default '[]'::jsonb,
+  is_free boolean not null default false,
   order_index integer not null default 1,
   created_at timestamptz not null default now()
 );
+
+alter table public.course_quizzes
+  add column if not exists is_free boolean not null default false;
 
 create index if not exists course_quizzes_course_idx on public.course_quizzes(course_id);
 create index if not exists course_quizzes_section_idx on public.course_quizzes(section_id);
 
 grant select on public.course_quizzes to authenticated;
+grant select on public.course_quizzes to anon;
 grant insert, update, delete on public.course_quizzes to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 
@@ -35,6 +40,10 @@ create policy "course_quizzes_read_allowed"
           c.instructor_id = auth.uid()
           or public.is_admin()
           or public.has_course_access(c.id)
+          or (
+            course_quizzes.is_free = true
+            and c.is_published = true
+          )
         )
     )
   );
@@ -102,11 +111,20 @@ as
     q.section_id,
     q.title,
     jsonb_array_length(coalesce(q.questions, '[]'::jsonb)) as question_count,
+    q.is_free,
     q.order_index
   from public.course_quizzes q
   join public."Courses" c on c.id = q.course_id
   where c.is_published = true;
 
 grant select on public.course_quiz_previews to anon, authenticated;
+
+update public.course_quizzes q
+set is_free = true
+from public."Courses" c
+where c.id = q.course_id
+  and c.id = 17
+  and c.is_published = true
+  and q.title ~* '(^|[[:space:]])test[[:space:]]*4([^0-9]|$)';
 
 notify pgrst, 'reload schema';

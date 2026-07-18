@@ -41,25 +41,42 @@ export default async function handler(req, res) {
     return
   }
 
-  const { data, error } = await service
+  let { data, error } = await service
     .from('course_quizzes')
-    .select('id, course_id, section_id, title, questions, order_index')
+    .select('id, course_id, section_id, title, questions, order_index, is_free')
     .eq('course_id', courseId)
     .order('order_index', { ascending: true })
+
+  if (error && error.message?.includes('is_free')) {
+    const fallback = await service
+      .from('course_quizzes')
+      .select('id, course_id, section_id, title, questions, order_index')
+      .eq('course_id', courseId)
+      .order('order_index', { ascending: true })
+    data = fallback.data
+    error = fallback.error
+  }
 
   if (error) {
     res.status(500).json({ error: 'Could not load quiz previews.' })
     return
   }
 
-  const quizzes = (data || []).map((quiz) => ({
-    id: quiz.id,
-    course_id: quiz.course_id,
-    section_id: quiz.section_id,
-    title: quiz.title,
-    question_count: Array.isArray(quiz.questions) ? quiz.questions.length : 0,
-    order_index: quiz.order_index,
-  }))
+  const quizzes = (data || []).map((quiz) => {
+    const title = quiz.title || ''
+    const test4Fallback = courseId === 17 && /(^|\s)test\s*4(\D|$)/i.test(title)
+    const isFree = Boolean(quiz.is_free || test4Fallback)
+    return {
+      id: quiz.id,
+      course_id: quiz.course_id,
+      section_id: quiz.section_id,
+      title,
+      question_count: Array.isArray(quiz.questions) ? quiz.questions.length : 0,
+      questions: isFree && Array.isArray(quiz.questions) ? quiz.questions : undefined,
+      is_free: isFree,
+      order_index: quiz.order_index,
+    }
+  })
 
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
   res.status(200).json({ quizzes })
