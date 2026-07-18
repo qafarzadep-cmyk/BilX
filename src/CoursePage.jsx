@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, ExternalLink, Lock, Maximize2, Minimize2, Play, PlayCircle, Share2, X } from 'lucide-react'
+import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, ExternalLink, Lock, Maximize2, MessageCircle, Minimize2, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
@@ -1077,6 +1077,9 @@ function CoursePage({ user, profile, handleLogout }) {
               <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
               <span>{outlineQuizzes.length} {t('quizLabel')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
               <span>{t('lifetimeAccess')}</span>
+              <button className="hero-whatsapp-button" type="button" onClick={handleWhatsApp}>
+                <MessageCircle size={16} /> {t('courseAcquire')}
+              </button>
             </div>
             <button type="button" className="outline-button share-button" onClick={handleShare}>
               <Share2 size={16} /> {t('shareCourse')}
@@ -1334,8 +1337,8 @@ function CoursePage({ user, profile, handleLogout }) {
                 {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>
                 ) : (
-                  <button className="outline-button unlock-course-button" type="button" onClick={handleWhatsApp}>
-                    {t('unlockFullCourse')}
+                  <button className="primary-button unlock-course-button" type="button" onClick={handleWhatsApp}>
+                    <MessageCircle size={16} /> {t('unlockFullCourse')}
                   </button>
                 )}
               </div>
@@ -1393,7 +1396,11 @@ function CoursePage({ user, profile, handleLogout }) {
                               <button
                                 key={`${contentItem.type}-${item.id}`}
                                 className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}`}
-                                onClick={() => (isVideo ? selectLesson(section.id, item.id) : selectQuiz(section.id, item.id))}
+                                onClick={() => {
+                                  if (isLocked) handleWhatsApp()
+                                  else if (isVideo) selectLesson(section.id, item.id)
+                                  else selectQuiz(section.id, item.id)
+                                }}
                               >
                                 <span className="lesson-status">
                                   {isLocked ? <Lock size={19} /> : !isVideo ? <ClipboardList size={20} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
@@ -1510,11 +1517,11 @@ function CoursePage({ user, profile, handleLogout }) {
                         const item = contentItem.item
                         const isVideo = contentItem.type === 'video'
                         return (
-                          <div key={`${contentItem.type}-${item.id}`} className="locked-lesson">
+                          <button key={`${contentItem.type}-${item.id}`} className="locked-lesson locked-lesson-button" type="button" onClick={handleWhatsApp}>
                             <span>{section.sectionNumber || sectionIndex + 1}.{itemIndex + 1}</span>
                             {item.displayTitle || item.title}
                             <small>{isVideo && previewLessons.some((lesson) => String(lesson.id) === String(item.id)) ? t('coursePreview') : t('locked')}</small>
-                          </div>
+                          </button>
                         )
                       })}
                     </section>

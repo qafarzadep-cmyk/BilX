@@ -661,6 +661,39 @@ button {
   line-height: 1.25;
 }
 
+.course-card-footer {
+  width: 100%;
+  margin-top: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.course-card .course-card-price,
+.home-course-card .course-card-price {
+  margin-top: 0;
+}
+
+.course-card-whatsapp-button {
+  width: 100%;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 6px;
+  background: #25d366;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.course-card-whatsapp-button:hover {
+  background: #1fb75a;
+}
+
 .upcoming-course-badge {
   margin-top: auto;
   display: inline-flex;
@@ -966,6 +999,28 @@ button {
   font-weight: 700;
 }
 
+.hero-whatsapp-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #25d366;
+  border-radius: 999px;
+  padding: 7px 13px;
+  background: #25d366;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hero-whatsapp-button:hover {
+  background: #1fb75a;
+  border-color: #1fb75a;
+}
+
 .learning-grid,
 .purchase-grid,
 .studio-grid {
@@ -1199,6 +1254,10 @@ button {
 
 .unlock-course-button {
   min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   padding: 0 12px;
   white-space: nowrap;
 }
@@ -1862,6 +1921,19 @@ body.quiz-fullscreen-open {
 .locked-lesson small {
   margin-left: auto;
   color: #6a6f73;
+}
+
+.locked-lesson-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.locked-lesson-button:hover {
+  background: #f7f9fa;
 }
 
 .whatsapp-button {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { BookOpen, Clock3, PlayCircle, Video } from 'lucide-react'
+import { BookOpen, Clock3, MessageCircle, PlayCircle, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import CertificatePage from './CertificatePage'
@@ -233,6 +233,21 @@ function Home({ user, profile, handleLogout }) {
     event.stopPropagation()
     if (teacherId) navigate(`/teacher/${teacherId}`)
   }
+  const openCourseWhatsApp = async (event, course) => {
+    event.stopPropagation()
+    if (user) {
+      await supabase.from('requests').insert({
+        user_id: user.id,
+        user_email: user.email,
+        user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
+        course_id: course.id,
+        course_name: course.title,
+        status: 'pending',
+      })
+    }
+    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user?.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user?.email || ''}`
+    window.open(getWhatsAppUrl(message), '_blank')
+  }
   const onCourseKeyDown = (event, course) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -374,7 +389,12 @@ function Home({ user, profile, handleLogout }) {
                               {instructorName}
                             </button>
                           )}
-                          <strong className="home-course-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                          <div className="course-card-footer">
+                            <strong className="home-course-price course-card-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                            <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
+                              <MessageCircle size={16} /> {t('courseAcquire')}
+                            </button>
+                          </div>
                         </div>
                       </article>
                     )
@@ -412,7 +432,12 @@ function Home({ user, profile, handleLogout }) {
                             {instructorName}
                           </button>
                         )}
-                        <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                        <div className="course-card-footer">
+                          <strong className="course-card-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                          <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
+                            <MessageCircle size={16} /> {t('courseAcquire')}
+                          </button>
+                        </div>
                       </div>
                     </article>
                   )
