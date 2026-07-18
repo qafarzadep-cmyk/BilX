@@ -174,6 +174,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeVideoIdRef = useRef(null)
   const advancingVideoIdRef = useRef(null)
   const initializedCourseIdRef = useRef(null)
+  const curriculumListRef = useRef(null)
+  const activeCurriculumItemRef = useRef(null)
   const [course, setCourse] = useState(location.state?.course || null)
   const [videos, setVideos] = useState([])
   const [lessonPreviews, setLessonPreviews] = useState([])
@@ -443,6 +445,28 @@ function CoursePage({ user, profile, handleLogout }) {
       return next
     })
   }, [activeSectionId])
+
+  useEffect(() => {
+    if (!activeLessonRowId && !activeQuiz?.id) return undefined
+
+    const frameId = window.requestAnimationFrame(() => {
+      const item = activeCurriculumItemRef.current
+      if (!item) return
+
+      const list = curriculumListRef.current
+      if (list && list.scrollHeight > list.clientHeight) {
+        const listRect = list.getBoundingClientRect()
+        const itemRect = item.getBoundingClientRect()
+        const centeredTop = list.scrollTop + itemRect.top - listRect.top - ((list.clientHeight - itemRect.height) / 2)
+        list.scrollTo({ top: Math.max(0, centeredTop), behavior: 'smooth' })
+        return
+      }
+
+      item.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [activeLessonRowId, activeQuiz?.id, activeSectionId, expandedSectionIds, visibleCurriculumSections])
 
   const toggleCurriculumSection = (sectionId) => {
     const sectionKey = String(sectionId)
@@ -1360,7 +1384,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   />
                 </div>
               )}
-              <div className="course-lesson-list">
+              <div className="course-lesson-list" ref={curriculumListRef}>
                 {visibleCurriculumSections.length === 0 ? (
                   <p className="curriculum-search-empty">{t('curriculumSearchEmpty')}</p>
                 ) : visibleCurriculumSections.map((section, sectionIndex) => {
@@ -1397,6 +1421,7 @@ function CoursePage({ user, profile, handleLogout }) {
                             return (
                               <button
                                 key={`${contentItem.type}-${item.id}`}
+                                ref={isActive ? activeCurriculumItemRef : null}
                                 className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}`}
                                 onClick={() => {
                                   if (isLocked) handleWhatsApp()
