@@ -267,6 +267,9 @@ function CoursePage({ user, profile, handleLogout }) {
   // available for enrolled users and owners too, so they see the same course
   // preview card when reviewing the published page.
   const previewLessons = lessons.filter((lesson) => lesson.is_free && !lesson.locked)
+  const canViewFullCourse = hasAccess || adminPreview || courseInstructorId === userId
+  const curriculumLessons = canViewFullCourse ? lessons : previewLessons
+  const curriculumQuizzes = canViewFullCourse ? quizzes : []
   const trailerVideo = trailer ? {
     id: `trailer-${trailer.course_id}`,
     title: trailer.title || t('courseTrailer'),
@@ -301,6 +304,11 @@ function CoursePage({ user, profile, handleLogout }) {
     totalQuizQuestionCount,
     t
   )
+  const previewCourseDuration = formatSectionDuration(
+    previewLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0),
+    t
+  )
+  const previewContentSummary = formatCourseContentSummary(previewLessons.length, previewCourseDuration, 0, 0, t)
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     const effective = orderedSections.length > 0
@@ -308,12 +316,12 @@ function CoursePage({ user, profile, handleLogout }) {
       : [{ id: 'default', title: 'Section 1', order_index: 1 }]
 
     return effective.map((section, sectionIndex) => {
-      const sectionLessons = lessons.filter((lesson) => {
+      const sectionLessons = curriculumLessons.filter((lesson) => {
         if (section.id === 'default') return true
         if (!lesson.section_id && sectionIndex === 0) return true
         return String(lesson.section_id) === String(section.id)
       })
-      const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
+      const sectionQuizzes = curriculumQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
       const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
@@ -333,8 +341,8 @@ function CoursePage({ user, profile, handleLogout }) {
         duration: formatSectionDuration(duration, t),
         questionCount,
       }
-    }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
-  }, [lessons, quizzes, sections, t, watchedIds])
+    }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || (canViewFullCourse && sections.length > 0))
+  }, [canViewFullCourse, curriculumLessons, curriculumQuizzes, sections, t, watchedIds])
   const curriculumSearchTerm = curriculumSearch.trim()
   const visibleCurriculumSections = useMemo(() => {
     const query = normalizeSearchText(curriculumSearchTerm)
@@ -446,7 +454,7 @@ function CoursePage({ user, profile, handleLogout }) {
   }
 
   const selectQuiz = (sectionId, quizId) => {
-    if (!hasAccess && !adminPreview && courseInstructorId !== userId) {
+    if (!canViewFullCourse) {
       toast(t('unlockFullCourse'))
       return
     }
@@ -788,7 +796,7 @@ function CoursePage({ user, profile, handleLogout }) {
     ? publicPreviewVideo
     : activeQuiz
       ? null
-    : hasAccess
+    : canViewFullCourse
       ? (activeVideo || trailerVideo)
       : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
   const playerVideoId = playerVideo?.id
@@ -1039,7 +1047,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
-  const canUseLessonPlayer = hasAccess || (Boolean(user) && previewLessons.length > 0)
+  const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0
 
   return (
     <div className="page">
@@ -1308,12 +1316,12 @@ function CoursePage({ user, profile, handleLogout }) {
                 <div>
                   <h2>{t('courseContent')}</h2>
                   <p>
-                    {hasAccess
+                    {canViewFullCourse
                       ? `${completedCount}/${lessons.length} ${t('completedLabel')}`
-                      : courseContentSummary}
+                      : previewContentSummary}
                   </p>
                 </div>
-                {hasAccess ? (
+                {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>
                 ) : (
                   <button className="outline-button unlock-course-button" type="button" onClick={handleWhatsApp}>
