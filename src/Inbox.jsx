@@ -23,7 +23,6 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const [loadingInbox, setLoadingInbox] = useState(true)
   const [message, setMessage] = useState('')
   const chatScrollRef = useRef(null)
-  const chatEndRef = useRef(null)
   const canUseTeacherInbox = profile?.role === 'instructor'
   const isInstructorInbox = teacherMode && canUseTeacherInbox && !adminMode
 
@@ -139,10 +138,21 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   }, [filteredConversations, selectedConversationKey])
 
   const loadMessages = useCallback(async () => {
-    const { data: messageData } = await supabase
+    let query = supabase
       .from('inbox_messages')
       .select('*')
       .order('created_at', { ascending: false })
+
+    if (!adminMode && user) {
+      query = query.or([
+        `sender_id.eq.${user.id}`,
+        `recipient_id.eq.${user.id}`,
+        `sender_email.eq.${user.email}`,
+        `recipient_email.eq.${user.email}`,
+      ].join(','))
+    }
+
+    const { data: messageData } = await query
 
     const ids = Array.from(new Set(
       (messageData || [])
@@ -161,7 +171,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
     setMessages(messageData || [])
     setProfiles(profileData)
-  }, [])
+  }, [adminMode, user])
 
   useEffect(() => {
     let mounted = true
@@ -174,20 +184,22 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
       setLoadingInbox(true)
 
-      const { data: enrollmentData } = await supabase
-        .from('enrollments')
-        .select('course_id, Courses(id, title, instructor_id, instructor_name)')
-        .in('user_id', [user.id, user.email].filter(Boolean))
-        .eq('status', 'active')
+      const [enrollmentResult] = await Promise.all([
+        supabase
+          .from('enrollments')
+          .select('course_id, Courses(id, title, instructor_id, instructor_name)')
+          .in('user_id', [user.id, user.email].filter(Boolean))
+          .eq('status', 'active'),
+        loadMessages(),
+      ])
 
       if (mounted) {
-        const nextCourses = (enrollmentData || [])
+        const nextCourses = (enrollmentResult.data || [])
           .map((item) => item.Courses)
           .filter(Boolean)
         setCourses(nextCourses)
       }
 
-      if (mounted) await loadMessages()
       if (mounted) setLoadingInbox(false)
     }
 
@@ -498,7 +510,6 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
                 )}
               </div>
             )}
-            <div ref={chatEndRef} />
           </div>
 
           <form className="inbox-composer" onSubmit={handleSend}>

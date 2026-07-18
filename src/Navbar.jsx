@@ -29,6 +29,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const role = profile?.role || 'student'
   const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'BilX'
   const firstLetter = name.charAt(0).toUpperCase()
+  const profileReady = !user || Boolean(profile) || isAdmin(user)
   const isInstructor = role === 'instructor'
   const inboxTeacherMode = location.pathname.startsWith('/inbox')
     && new URLSearchParams(location.search).get('mode') === 'teacher'
@@ -334,9 +335,18 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
             <button className="icon-button nav-inbox-button" type="button" onClick={() => navigate(isTeacherMode ? '/inbox?mode=teacher' : '/inbox')} aria-label={t('inbox')} title={t('inbox')}>
               <Mail size={18} />
             </button>
-            <div className="nav-role-stack">
+            <div className={`nav-role-stack ${profileReady ? '' : 'loading'}`}>
               <span className="nav-role-pill">{roleLabel}</span>
-              {!isAdmin(user) && !isInstructor && (
+              {!profileReady ? (
+                <button
+                  type="button"
+                  className="nav-switch-button"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                >
+                  {t('switchToTeacherPanel')}
+                </button>
+              ) : !isAdmin(user) && !isInstructor ? (
                 <button
                   type="button"
                   className="nav-switch-button"
@@ -344,17 +354,15 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                 >
                   {t('applyToTeach')}
                 </button>
-              )}
-              {!isAdmin(user) && isInstructor && (
+              ) : !isAdmin(user) && isInstructor ? (
                 <button type="button" className="nav-switch-button" onClick={handleModeSwitch}>
                   {isTeacherMode ? t('switchToStudentPanel') : t('switchToTeacherPanel')}
                 </button>
-              )}
-              {isAdmin(user) && (
+              ) : isAdmin(user) ? (
                 <button type="button" className="nav-switch-button" onClick={handleLogoutClick}>
                   {t('logout')}
                 </button>
-              )}
+              ) : null}
             </div>
             <div ref={menuRef} className="avatar-menu">
               <button className="avatar-button" type="button" onClick={() => setOpen((value) => !value)}>
