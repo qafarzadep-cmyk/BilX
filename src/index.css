@@ -5628,8 +5628,17 @@ td button + .outline-button {
   grid-template-columns: 1fr;
 }
 
-.inbox-grid-compact .panel-card.inbox-messenger,
 .inbox-messenger {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 0;
+  height: min(760px, calc(100dvh - 150px));
+  min-height: 620px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.inbox-grid-compact .panel-card.inbox-messenger {
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
   gap: 0;
@@ -5815,9 +5824,10 @@ td button + .outline-button {
 .inbox-messenger .inbox-chat-scroll {
   max-height: none;
   min-height: 0;
-  padding: 18px;
+  padding: 18px 18px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scroll-padding-bottom: 24px;
   scrollbar-gutter: stable;
 }
 
@@ -5850,9 +5860,6 @@ td button + .outline-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 116px;
   align-items: center;
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid #e8edf3;
@@ -5887,8 +5894,13 @@ td button + .outline-button {
     grid-template-columns: 1fr;
   }
 
-  .inbox-grid-compact .panel-card.inbox-messenger,
   .inbox-messenger {
+    grid-template-columns: 1fr;
+    height: calc(100dvh - 120px);
+    min-height: 520px;
+  }
+
+  .inbox-grid-compact .panel-card.inbox-messenger {
     grid-template-columns: 1fr;
     height: calc(100vh - 180px);
     min-height: 520px;
