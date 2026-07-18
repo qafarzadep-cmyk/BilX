@@ -5,12 +5,38 @@ import { useLanguage } from './i18n'
 import { ADMIN_EMAIL } from './profileApi'
 import { supabase } from './supabase'
 
+const INBOX_CACHE_PREFIX = 'bilx-inbox-cache'
+
+function getInboxCacheKey(user, adminMode, teacherMode) {
+  if (!user) return ''
+  const mode = adminMode ? 'admin' : teacherMode ? 'teacher' : 'student'
+  return `${INBOX_CACHE_PREFIX}:${user.id}:${mode}`
+}
+
+function readInboxCache(user, adminMode, teacherMode) {
+  const key = getInboxCacheKey(user, adminMode, teacherMode)
+  if (!key) return null
+
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function writeInboxCache(user, adminMode, teacherMode, payload) {
+  const key = getInboxCacheKey(user, adminMode, teacherMode)
+  if (!key) return
+  localStorage.setItem(key, JSON.stringify(payload))
+}
+
 export function InboxPanel({ user, profile, compact = false, adminMode = false, teacherMode = false }) {
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const [messages, setMessages] = useState([])
-  const [profiles, setProfiles] = useState([])
-  const [courses, setCourses] = useState([])
+  const cachedInbox = readInboxCache(user, adminMode, teacherMode)
+  const [messages, setMessages] = useState(cachedInbox?.messages || [])
+  const [profiles, setProfiles] = useState(cachedInbox?.profiles || [])
+  const [courses, setCourses] = useState(cachedInbox?.courses || [])
   const [recipientType, setRecipientType] = useState('admin')
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [recipientEmailInput, setRecipientEmailInput] = useState('')
@@ -20,7 +46,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const [replyTo, setReplyTo] = useState(null)
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(false)
-  const [loadingInbox, setLoadingInbox] = useState(true)
+  const [loadingInbox, setLoadingInbox] = useState(!cachedInbox)
   const [message, setMessage] = useState('')
   const chatScrollRef = useRef(null)
   const canUseTeacherInbox = profile?.role === 'instructor'
@@ -169,8 +195,10 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
       profileData = data || []
     }
 
-    setMessages(messageData || [])
+    const nextMessages = messageData || []
+    setMessages(nextMessages)
     setProfiles(profileData)
+    return { messages: nextMessages, profiles: profileData }
   }, [adminMode, user])
 
   useEffect(() => {
@@ -182,9 +210,17 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
         return
       }
 
-      setLoadingInbox(true)
+      const cached = readInboxCache(user, adminMode, teacherMode)
+      if (cached && mounted) {
+        setMessages(cached.messages || [])
+        setProfiles(cached.profiles || [])
+        setCourses(cached.courses || [])
+        setLoadingInbox(false)
+      } else {
+        setLoadingInbox(true)
+      }
 
-      const [enrollmentResult] = await Promise.all([
+      const [enrollmentResult, messageResult] = await Promise.all([
         supabase
           .from('enrollments')
           .select('course_id, Courses(id, title, instructor_id, instructor_name)')
@@ -198,6 +234,11 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
           .map((item) => item.Courses)
           .filter(Boolean)
         setCourses(nextCourses)
+        writeInboxCache(user, adminMode, teacherMode, {
+          courses: nextCourses,
+          messages: messageResult?.messages || [],
+          profiles: messageResult?.profiles || [],
+        })
       }
 
       if (mounted) setLoadingInbox(false)
@@ -207,7 +248,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     return () => {
       mounted = false
     }
-  }, [loadMessages, user])
+  }, [adminMode, loadMessages, teacherMode, user])
 
   useEffect(() => {
     if (loadingInbox || !selectedConversation) return
@@ -219,6 +260,11 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
     return () => window.cancelAnimationFrame(frameId)
   }, [body, loadingInbox, selectedConversation, selectedConversation?.messages.length])
+
+  useEffect(() => {
+    if (!user || loadingInbox) return
+    writeInboxCache(user, adminMode, teacherMode, { courses, messages, profiles })
+  }, [adminMode, courses, loadingInbox, messages, profiles, teacherMode, user])
 
   const selectConversation = (conversation) => {
     const profile = conversation.profile || getPersonProfile(conversation.person)
@@ -422,7 +468,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
           )}
 
           <div className="inbox-thread-list">
-            {loadingInbox ? (
+            {loadingInbox && messages.length === 0 ? (
               <p className="muted">{t('loading')}</p>
             ) : messages.length === 0 ? (
               <p className="muted">{t('noInboxMessages')}</p>
@@ -479,7 +525,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
           {message && <div className="notice-box inbox-notice">{message}</div>}
 
           <div className="inbox-chat-scroll" ref={chatScrollRef}>
-            {loadingInbox ? (
+            {loadingInbox && !selectedConversation ? (
               <div className="inbox-empty-chat">
                 <p>{t('loading')}</p>
               </div>

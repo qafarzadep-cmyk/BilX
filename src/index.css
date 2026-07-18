@@ -5825,6 +5825,8 @@ td button + .outline-button {
 
 .inbox-page-shell {
   height: calc(100dvh - 72px);
+  min-height: 0;
+  overflow: hidden;
   padding-top: 44px;
   padding-bottom: 28px;
 }
@@ -6004,8 +6006,8 @@ td button + .outline-button {
 }
 
 .inbox-messenger .inbox-chat-panel {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   border: 0;
   border-radius: 0;
@@ -6028,6 +6030,7 @@ td button + .outline-button {
 }
 
 .inbox-messenger .inbox-chat-scroll {
+  flex: 1 1 0;
   max-height: none;
   min-height: 0;
   padding: 18px 18px 24px;
@@ -6063,6 +6066,7 @@ td button + .outline-button {
 }
 
 .inbox-composer {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 116px;
   align-items: center;
