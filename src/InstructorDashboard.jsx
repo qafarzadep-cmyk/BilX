@@ -55,6 +55,14 @@ function getQuizQuestionCount(quizzes) {
   ), 0)
 }
 
+function PreviewVisibilityIcon({ isOpen, size = 16 }) {
+  return isOpen ? <Eye size={size} /> : <EyeOff size={size} />
+}
+
+function getPreviewVisibilityLabel(isOpen, t) {
+  return isOpen ? t('previewVisible') : t('previewHidden')
+}
+
 function formatCourseContentSummary(lessonCount, duration, quizCount, questionCount, t) {
   const lessonPart = `${lessonCount} ${t('courseLessons')}${duration ? ` / ${duration}` : ''}`
   const quizPart = `${quizCount} ${t('quizLabel')} / ${questionCount} ${t('questionCountLabel')}`
@@ -2287,8 +2295,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                       <button type="button" onClick={() => moveCurriculumItem(contentItem, 1)} disabled={contentIndex === sectionItems.length - 1} title={t('moveLessonDown')}><ArrowDown size={14} /></button>
                                       <button type="button" onClick={() => (isVideo ? editLesson(item) : editQuiz(item))} title={t('edit')}><Pencil size={14} /></button>
                                       {isVideo && (
-                                        <button type="button" onClick={() => toggleFreeLesson(item.id, !item.is_free)} title={item.is_free ? t('previewClose') : t('previewOpen')}>
-                                          {item.is_free ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        <button type="button" onClick={() => toggleFreeLesson(item.id, !item.is_free)} title={getPreviewVisibilityLabel(Boolean(item.is_free), t)}>
+                                          <PreviewVisibilityIcon isOpen={Boolean(item.is_free)} size={14} />
                                         </button>
                                       )}
                                       <button type="button" onClick={() => (isVideo ? deleteLesson(item.id) : deleteQuiz(item.id))} title={t('delete')}><Trash2 size={14} /></button>
@@ -2372,8 +2380,8 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                           }}
                                         />
                                       </label>
-                                      <button className="icon-link-button" type="button" onClick={() => toggleFreeLesson(item.id, !item.is_free)} title={item.is_free ? t('previewClose') : t('previewOpen')}>
-                                        {item.is_free ? <Eye size={16} /> : <EyeOff size={16} />}
+                                      <button className="icon-link-button" type="button" onClick={() => toggleFreeLesson(item.id, !item.is_free)} title={getPreviewVisibilityLabel(Boolean(item.is_free), t)}>
+                                        <PreviewVisibilityIcon isOpen={Boolean(item.is_free)} size={16} />
                                       </button>
                                       </>
                                     )}
@@ -3065,10 +3073,10 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                         className="icon-link-button"
                                         type="button"
                                         onClick={() => toggleFreeLesson(video.id, !video.is_free)}
-                                        aria-label={video.is_free ? t('previewClose') : t('previewOpen')}
-                                        title={video.is_free ? t('previewClose') : t('previewOpen')}
+                                        aria-label={getPreviewVisibilityLabel(Boolean(video.is_free), t)}
+                                        title={getPreviewVisibilityLabel(Boolean(video.is_free), t)}
                                       >
-                                        {video.is_free ? <Eye size={16} /> : <EyeOff size={16} />}
+                                        <PreviewVisibilityIcon isOpen={Boolean(video.is_free)} size={16} />
                                       </button>
                                       <button className="icon-danger-button" type="button" onClick={() => deleteLesson(video.id)} aria-label={t('deleteLesson')}>
                                         <Trash2 size={16} />
