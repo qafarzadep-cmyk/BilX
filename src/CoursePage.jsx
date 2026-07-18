@@ -282,6 +282,22 @@ function CoursePage({ user, profile, handleLogout }) {
       ? trailerVideo
       : previewLessons.find((lesson) => String(lesson.id) === String(activePreviewId))
   ) || trailerVideo || previewLessons[0] || null
+  // Keep the header, opened section, and active row tied to the media that is
+  // actually playing. Public preview viewers can land on a free lesson even
+  // when the first curriculum lesson is locked.
+  const playerVideo = previewModalOpen
+    ? publicPreviewVideo
+    : activeQuiz
+      ? null
+    : canViewFullCourse
+      ? (activeVideo || trailerVideo)
+      : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
+  const playerVideoId = playerVideo?.id
+  const playerBunnyId = playerVideo?.bunny_video_id
+  const activePlayerLesson = !activeQuiz && playerVideo && !playerVideo.is_trailer
+    ? lessons.find((lesson) => String(lesson.id) === String(playerVideo.id)) || playerVideo
+    : null
+  const activeLessonRowId = activePlayerLesson?.id || (!playerVideo?.is_trailer ? activeVideo?.id : null)
   const previewChoices = [
     ...(trailerVideo ? [trailerVideo] : []),
     ...previewLessons,
@@ -379,25 +395,26 @@ function CoursePage({ user, profile, handleLogout }) {
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0)
   }, [curriculumSearchTerm, curriculumSections, t, watchedIds])
   const activeSectionId = curriculumSections.find((section) => (
-    section.lessons.some((lesson) => String(lesson.id) === String(activeVideo?.id))
+    section.lessons.some((lesson) => String(lesson.id) === String(activeLessonRowId))
     || section.quizzes?.some((quiz) => String(quiz.id) === String(activeQuiz?.id))
   ))?.id
   const activeLessonDetails = (() => {
-    if (!activeVideo?.id) return null
+    const displayLesson = activePlayerLesson || activeVideo
+    if (!displayLesson?.id) return null
 
     const allSectionItems = curriculumSections.flatMap((section) => section.items || [])
     const activeContentIndex = allSectionItems.findIndex((entry) => (
-      entry.type === 'video' && String(entry.item.id) === String(activeVideo.id)
+      entry.type === 'video' && String(entry.item.id) === String(displayLesson.id)
     ))
 
     for (const [sectionIndex, section] of curriculumSections.entries()) {
       const lessonIndex = (section.items || []).findIndex((entry) => (
-        entry.type === 'video' && String(entry.item.id) === String(activeVideo.id)
+        entry.type === 'video' && String(entry.item.id) === String(displayLesson.id)
       ))
       if (lessonIndex === -1) continue
 
       const lessonNumber = `${section.sectionNumber || sectionIndex + 1}.${lessonIndex + 1}`
-      const lessonTitle = activeVideo.displayTitle || activeVideo.title || t('lessonTitle')
+      const lessonTitle = displayLesson.displayTitle || displayLesson.title || t('lessonTitle')
       return {
         lessonNumber,
         lessonTitle,
@@ -796,21 +813,6 @@ function CoursePage({ user, profile, handleLogout }) {
     }
   }
 
-  // Bunny lessons play through a token-authenticated embed URL that must be
-  // minted server-side (after an access check). Resolve it for whichever lesson
-  // is on screen: the active lesson when enrolled, the preview otherwise.
-  // Owners/admins enter the full-course view. When a new course has a trailer
-  // but no lessons yet, keep the trailer available instead of rendering an
-  // empty lesson player.
-  const playerVideo = previewModalOpen
-    ? publicPreviewVideo
-    : activeQuiz
-      ? null
-    : canViewFullCourse
-      ? (activeVideo || trailerVideo)
-      : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
-  const playerVideoId = playerVideo?.id
-  const playerBunnyId = playerVideo?.bunny_video_id
   const activeQuizQuestions = Array.isArray(activeQuiz?.questions) ? activeQuiz.questions : []
   const safeActiveQuizQuestionIndex = Math.min(activeQuizQuestionIndex, Math.max(activeQuizQuestions.length - 1, 0))
   const activeQuizQuestion = activeQuizQuestions[safeActiveQuizQuestionIndex] || null
@@ -1057,7 +1059,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
-  const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0
+  const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
 
   return (
     <div className="page">
@@ -1263,7 +1265,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   <div className="empty-player">{t('videoNotSupported')}</div>
                 )}
               </div>
-              <div className="course-player-details">
+              <div className={activePlayerLesson ? 'course-player-details active-player-details' : 'course-player-details'}>
                 <div>
                   <p className="player-eyebrow">
                     {activeQuiz
@@ -1387,7 +1389,7 @@ function CoursePage({ user, profile, handleLogout }) {
                             const item = contentItem.item
                             const isVideo = contentItem.type === 'video'
                             const isActive = isVideo
-                              ? String(item.id) === String(activeVideo?.id)
+                              ? String(item.id) === String(activeLessonRowId)
                               : String(item.id) === String(activeQuiz?.id)
                             const isWatched = isVideo && watchedIds.has(String(item.id))
                             const isLocked = isVideo ? item.locked : !(canViewFullCourse || item.is_free)
