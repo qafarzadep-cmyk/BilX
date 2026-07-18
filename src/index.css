@@ -128,10 +128,6 @@ button {
   flex: 0 1 auto;
 }
 
-.nav-wide-link {
-  padding-inline: 8px;
-}
-
 .nav-panel-button {
   white-space: nowrap;
 }
@@ -3843,24 +3839,6 @@ th {
 
   .dashboard-header {
     display: block;
-  }
-}
-
-@media (max-width: 1180px) {
-  .nav-wide-link {
-    display: none;
-  }
-
-  .nav-search {
-    max-width: none;
-  }
-
-  .nav-role-pill {
-    min-width: 170px;
-  }
-
-  .nav-switch-button {
-    min-width: 160px;
   }
 }
 

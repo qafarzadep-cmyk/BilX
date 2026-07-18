@@ -298,8 +298,6 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
       </div>
 
       <div className="nav-actions">
-        <button className="nav-text-button nav-wide-link" type="button" onClick={() => navigate(user ? '/profile' : '/register')}>{t('learnOnBilx')}</button>
-        <button className="nav-text-button nav-wide-link" type="button" onClick={handleTeachClick}>{t('teachOnBilx')}</button>
         <LanguageSelector />
         {user ? (
           <>
