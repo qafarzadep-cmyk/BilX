@@ -179,6 +179,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [lessonPreviews, setLessonPreviews] = useState([])
   const [sections, setSections] = useState([])
   const [quizzes, setQuizzes] = useState([])
+  const [quizPreviews, setQuizPreviews] = useState([])
   const [trailer, setTrailer] = useState(null)
   const [activePreviewId, setActivePreviewId] = useState('trailer')
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
@@ -295,11 +296,15 @@ function CoursePage({ user, profile, handleLogout }) {
     t
   )
   const totalQuizQuestionCount = getQuizQuestionCount(quizzes)
+  const outlineQuizzes = canViewFullCourse ? quizzes : quizPreviews
+  const outlineQuizQuestionCount = canViewFullCourse
+    ? totalQuizQuestionCount
+    : (quizPreviews || []).reduce((total, quiz) => total + (Number(quiz.question_count) || 0), 0)
   const courseContentSummary = formatCourseContentSummary(
     lessons.length,
     fullCourseDuration,
-    quizzes.length,
-    totalQuizQuestionCount,
+    outlineQuizzes.length,
+    outlineQuizQuestionCount,
     t
   )
   const curriculumSections = useMemo(() => {
@@ -315,11 +320,13 @@ function CoursePage({ user, profile, handleLogout }) {
         if (!lesson.section_id && sectionIndex === 0) return true
         return String(lesson.section_id) === String(section.id)
       })
-      const sectionQuizzes = quizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
+      const sectionQuizzes = outlineQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
       const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
-      const questionCount = getQuizQuestionCount(sectionQuizzes)
+      const questionCount = canViewFullCourse
+        ? getQuizQuestionCount(sectionQuizzes)
+        : sectionQuizzes.reduce((total, quiz) => total + (Number(quiz.question_count) || 0), 0)
       const numberedTitle = `${t('sectionLabel')} ${sectionNumber}`
       const defaultTitle = `Section ${sectionNumber}`
 
@@ -337,7 +344,7 @@ function CoursePage({ user, profile, handleLogout }) {
         questionCount,
       }
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
-  }, [lessons, quizzes, sections, t, watchedIds])
+  }, [canViewFullCourse, lessons, outlineQuizzes, sections, t, watchedIds])
   const curriculumSearchTerm = curriculumSearch.trim()
   const visibleCurriculumSections = useMemo(() => {
     const query = normalizeSearchText(curriculumSearchTerm)
@@ -500,12 +507,16 @@ function CoursePage({ user, profile, handleLogout }) {
         { data: previewData },
         { data: sectionData },
         { data: quizData },
+        quizPreviewResponse,
         { data: trailerData },
       ] = await Promise.all([
         supabase.from('videos').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('lesson_previews').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('course_sections').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
         supabase.from('course_quizzes').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
+        fetch(`/api/course-quiz-previews?courseId=${encodeURIComponent(courseId)}`)
+          .then((response) => (response.ok ? response.json() : { quizzes: [] }))
+          .catch(() => ({ quizzes: [] })),
         supabase.from('course_trailers').select('*').eq('course_id', courseId).maybeSingle(),
       ])
 
@@ -515,6 +526,7 @@ function CoursePage({ user, profile, handleLogout }) {
         setLessonPreviews(previewData || [])
         setSections(sectionData || [])
         setQuizzes(quizData || [])
+        setQuizPreviews(quizPreviewResponse?.quizzes || [])
         setTrailer(trailerData || null)
         setActivePreviewId(trailerData ? 'trailer' : '')
         if (String(initializedCourseIdRef.current) !== String(courseId)) {
@@ -1060,7 +1072,7 @@ function CoursePage({ user, profile, handleLogout }) {
             <p>{course.description}</p>
             <div className="tag-row">
               <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
-              <span>{quizzes.length} {t('quizLabel')} / {totalQuizQuestionCount} {t('questionCountLabel')}</span>
+              <span>{outlineQuizzes.length} {t('quizLabel')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
               <span>{t('lifetimeAccess')}</span>
             </div>
             <button type="button" className="outline-button share-button" onClick={handleShare}>
@@ -1392,7 +1404,7 @@ function CoursePage({ user, profile, handleLogout }) {
                                     </small>
                                   ) : (
                                     <small>
-                                      {item.questions?.length || 0} {t('questionCountLabel')}
+                                      {item.questions?.length || item.question_count || 0} {t('questionCountLabel')}
                                       {isLocked && <span> | {t('unlockFullCourse')}</span>}
                                     </small>
                                   )}

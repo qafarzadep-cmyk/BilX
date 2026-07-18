@@ -90,4 +90,23 @@ create policy "course_quizzes_delete_owner"
     )
   );
 
+-- Public, answer-free quiz outline for published courses. This lets students
+-- see tests in the curriculum before buying without exposing quiz answers.
+drop view if exists public.course_quiz_previews;
+create view public.course_quiz_previews
+with (security_invoker = false)
+as
+  select
+    q.id,
+    q.course_id,
+    q.section_id,
+    q.title,
+    jsonb_array_length(coalesce(q.questions, '[]'::jsonb)) as question_count,
+    q.order_index
+  from public.course_quizzes q
+  join public."Courses" c on c.id = q.course_id
+  where c.is_published = true;
+
+grant select on public.course_quiz_previews to anon, authenticated;
+
 notify pgrst, 'reload schema';
