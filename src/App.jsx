@@ -33,6 +33,8 @@ const HOME_STEPS = [
   ['3', 'step3Title', 'step3Text'],
 ]
 
+const PROFILE_CACHE_KEY = 'bilx-profile-cache'
+
 const UPCOMING_COURSES = [
   'Azərbaycan dili Abituriyent hazırlığı',
   'Riyaziyyat Abituriyent hazırlığı',
@@ -117,6 +119,22 @@ function getPageTitle(pathname) {
   if (pathname.startsWith('/certificate')) return 'BilX | Sertifikat'
   if (pathname.startsWith('/edit-course')) return 'BilX | Kursu redaktə et'
   return 'BilX'
+}
+
+function readCachedProfile(user) {
+  if (!user) return null
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(PROFILE_CACHE_KEY) || 'null')
+    return cached?.user_id === user.id ? cached : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedProfile(profile) {
+  if (!profile?.user_id) return
+  localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile))
 }
 
 function Home({ user, profile, handleLogout }) {
@@ -484,6 +502,8 @@ function App() {
       const { data: { session } } = await supabase.auth.getSession()
       const currentUser = session?.user || null
       if (!mounted) return
+      const cachedProfile = readCachedProfile(currentUser)
+      if (cachedProfile) setProfile(cachedProfile)
       setUser(currentUser)
     }
 
@@ -491,8 +511,13 @@ function App() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (loggingOut) return
       const currentUser = session?.user || null
+      const cachedProfile = readCachedProfile(currentUser)
+      if (cachedProfile) setProfile(cachedProfile)
       setUser(currentUser)
-      if (!currentUser) setProfile(null)
+      if (!currentUser) {
+        localStorage.removeItem(PROFILE_CACHE_KEY)
+        setProfile(null)
+      }
       if (event === 'PASSWORD_RECOVERY') {
         navigate('/reset-password', { replace: true })
       }
@@ -503,7 +528,10 @@ function App() {
         if (!mounted || loggingOut || !data.user) return
         setUser(data.user)
         ensureProfile(data.user).then((nextProfile) => {
-          if (mounted) setProfile(nextProfile || fallbackProfile(data.user))
+          if (!mounted) return
+          const resolvedProfile = nextProfile || fallbackProfile(data.user)
+          writeCachedProfile(resolvedProfile)
+          setProfile(resolvedProfile)
         })
       })
       return currentUser
@@ -512,7 +540,11 @@ function App() {
     window.addEventListener('focus', refreshProfile)
     const handleProfileUpdated = (event) => {
       if (!mounted || !event.detail) return
-      setProfile((current) => ({ ...current, ...event.detail }))
+      setProfile((current) => {
+        const nextProfile = { ...current, ...event.detail }
+        writeCachedProfile(nextProfile)
+        return nextProfile
+      })
     }
     window.addEventListener('bilx-profile-updated', handleProfileUpdated)
 
@@ -535,10 +567,18 @@ function App() {
 
       try {
         const nextProfile = await ensureProfile(user)
-        if (mounted) setProfile(nextProfile || fallbackProfile(user))
+        if (mounted) {
+          const resolvedProfile = nextProfile || fallbackProfile(user)
+          writeCachedProfile(resolvedProfile)
+          setProfile(resolvedProfile)
+        }
       } catch (error) {
         console.error('Could not load profile:', error)
-        if (mounted) setProfile(fallbackProfile(user))
+        if (mounted) {
+          const resolvedProfile = fallbackProfile(user)
+          writeCachedProfile(resolvedProfile)
+          setProfile(resolvedProfile)
+        }
       }
     }
 
@@ -560,6 +600,7 @@ function App() {
       active = false
       localStorage.removeItem('bilx-session-token')
       localStorage.removeItem('bilx-session-at')
+      localStorage.removeItem(PROFILE_CACHE_KEY)
       // Local scope: this device only — must NOT revoke the new device's session.
       supabase.auth.signOut({ scope: 'local' }).finally(() => {
         setUser(null)
@@ -629,6 +670,7 @@ function App() {
     setLoggingOut(true)
     localStorage.removeItem('bilx-session-token')
     localStorage.removeItem('bilx-session-at')
+    localStorage.removeItem(PROFILE_CACHE_KEY)
     // Local scope: log out only this device, not the account's other sessions.
     const { error } = await supabase.auth.signOut({ scope: 'local' })
     if (error) {

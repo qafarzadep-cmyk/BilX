@@ -140,11 +140,6 @@ button {
   gap: 4px;
 }
 
-.nav-role-stack.loading {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 .nav-role-pill {
   width: auto;
   min-width: 182px;
