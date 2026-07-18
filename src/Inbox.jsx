@@ -22,6 +22,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const [loading, setLoading] = useState(false)
   const [loadingInbox, setLoadingInbox] = useState(true)
   const [message, setMessage] = useState('')
+  const chatScrollRef = useRef(null)
   const chatEndRef = useRef(null)
   const canUseTeacherInbox = profile?.role === 'instructor'
   const isInstructorInbox = teacherMode && canUseTeacherInbox && !adminMode
@@ -198,7 +199,13 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
   useEffect(() => {
     if (loadingInbox || !selectedConversation) return
-    chatEndRef.current?.scrollIntoView({ block: 'end' })
+    const frameId = window.requestAnimationFrame(() => {
+      const scrollElement = chatScrollRef.current
+      if (!scrollElement) return
+      scrollElement.scrollTop = scrollElement.scrollHeight
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
   }, [body, loadingInbox, selectedConversation, selectedConversation?.messages.length])
 
   const selectConversation = (conversation) => {
@@ -459,7 +466,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
           {message && <div className="notice-box inbox-notice">{message}</div>}
 
-          <div className="inbox-chat-scroll">
+          <div className="inbox-chat-scroll" ref={chatScrollRef}>
             {loadingInbox ? (
               <div className="inbox-empty-chat">
                 <p>{t('loading')}</p>

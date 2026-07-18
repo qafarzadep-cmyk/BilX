@@ -6121,6 +6121,71 @@ td button + .outline-button {
   }
 }
 
+@media (max-width: 560px) {
+  .inbox-page-shell {
+    height: auto;
+    min-height: calc(100dvh - 72px);
+    padding: 14px 10px 28px;
+  }
+
+  .inbox-page-shell .inbox-grid,
+  .inbox-messenger {
+    height: auto;
+    min-height: 0;
+  }
+
+  .inbox-messenger {
+    overflow: visible;
+  }
+
+  .inbox-sidebar {
+    max-height: 330px;
+  }
+
+  .inbox-thread-list {
+    max-height: 170px;
+  }
+
+  .inbox-sidebar-head {
+    padding: 16px 14px 10px;
+  }
+
+  .inbox-sidebar-head h2 {
+    font-size: 22px;
+  }
+
+  .inbox-messenger .inbox-chat-panel {
+    height: min(560px, calc(100dvh - 118px));
+    min-height: 430px;
+    border-top: 1px solid #e8edf3;
+  }
+
+  .inbox-messenger .inbox-chat-head {
+    min-height: 58px;
+    padding: 10px 14px;
+  }
+
+  .inbox-messenger .inbox-chat-scroll {
+    padding: 14px;
+  }
+
+  .inbox-messenger .inbox-chat-bubble {
+    max-width: 88%;
+  }
+
+  .inbox-composer {
+    grid-template-columns: minmax(0, 1fr) 94px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .inbox-composer .primary-button {
+    width: 94px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+}
+
 /* ---- Inbox: recipient choice, reply ---- */
 .inbox-choice {
   display: grid;
