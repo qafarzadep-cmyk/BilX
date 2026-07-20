@@ -1568,17 +1568,24 @@ function CoursePage({ user, profile, handleLogout }) {
                   <h2>{t('courseContent')}</h2>
                   <p>{t('courseCurriculumSubtitle')}</p>
                   <div className="curriculum-summary-pills" aria-label={t('courseContent')}>
-                    <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
-                    <span>{outlineQuizzes.length} {t('explainedTestCollection')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
+                    <span><strong>{lessons.length}</strong> {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
+                    <span><strong>{outlineQuizzes.length}</strong> {t('explainedTestCollection')} / <strong>{outlineQuizQuestionCount}</strong> {t('questionCountLabel')}</span>
                   </div>
-                  <p className="curriculum-detail-copy">
-                    {t('courseCurriculumDescription')
-                      .replace('{sectionCount}', curriculumSections.length)
-                      .replace('{lessonCount}', lessons.length)
-                      .replace('{duration}', fullCourseDuration || t('durationMissing'))
-                      .replace('{quizCount}', outlineQuizzes.length)
-                      .replace('{questionCount}', outlineQuizQuestionCount)}
-                  </p>
+                  <div className="curriculum-detail-card">
+                    <strong>
+                      {t('courseCurriculumCardTitle')
+                        .replace('{sectionCount}', curriculumSections.length)
+                        .replace('{lessonCount}', lessons.length)}
+                    </strong>
+                    <p>
+                      {t('courseCurriculumDescription')
+                        .replace('{sectionCount}', curriculumSections.length)
+                        .replace('{lessonCount}', lessons.length)
+                        .replace('{duration}', fullCourseDuration || t('durationMissing'))
+                        .replace('{quizCount}', outlineQuizzes.length)
+                        .replace('{questionCount}', outlineQuizQuestionCount)}
+                    </p>
+                  </div>
                 </div>
                 {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>

@@ -1284,23 +1284,61 @@ button {
 .curriculum-summary-pills span {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   min-height: 30px;
-  border: 1px solid #dfe5f5;
+  border: 1px solid #dbe4ff;
   border-radius: 999px;
-  padding: 5px 10px;
-  color: #1435c3;
-  background: #f7f9ff;
-  font-size: 13px;
+  padding: 6px 12px;
+  color: #263657;
+  background: #f6f8ff;
+  font-size: 12px;
   font-weight: 900;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.78);
 }
 
-.lesson-panel-header .curriculum-detail-copy {
+.curriculum-summary-pills strong {
+  color: #1435c3;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.lesson-panel-header .curriculum-detail-card {
+  position: relative;
   max-width: 760px;
-  margin-top: 10px;
+  margin-top: 12px;
+  border: 1px solid #dce5ff;
+  border-radius: 8px;
+  padding: 12px 14px 12px 42px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
   color: #4b5563;
+  box-shadow: 0 10px 24px rgba(20, 53, 195, 0.07);
+}
+
+.lesson-panel-header .curriculum-detail-card::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: 14px;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #1435c3;
+  border-radius: 999px;
+  box-shadow: 8px 8px 0 -3px #5fc5ec;
+}
+
+.lesson-panel-header .curriculum-detail-card > strong {
+  display: block;
+  color: #1c1d1f;
   font-size: 14px;
+  line-height: 1.35;
+}
+
+.lesson-panel-header .curriculum-detail-card p {
+  margin-top: 5px;
+  color: #566070;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .lesson-panel-header strong {
@@ -4418,6 +4456,8 @@ button:disabled {
   }
 
   .lesson-panel-header {
+    flex-direction: column;
+    align-items: stretch;
     padding: 14px;
     gap: 10px;
   }
@@ -4430,7 +4470,48 @@ button:disabled {
     font-size: 12px;
   }
 
+  .curriculum-summary-pills {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+    margin-top: 9px;
+  }
+
+  .curriculum-summary-pills span {
+    justify-content: center;
+    min-height: 28px;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .curriculum-summary-pills strong {
+    font-size: 14px;
+  }
+
+  .lesson-panel-header .curriculum-detail-card {
+    margin-top: 9px;
+    padding: 10px 11px 10px 36px;
+  }
+
+  .lesson-panel-header .curriculum-detail-card::before {
+    top: 13px;
+    left: 12px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .lesson-panel-header .curriculum-detail-card > strong {
+    font-size: 13px;
+  }
+
+  .lesson-panel-header .curriculum-detail-card p {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
   .unlock-course-button {
+    width: 100%;
+    justify-content: center;
     min-height: 32px;
     padding: 0 10px;
     font-size: 12px;
