@@ -1152,10 +1152,10 @@ button {
 }
 
 .course-player-layout {
-  height: calc(100vh - 96px);
-  min-height: 620px;
+  height: calc(100vh - 76px);
+  min-height: 660px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(420px, 25vw, 480px);
+  grid-template-columns: minmax(0, 1fr) clamp(460px, 28vw, 560px);
   align-items: stretch;
   overflow: hidden;
   border: 1px solid #d1d7dc;

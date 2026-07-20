@@ -213,6 +213,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [progress, setProgress] = useState([])
   const [hasAccess, setHasAccess] = useState(false)
   const [isEnrolled, setIsEnrolled] = useState(false)
+  const [showAccessWelcome, setShowAccessWelcome] = useState(false)
   const [certificateLoading, setCertificateLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [requested, setRequested] = useState(false)
@@ -736,6 +737,25 @@ function CoursePage({ user, profile, handleLogout }) {
       mounted = false
     }
   }, [adminPreview, courseParam, location.pathname, location.state, navigate, userEmail, userId])
+
+  useEffect(() => {
+    if (!course?.id || loading || !isEnrolled) {
+      setShowAccessWelcome(false)
+      return
+    }
+
+    const storageKey = `bilx-course-access-welcome-${userId || 'student'}-${course.id}`
+    try {
+      if (window.localStorage.getItem(storageKey)) {
+        setShowAccessWelcome(false)
+        return
+      }
+      window.localStorage.setItem(storageKey, 'seen')
+      setShowAccessWelcome(true)
+    } catch {
+      setShowAccessWelcome(true)
+    }
+  }, [course?.id, isEnrolled, loading, userId])
 
   useEffect(() => {
     let mounted = true
@@ -1310,7 +1330,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const handleCurriculumPanelWheel = (event) => {
     const list = curriculumListRef.current
     if (!canViewFullCourse || !list || list.scrollHeight <= list.clientHeight) return
-    if (event.target.closest('input, textarea, select')) return
+    const target = event.target instanceof Element ? event.target : null
+    if (target?.closest('input, textarea, select')) return
 
     event.preventDefault()
     list.scrollTop += event.deltaY
@@ -1408,7 +1429,7 @@ function CoursePage({ user, profile, handleLogout }) {
         </section>
         )}
 
-        {isEnrolled && !isCourseContentLoading && (
+        {showAccessWelcome && !isCourseContentLoading && (
           <section className="course-access-welcome" aria-live="polite">
             <strong>{t('courseAccessWelcomeTitle').replace('{title}', course.title)}</strong>
             <p>{t('courseAccessWelcomeBody')}</p>
@@ -1635,27 +1656,6 @@ function CoursePage({ user, profile, handleLogout }) {
             )}
 
             <aside className={canViewFullCourse ? 'course-lesson-panel enrolled-lesson-panel' : 'course-lesson-panel'} onWheel={handleCurriculumPanelWheel}>
-              {isEnrolled && (
-                <div className="course-certificate-card">
-                  <Award size={24} />
-                  <div>
-                    <strong>{t('courseCertificate')}</strong>
-                    <small>
-                      {completionPercent === 100
-                        ? t('certificateReady')
-                        : t('certificateProgress').replace('{completed}', completedCount).replace('{total}', lessons.length)}
-                    </small>
-                  </div>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={completionPercent < 100 || certificateLoading}
-                    onClick={openCertificate}
-                  >
-                    {certificateLoading ? t('loading') : t('getCertificate')}
-                  </button>
-                </div>
-              )}
               <div className="lesson-panel-header">
                 <div>
                   <h2>{t('courseContent')}</h2>
@@ -1776,6 +1776,23 @@ function CoursePage({ user, profile, handleLogout }) {
                   )
                 })}
               </div>
+              {isEnrolled && completionPercent === 100 && (
+                <div className="course-certificate-card">
+                  <Award size={24} />
+                  <div>
+                    <strong>{t('courseCertificate')}</strong>
+                    <small>{t('certificateReady')}</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={certificateLoading}
+                    onClick={openCertificate}
+                  >
+                    {certificateLoading ? t('loading') : t('getCertificate')}
+                  </button>
+                </div>
+              )}
             </aside>
           </section>
           )}
