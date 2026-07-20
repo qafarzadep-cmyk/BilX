@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import CertificatePage from './CertificatePage'
 import CoursePage from './CoursePage'
+import { getCourseUrl } from './courseUrl'
 import EditCourse from './EditCourse'
 import InstructorDashboard from './InstructorDashboard'
 import Inbox from './Inbox'
@@ -247,7 +248,7 @@ function Home({ user, profile, handleLogout }) {
     coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   const goTeach = () => navigate(user ? '/instructor' : '/register')
-  const openCourse = (course) => navigate(`/course/${course.id}`, { state: { course } })
+  const openCourse = (course) => navigate(getCourseUrl(course), { state: { course } })
   const openTeacher = (event, teacherId) => {
     event.stopPropagation()
     if (teacherId) navigate(`/teacher/${teacherId}`)

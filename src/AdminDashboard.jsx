@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Shield } from 'lucide-react'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
+import { getCourseUrl } from './courseUrl'
 import { InboxPanel } from './Inbox'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
@@ -199,7 +200,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
           courseId: course.id,
           courseTitle: course.title,
           instructorId: course.instructor_id,
-          link: `${window.location.origin}/course/${course.id}`,
+          link: `${window.location.origin}${getCourseUrl(course)}`,
         })
 
         // Notify the student: in-app (if they have an account) + email.
@@ -683,7 +684,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
                 return (
                   <div key={course.id} className="admin-row">
-                    <button className="admin-row-main" type="button" onClick={() => navigate(`/course/${course.id}`, { state: { course } })}>
+                    <button className="admin-row-main" type="button" onClick={() => navigate(getCourseUrl(course), { state: { course } })}>
                       <strong>{index + 1}. {course.title}</strong>
                       {instructorName && <p>{t('instructorLabel')}: {instructorName}</p>}
                       <p>{course.price} AZN · {t(getCourseStatusLabel(getCourseStatus(course)))}</p>

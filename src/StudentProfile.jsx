@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
+import { getCourseUrl } from './courseUrl'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
 import { supabase } from './supabase'
@@ -143,11 +144,11 @@ function StudentProfile({ user, profile, handleLogout }) {
                     className="course-card"
                     role="button"
                     tabIndex={0}
-                    onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                    onClick={() => navigate(getCourseUrl(course), { state: { course } })}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault()
-                        navigate(`/course/${course.id}`, { state: { course } })
+                        navigate(getCourseUrl(course), { state: { course } })
                       }
                     }}
                   >
@@ -191,11 +192,11 @@ function StudentProfile({ user, profile, handleLogout }) {
                       className="course-card"
                       role="button"
                       tabIndex={0}
-                      onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                      onClick={() => navigate(getCourseUrl(course), { state: { course } })}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
-                          navigate(`/course/${course.id}`, { state: { course } })
+                          navigate(getCourseUrl(course), { state: { course } })
                         }
                       }}
                     >

@@ -4,6 +4,7 @@ import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, Extern
 import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
+import { getCourseUrl, isNumericCourseParam, slugifyCourseTitle } from './courseUrl'
 import Navbar from './Navbar'
 import QuizResultSummary from './QuizResultSummary'
 import { useLanguage } from './i18n'
@@ -216,7 +217,10 @@ function CoursePage({ user, profile, handleLogout }) {
   // Stable id for data loading: route param, or the course passed via navigation
   // state. Keying the load effect on this (not the `course` object it also sets)
   // avoids redundant reloads.
-  const courseId = id || location.state?.course?.id
+  const courseParam = id || ''
+  const initialCourseId = location.state?.course?.id || (isNumericCourseParam(courseParam) ? courseParam : null)
+  const [resolvedCourseId, setResolvedCourseId] = useState(initialCourseId)
+  const courseId = resolvedCourseId
   const courseInstructorId = course?.instructor_id
 
   // Map of lessons the current viewer can actually play (full set for
@@ -566,20 +570,45 @@ function CoursePage({ user, profile, handleLogout }) {
     let mounted = true
 
     async function loadCourse() {
-      if (!courseId) {
+      let lookupCourseId = location.state?.course?.id || (isNumericCourseParam(courseParam) ? courseParam : null)
+      let currentCourse = location.state?.course || null
+
+      if (!lookupCourseId && courseParam) {
+        const { data: slugCourses } = await supabase.from('Courses').select('*')
+        currentCourse = (slugCourses || []).find((item) => slugifyCourseTitle(item.title) === courseParam) || null
+        lookupCourseId = currentCourse?.id || null
+      }
+
+      if (!lookupCourseId) {
         navigate('/')
         return
       }
 
-      const { data } = await supabase.from('Courses').select('*').eq('id', courseId).single()
-      let currentCourse = data
+      if (mounted) setResolvedCourseId(lookupCourseId)
+
+      if (!currentCourse) {
+        const { data } = await supabase.from('Courses').select('*').eq('id', lookupCourseId).single()
+        currentCourse = data
+      }
       if (currentCourse && !getCourseAuthorName(currentCourse)) {
         const [courseWithAuthor] = await attachCourseAuthorNames([currentCourse])
         currentCourse = courseWithAuthor
       }
 
+      if (!currentCourse) {
+        navigate('/')
+        return
+      }
+
       if (mounted && currentCourse) {
         setCourse(currentCourse)
+        const canonicalCourseUrl = getCourseUrl(currentCourse)
+        if (courseParam && location.pathname !== canonicalCourseUrl) {
+          navigate(canonicalCourseUrl, {
+            replace: true,
+            state: { ...(location.state || {}), course: currentCourse },
+          })
+        }
       }
 
       const [
@@ -590,14 +619,14 @@ function CoursePage({ user, profile, handleLogout }) {
         quizPreviewResponse,
         { data: trailerData },
       ] = await Promise.all([
-        supabase.from('videos').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
-        supabase.from('lesson_previews').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
-        supabase.from('course_sections').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
-        supabase.from('course_quizzes').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
-        fetch(`/api/course-quiz-previews?courseId=${encodeURIComponent(courseId)}`)
+        supabase.from('videos').select('*').eq('course_id', lookupCourseId).order('order_index', { ascending: true }),
+        supabase.from('lesson_previews').select('*').eq('course_id', lookupCourseId).order('order_index', { ascending: true }),
+        supabase.from('course_sections').select('*').eq('course_id', lookupCourseId).order('order_index', { ascending: true }),
+        supabase.from('course_quizzes').select('*').eq('course_id', lookupCourseId).order('order_index', { ascending: true }),
+        fetch(`/api/course-quiz-previews?courseId=${encodeURIComponent(lookupCourseId)}`)
           .then((response) => (response.ok ? response.json() : { quizzes: [] }))
           .catch(() => ({ quizzes: [] })),
-        supabase.from('course_trailers').select('*').eq('course_id', courseId).maybeSingle(),
+        supabase.from('course_trailers').select('*').eq('course_id', lookupCourseId).maybeSingle(),
       ])
 
       const sortedVideos = videoData || []
@@ -609,9 +638,9 @@ function CoursePage({ user, profile, handleLogout }) {
         setQuizPreviews(quizPreviewResponse?.quizzes || [])
         setTrailer(trailerData || null)
         setActivePreviewId(trailerData ? 'trailer' : '')
-        if (String(initializedCourseIdRef.current) !== String(courseId)) {
+        if (String(initializedCourseIdRef.current) !== String(lookupCourseId)) {
           const initialVideoId = location.state?.videoId || sortedVideos[0]?.id || null
-          initializedCourseIdRef.current = courseId
+          initializedCourseIdRef.current = lookupCourseId
           activeVideoIdRef.current = initialVideoId
           setActiveVideoId(initialVideoId)
         }
@@ -646,7 +675,7 @@ function CoursePage({ user, profile, handleLogout }) {
       const { data: enrollmentData } = await supabase
         .from('enrollments')
         .select('*')
-        .eq('course_id', courseId)
+        .eq('course_id', lookupCourseId)
         .in('user_id', studentKeys)
 
       const access = enrollmentData?.some((item) => (item.status || 'active') === 'active') || false
@@ -672,7 +701,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [adminPreview, courseId, location.state?.videoId, navigate, userEmail, userId])
+  }, [adminPreview, courseParam, location.pathname, location.state, navigate, userEmail, userId])
 
   useEffect(() => {
     let mounted = true
@@ -882,7 +911,7 @@ function CoursePage({ user, profile, handleLogout }) {
           p_user_id: course.instructor_id,
           p_title: t('newCommentTitle'),
           p_body: t('newCommentBody').replace('{title}', course.title),
-          p_link: `/course/${course.id}`,
+          p_link: getCourseUrl(course),
         })
       }
       await sendEmailNotification({
@@ -890,7 +919,7 @@ function CoursePage({ user, profile, handleLogout }) {
         courseId: course.id,
         courseTitle: course.title,
         instructorId: course.instructor_id,
-        link: `${window.location.origin}/course/${course.id}`,
+        link: `${window.location.origin}${getCourseUrl(course)}`,
       })
       const { data } = await supabase
         .from('video_comments')
@@ -1106,7 +1135,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
   const handleShare = async () => {
     if (!course) return
-    const url = `${window.location.origin}/course/${course.id}`
+    const url = `${window.location.origin}${getCourseUrl(course)}`
     // On mobile, the native share sheet (WhatsApp, Telegram, …) is the best UX.
     if (navigator.share) {
       try {

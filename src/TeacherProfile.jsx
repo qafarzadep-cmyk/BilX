@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Navbar from './Navbar'
 import { getCourseAuthorName } from './courseAuthors'
+import { getCourseUrl } from './courseUrl'
 import { useLanguage } from './i18n'
 import { supabase } from './supabase'
 
@@ -81,11 +82,11 @@ function TeacherProfile({ user, profile, handleLogout }) {
                   className="course-card"
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate(`/course/${course.id}`, { state: { course } })}
+                  onClick={() => navigate(getCourseUrl(course), { state: { course } })}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault()
-                      navigate(`/course/${course.id}`, { state: { course } })
+                      navigate(getCourseUrl(course), { state: { course } })
                     }
                   }}
                 >
