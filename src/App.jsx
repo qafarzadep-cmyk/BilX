@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { BookOpen, Clock3, MessageCircle, PlayCircle, Video } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import CertificatePage from './CertificatePage'
@@ -19,13 +19,6 @@ import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { useLanguage } from './i18n'
 import { ensureProfile, fallbackProfile } from './profileApi'
 import { supabase } from './supabase'
-
-const HOME_VALUES = [
-  [Video, 'valueVideoTitle', 'valueVideoText'],
-  [BookOpen, 'valueLangTitle', 'valueLangText'],
-  [Clock3, 'valueAccessTitle', 'valueAccessText'],
-  [PlayCircle, 'valueDeviceTitle', 'valueDeviceText'],
-]
 
 const HOME_STEPS = [
   ['1', 'step1Title', 'step1Text'],
@@ -306,6 +299,7 @@ function Home({ user, profile, handleLogout }) {
             <div><strong>{courses.length + UPCOMING_COURSES.length}+</strong><span>{t('coursesTitle')}</span></div>
             <div><strong>∞</strong><span>{t('valueAccessTitle')}</span></div>
             <div><strong>★</strong><span>{t('valueVideoTitle')}</span></div>
+            <div><strong>✓</strong><span>{t('valueDeviceTitle')}</span></div>
           </div>
           <div className="home-hero-next-step" aria-label={t('homeHeroNextStep')}>
             <span className="home-hero-next-step-track" aria-hidden="true">
@@ -314,16 +308,6 @@ function Home({ user, profile, handleLogout }) {
             </span>
           </div>
         </div>
-      </section>
-
-      <section className="home-values reveal" aria-label={t('coursesTitle')}>
-        {HOME_VALUES.map(([Icon, titleKey, textKey]) => (
-          <div className="home-value-card" key={titleKey}>
-            <span className="home-value-icon"><Icon size={22} /></span>
-            <strong>{t(titleKey)}</strong>
-            <p>{t(textKey)}</p>
-          </div>
-        ))}
       </section>
 
       <main className="content-shell" ref={coursesRef}>
