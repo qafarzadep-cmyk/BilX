@@ -15,13 +15,13 @@ function getSupabaseConfig() {
   return { url, key }
 }
 
-function signEmbedUrl({ libraryId, videoId, tokenKey, expires, autoplay = true }) {
+function signEmbedUrl({ libraryId, videoId, tokenKey, expires, autoplay = true, muted = false }) {
   // Bunny embed token = SHA256(tokenAuthenticationKey + videoId + expires), hex.
   const token = crypto
     .createHash('sha256')
     .update(`${tokenKey}${videoId}${expires}`)
     .digest('hex')
-  return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?token=${token}&expires=${expires}&autoplay=${autoplay ? 'true' : 'false'}`
+  return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?token=${token}&expires=${expires}&autoplay=${autoplay ? 'true' : 'false'}&muted=${muted ? 'true' : 'false'}`
 }
 
 async function hasAccess(client, user, video) {
@@ -87,6 +87,7 @@ export default async function handler(req, res) {
   const rowId = req.body?.videoId
   const trailerCourseId = req.body?.trailerCourseId
   const autoplay = req.body?.autoplay !== false
+  const muted = req.body?.muted === true
   if (!rowId && !trailerCourseId) {
     res.status(400).json({ error: 'Missing videoId or trailerCourseId' })
     return
@@ -106,7 +107,7 @@ export default async function handler(req, res) {
 
     const expires = Math.floor(Date.now() / 1000) + 3 * 60 * 60
     res.status(200).json({
-      url: signEmbedUrl({ libraryId, videoId: trailer.bunny_video_id, tokenKey, expires, autoplay }),
+      url: signEmbedUrl({ libraryId, videoId: trailer.bunny_video_id, tokenKey, expires, autoplay, muted }),
     })
     return
   }
@@ -133,7 +134,7 @@ export default async function handler(req, res) {
   // Free preview lessons play for anyone (logged in or not).
   if (video.is_free) {
     res.status(200).json({
-      url: signEmbedUrl({ libraryId, videoId: video.bunny_video_id, tokenKey, expires }),
+      url: signEmbedUrl({ libraryId, videoId: video.bunny_video_id, tokenKey, expires, autoplay, muted }),
     })
     return
   }
@@ -145,6 +146,6 @@ export default async function handler(req, res) {
   }
 
   res.status(200).json({
-    url: signEmbedUrl({ libraryId, videoId: video.bunny_video_id, tokenKey, expires }),
+    url: signEmbedUrl({ libraryId, videoId: video.bunny_video_id, tokenKey, expires, autoplay, muted }),
   })
 }

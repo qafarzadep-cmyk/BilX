@@ -58,9 +58,9 @@ function toYouTubeEmbedUrl(url, index = 0) {
   return fallback
 }
 
-function getEmbedSrc(url) {
+function getEmbedSrc(url, muted = false) {
   const separator = url.includes('?') ? '&' : '?'
-  return `${url}${separator}enablejsapi=1&autoplay=1&rel=0&modestbranding=1`
+  return `${url}${separator}enablejsapi=1&autoplay=1&playsinline=1&rel=0&modestbranding=1${muted ? '&mute=1' : ''}`
 }
 
 function getPreviewChoiceId(video) {
@@ -77,6 +77,11 @@ function isYouTubeUrl(url) {
   } catch {
     return false
   }
+}
+
+function shouldMuteMobileAutoplay() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia?.('(max-width: 768px), (pointer: coarse)').matches || navigator.maxTouchPoints > 0
 }
 
 function normalizeExternalUrl(url) {
@@ -209,6 +214,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [signedUrl, setSignedUrl] = useState(null)
   const [signedFor, setSignedFor] = useState(null)
   const [signedError, setSignedError] = useState(false)
+  const [muteAutoplay, setMuteAutoplay] = useState(shouldMuteMobileAutoplay)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
   const adminPreview = isAdmin(user)
@@ -981,6 +987,16 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [activeQuizExpanded])
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mediaQuery = window.matchMedia('(max-width: 768px), (pointer: coarse)')
+    const updateMuteAutoplay = () => setMuteAutoplay(shouldMuteMobileAutoplay())
+
+    updateMuteAutoplay()
+    mediaQuery.addEventListener?.('change', updateMuteAutoplay)
+    return () => mediaQuery.removeEventListener?.('change', updateMuteAutoplay)
+  }, [])
+
+  useEffect(() => {
     if (!playerBunnyId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSignedUrl(null)
@@ -1003,8 +1019,8 @@ function CoursePage({ user, profile, handleLogout }) {
           headers,
           body: JSON.stringify(
             playerVideo?.is_trailer
-              ? { trailerCourseId: courseId }
-              : { videoId: playerVideoId }
+              ? { trailerCourseId: courseId, muted: muteAutoplay }
+              : { videoId: playerVideoId, muted: muteAutoplay }
           ),
         })
         // Parse defensively — an empty/HTML body (e.g. functions not running)
@@ -1026,7 +1042,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [courseId, playerVideo?.is_trailer, playerVideoId, playerBunnyId])
+  }, [courseId, muteAutoplay, playerVideo?.is_trailer, playerVideoId, playerBunnyId])
 
   // Auto-advance Bunny lessons. Bunny's embed speaks the Player.js protocol over
   // postMessage; we subscribe to its "ended" event and roll to the next lesson —
@@ -1364,7 +1380,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     key={playerVideo.id}
                     ref={playerFrameRef}
                     className="youtube-player"
-                    src={getEmbedSrc(playerVideo.video_url)}
+                    src={getEmbedSrc(playerVideo.video_url, muteAutoplay)}
                     title={playerVideo.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -1375,6 +1391,8 @@ function CoursePage({ user, profile, handleLogout }) {
                     ref={legacyVideoRef}
                     controls
                     autoPlay
+                    muted={muteAutoplay}
+                    playsInline
                     src={playerVideo.video_url}
                     onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
                     onEnded={() => {
@@ -1759,7 +1777,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   <iframe
                     ref={playerFrameRef}
                     className="youtube-player"
-                    src={getEmbedSrc(publicPreviewVideo.video_url)}
+                    src={getEmbedSrc(publicPreviewVideo.video_url, muteAutoplay)}
                     title={publicPreviewVideo.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -1769,6 +1787,8 @@ function CoursePage({ user, profile, handleLogout }) {
                     ref={legacyVideoRef}
                     controls
                     autoPlay
+                    muted={muteAutoplay}
+                    playsInline
                     src={publicPreviewVideo.video_url}
                     className="youtube-player"
                     onEnded={() => playNextPreview(getPreviewChoiceId(publicPreviewVideo))}
