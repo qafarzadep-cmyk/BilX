@@ -219,6 +219,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [signedFor, setSignedFor] = useState(null)
   const [signedError, setSignedError] = useState(false)
   const [previewThumbFrames, setPreviewThumbFrames] = useState({})
+  const [teacherViewMode, setTeacherViewMode] = useState('student')
   const [muteAutoplay, setMuteAutoplay] = useState(shouldMuteMobileAutoplay)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
@@ -233,6 +234,9 @@ function CoursePage({ user, profile, handleLogout }) {
   const [resolvedCourseId, setResolvedCourseId] = useState(initialCourseId)
   const courseId = resolvedCourseId
   const courseInstructorId = course?.instructor_id
+  const isCourseOwner = Boolean(courseInstructorId && userId && courseInstructorId === userId)
+  const isTeacherBuyerPreview = isCourseOwner && teacherViewMode === 'buyer'
+  const canViewFullCourse = (hasAccess || adminPreview || isCourseOwner) && !isTeacherBuyerPreview
 
   // Map of lessons the current viewer can actually play (full set for
   // enrolled/admin/owner; only free-preview lessons for everyone else).
@@ -250,17 +254,18 @@ function CoursePage({ user, profile, handleLogout }) {
 
     return source.map((item, index) => {
       const playable = playableById.get(String(item.id))
-      const rawUrl = playable?.video_url || item.video_url || null
+      const canPlayLesson = canViewFullCourse || item.is_free || playable?.is_free
+      const rawUrl = canPlayLesson ? (playable?.video_url || item.video_url || null) : null
       // Bunny lessons carry a GUID instead of a URL; it's only present on rows
       // the viewer is allowed to read (free previews, or the full set once
       // enrolled/owner/admin), so its presence doubles as the "unlocked" signal.
-      const bunnyId = playable?.bunny_video_id || null
+      const bunnyId = canPlayLesson ? (playable?.bunny_video_id || null) : null
       const embedUrl = rawUrl
         ? (isYouTubeUrl(rawUrl) ? toYouTubeEmbedUrl(rawUrl, index) : normalizeExternalUrl(rawUrl))
         : null
       const locked = !rawUrl && !bunnyId
       const title = item.title || t(placeholderLessons[index % placeholderLessons.length].titleKey)
-      const showTitle = hasAccess || adminPreview || courseInstructorId === userId || !locked
+      const showTitle = canViewFullCourse || !locked
       return {
         id: item.id,
         title,
@@ -276,11 +281,13 @@ function CoursePage({ user, profile, handleLogout }) {
         locked,
       }
     })
-  }, [adminPreview, courseInstructorId, hasAccess, lessonPreviews, playableById, t, userId, videos])
+  }, [canViewFullCourse, lessonPreviews, playableById, t, videos])
 
-  const activeQuiz = quizzes.find((quiz) => String(quiz.id) === String(activeQuizId))
-    || quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId))
-    || null
+  const activeQuiz = canViewFullCourse
+    ? quizzes.find((quiz) => String(quiz.id) === String(activeQuizId))
+      || quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId))
+      || null
+    : quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId)) || null
   const selectedActiveVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || null
   const activeVideo = selectedActiveVideo || (activeQuiz || trailer?.bunny_video_id ? null : lessons[0])
 
@@ -296,7 +303,6 @@ function CoursePage({ user, profile, handleLogout }) {
     () => lessons.filter((lesson) => lesson.is_free && !lesson.locked),
     [lessons]
   )
-  const canViewFullCourse = hasAccess || adminPreview || courseInstructorId === userId
   const trailerVideo = useMemo(() => (
     trailer ? {
       id: `trailer-${trailer.course_id}`,
@@ -325,7 +331,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const activePlayerLesson = !activeQuiz && playerVideo && !playerVideo.is_trailer
     ? lessons.find((lesson) => String(lesson.id) === String(playerVideo.id)) || playerVideo
     : null
-  const activeLessonRowId = activePlayerLesson?.id || (!playerVideo?.is_trailer ? activeVideo?.id : null)
+  const activeLessonRowId = activePlayerLesson?.id || (canViewFullCourse && !playerVideo?.is_trailer ? activeVideo?.id : null)
   const previewChoices = useMemo(() => [
     ...(trailerVideo ? [trailerVideo] : []),
     ...previewLessons,
@@ -1273,6 +1279,36 @@ function CoursePage({ user, profile, handleLogout }) {
             <button type="button" className="outline-button share-button" onClick={handleShare}>
               <Share2 size={16} /> {t('shareCourse')}
             </button>
+            {isCourseOwner && (
+              <div className="teacher-course-view-switch" aria-label={t('teacherViewModeLabel')}>
+                <span>{t('teacherViewModeLabel')}</span>
+                <div>
+                  <button
+                    type="button"
+                    className={teacherViewMode === 'student' ? 'active' : ''}
+                    aria-pressed={teacherViewMode === 'student'}
+                    onClick={() => {
+                      setTeacherViewMode('student')
+                      setPreviewModalOpen(false)
+                    }}
+                  >
+                    {t('teacherStudentView')}
+                  </button>
+                  <button
+                    type="button"
+                    className={teacherViewMode === 'buyer' ? 'active' : ''}
+                    aria-pressed={teacherViewMode === 'buyer'}
+                    onClick={() => {
+                      setTeacherViewMode('buyer')
+                      setActiveQuizId(null)
+                      setPreviewModalOpen(false)
+                    }}
+                  >
+                    {t('teacherBuyerView')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <button
             type="button"

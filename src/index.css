@@ -997,6 +997,43 @@ button {
   border-color: #fff;
 }
 
+.teacher-course-view-switch {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #dfe6ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.teacher-course-view-switch > div {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.teacher-course-view-switch button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 13px;
+  color: #fff;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.teacher-course-view-switch button.active {
+  color: #1435c3;
+  background: #fff;
+}
+
 .course-hero img {
   width: 100%;
   min-height: 280px;
@@ -5693,6 +5730,15 @@ td button + .outline-button {
 
   .course-hero-public .course-hero-copy {
     padding: 8px 0 0;
+  }
+
+  .teacher-course-view-switch,
+  .teacher-course-view-switch > div {
+    width: 100%;
+  }
+
+  .teacher-course-view-switch button {
+    flex: 1;
   }
 
   .course-preview-card {
