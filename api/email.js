@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { createClient } from '@supabase/supabase-js'
 
 const resendApiKey = process.env.RESEND_API_KEY
 
@@ -24,6 +25,153 @@ function getTemplate(req) {
   } catch {
     return ''
   }
+}
+
+function getAction(req) {
+  try {
+    const parsed = new URL(req.url, 'https://bilx.org')
+    return parsed.searchParams.get('action') || ''
+  } catch {
+    return ''
+  }
+}
+
+function getSupabaseConfig() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !serviceKey || !anonKey) return null
+  return { url, serviceKey, anonKey }
+}
+
+function getAuthToken(req) {
+  const authHeader = req.headers.authorization || ''
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+}
+
+function createAuthedClient(config, token) {
+  return createClient(config.url, config.anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+}
+
+async function getAuthenticatedUser(req, config) {
+  const token = getAuthToken(req)
+  if (!token) return null
+
+  const authClient = createAuthedClient(config, token)
+  const { data, error } = await authClient.auth.getUser(token)
+  if (error || !data?.user) return null
+  return data.user
+}
+
+function userMatchesEnrollment(user, enrollment) {
+  const keys = [user.id, user.email, user.email?.toLowerCase()]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+  return keys.includes(String(enrollment?.user_id || '').toLowerCase())
+}
+
+async function saveVideoComment(req, res) {
+  const config = getSupabaseConfig()
+  if (!config) {
+    res.status(500).json({ error: 'Comments are not configured.' })
+    return
+  }
+
+  const token = getAuthToken(req)
+  const user = await getAuthenticatedUser(req, config)
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+
+  const videoId = Number(req.body?.videoId)
+  const body = String(req.body?.body || '').trim()
+  if (!Number.isInteger(videoId) || videoId <= 0 || !body) {
+    res.status(400).json({ error: 'Invalid comment.' })
+    return
+  }
+
+  const service = createClient(config.url, config.serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  const { data: video, error: videoError } = await service
+    .from('videos')
+    .select('id, course_id')
+    .eq('id', videoId)
+    .maybeSingle()
+
+  if (videoError || !video) {
+    res.status(404).json({ error: 'Lesson not found.' })
+    return
+  }
+
+  const { data: course } = await service
+    .from('Courses')
+    .select('id, instructor_id')
+    .eq('id', video.course_id)
+    .maybeSingle()
+
+  const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase()
+  const isAdmin = Boolean(adminEmail && user.email?.toLowerCase() === adminEmail)
+  const isOwner = Boolean(course?.instructor_id && String(course.instructor_id) === String(user.id))
+
+  let { data: enrollments, error: enrollmentError } = await service
+    .from('enrollments')
+    .select('user_id, status')
+    .eq('course_id', video.course_id)
+
+  if (enrollmentError) {
+    const authClient = createAuthedClient(config, token)
+    const fallback = await authClient
+      .from('enrollments')
+      .select('user_id, status')
+      .eq('course_id', video.course_id)
+    enrollments = fallback.data || []
+    enrollmentError = fallback.error
+    if (enrollmentError) {
+      res.status(500).json({ error: 'Could not verify course access.' })
+      return
+    }
+  }
+
+  const isEnrolled = (enrollments || []).some((enrollment) => (
+    userMatchesEnrollment(user, enrollment) && (enrollment.status || 'active') === 'active'
+  ))
+
+  if (!isAdmin && !isOwner && !isEnrolled) {
+    res.status(403).json({ error: 'You do not have access to comment on this lesson.' })
+    return
+  }
+
+  const { error: insertError } = await service
+    .from('video_comments')
+    .insert({
+      user_id: user.id,
+      video_id: videoId,
+      body,
+    })
+
+  if (insertError) {
+    res.status(500).json({ error: insertError.message || 'Could not send the comment.' })
+    return
+  }
+
+  const { data: comments, error: commentsError } = await service
+    .from('video_comments')
+    .select('*, profiles(full_name)')
+    .eq('video_id', videoId)
+    .order('created_at', { ascending: false })
+
+  if (commentsError) {
+    res.status(200).json({ ok: true, comments: [] })
+    return
+  }
+
+  res.status(200).json({ ok: true, comments: comments || [] })
 }
 
 function buildWelcomeEmail({ name }) {
@@ -173,6 +321,11 @@ function buildEmail(template, body) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  if (getAction(req) === 'save-comment') {
+    await saveVideoComment(req, res)
     return
   }
 

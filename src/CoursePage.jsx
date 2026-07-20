@@ -1061,30 +1061,29 @@ function CoursePage({ user, profile, handleLogout }) {
     const timestampSeconds = Math.max(0, Math.floor(getCurrentPlaybackSeconds()))
     const storedBody = `[[bilx-time:${timestampSeconds}]] ${commentBody.trim()}`
     setCommentSubmitting(true)
-    const { error } = await supabase
-      .from('video_comments')
-      .insert({
-        user_id: user.id,
-        video_id: activeVideo.id,
+    const { data: { session } } = await supabase.auth.getSession()
+    const response = await fetch('/api/email?action=save-comment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({
+        videoId: activeVideo.id,
         body: storedBody,
-      })
+      }),
+    })
+    const result = await response.json().catch(() => ({}))
 
-    if (error) {
+    if (!response.ok) {
       setCommentSubmitting(false)
-      toast.error(error.message || t('commentSaveFailed'))
+      toast.error(result.error || t('commentSaveFailed'))
       return
     }
 
     setCommentBody('')
-    const { data, error: reloadError } = await supabase
-      .from('video_comments')
-      .select('*, profiles(full_name)')
-      .eq('video_id', activeVideo.id)
-      .order('created_at', { ascending: false })
     setCommentSubmitting(false)
-
-    if (reloadError) toast.error(reloadError.message || t('commentsLoadFailed'))
-    else setComments(data || [])
+    if (Array.isArray(result.comments)) setComments(result.comments)
 
     try {
       if (course?.instructor_id) {
@@ -1866,7 +1865,7 @@ function CoursePage({ user, profile, handleLogout }) {
                               <button
                                 key={`${contentItem.type}-${item.id}`}
                                 ref={isActive ? activeCurriculumItemRef : null}
-                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}`}
+                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isWatched ? ' watched' : ''}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}`}
                                 onClick={() => {
                                   if (isLocked) handleWhatsApp()
                                   else if (isVideo) selectLesson(section.id, item.id)

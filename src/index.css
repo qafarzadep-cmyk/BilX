@@ -1700,9 +1700,19 @@ button {
   color: #1435c3;
 }
 
+.course-lesson-item.watched .lesson-status {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #9fb3ff;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1435c3;
+  padding-top: 0;
+}
+
 .lesson-status svg[data-lucide='check-circle-2'] {
   color: #1435c3;
-  fill: #eef2ff;
+  fill: #fff;
   stroke-width: 2.8;
 }
 
