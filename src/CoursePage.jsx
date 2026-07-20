@@ -1307,6 +1307,15 @@ function CoursePage({ user, profile, handleLogout }) {
     navigate(`/certificate/${data.verification_code}`)
   }
 
+  const handleCurriculumPanelWheel = (event) => {
+    const list = curriculumListRef.current
+    if (!canViewFullCourse || !list || list.scrollHeight <= list.clientHeight) return
+    if (event.target.closest('input, textarea, select')) return
+
+    event.preventDefault()
+    list.scrollTop += event.deltaY
+  }
+
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
   const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
@@ -1625,7 +1634,7 @@ function CoursePage({ user, profile, handleLogout }) {
             </div>
             )}
 
-            <aside className="course-lesson-panel">
+            <aside className={canViewFullCourse ? 'course-lesson-panel enrolled-lesson-panel' : 'course-lesson-panel'} onWheel={handleCurriculumPanelWheel}>
               {isEnrolled && (
                 <div className="course-certificate-card">
                   <Award size={24} />
