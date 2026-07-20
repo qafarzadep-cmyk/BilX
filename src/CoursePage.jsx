@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Award, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, ExternalLink, Lock, Maximize2, MessageCircle, Minimize2, Play, PlayCircle, Share2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -259,6 +259,10 @@ function CoursePage({ user, profile, handleLogout }) {
       search: params.toString() ? `?${params.toString()}` : '',
     }, { replace: true, state: location.state })
   }, [location.pathname, location.search, location.state, navigate])
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [location.pathname])
 
   // Map of lessons the current viewer can actually play (full set for
   // enrolled/admin/owner; only free-preview lessons for everyone else).
@@ -1268,6 +1272,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const instructorName = getCourseAuthorName(course)
   const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
   const showInlineLessonPlayer = canViewFullCourse
+  const isCourseContentLoading = loading && lessons.length === 0 && outlineQuizzes.length === 0 && !trailerVideo
 
   return (
     <div className="page">
@@ -1284,8 +1289,12 @@ function CoursePage({ user, profile, handleLogout }) {
             )}
             <p>{course.description}</p>
             <div className="tag-row">
-              <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
-              <span>{outlineQuizzes.length} {t('quizLabel')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
+              {!isCourseContentLoading && (
+                <>
+                  <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
+                  <span>{outlineQuizzes.length} {t('quizLabel')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
+                </>
+              )}
               <span>{t('lifetimeAccess')}</span>
               <button className="hero-whatsapp-button" type="button" onClick={handleWhatsApp}>
                 <MessageCircle size={16} /> {t('courseAcquire')}
@@ -1343,7 +1352,18 @@ function CoursePage({ user, profile, handleLogout }) {
           </button>
         </section>
 
-        {canUseLessonPlayer ? (
+        {isCourseContentLoading ? (
+          <section className="course-player-layout curriculum-only course-content-loading" aria-live="polite">
+            <div className="course-lesson-panel">
+              <div className="lesson-panel-header">
+                <div>
+                  <h2>{t('courseContent')}</h2>
+                  <p>{t('loading')}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : canUseLessonPlayer ? (
           <>
           {lessons.length === 0 && quizzes.length === 0 && !trailerVideo ? (
             <section className="panel-card empty-box">
