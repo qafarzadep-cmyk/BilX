@@ -1898,6 +1898,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                 <textarea rows={6} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={t('exampleCourseDescription')} />
                 <label>{t('coverImage')}</label>
                 <LocalizedFileInput accept="image/*" file={thumbnailFile} onChange={setThumbnailFile} t={t} />
+                <p className="muted media-format-help">{t('coverFormatHelp')}</p>
                 <label>{t('trailerTitle')}</label>
                 <input
                   value={newCourseTrailerTitle}
@@ -1918,7 +1919,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   )}
                 />
                 <p className="muted">{t('trailerMaxDuration')}</p>
-                <p className="muted video-format-help">{t('videoFormatHelp')}</p>
+                <p className="muted media-format-help">{t('videoFormatHelp')}</p>
                 {newCourseTrailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
                 {loading && newCourseTrailerFile && (
                   <div className="upload-progress">
@@ -2505,7 +2506,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 selectLessonFile(file)
                               }}
                             />
-                            <p className="muted video-format-help">{t('videoFormatHelp')}</p>
+                            <p className="muted media-format-help">{t('videoFormatHelp')}</p>
                             <label className="instructor-checkbox">
                               <input type="checkbox" checked={validSelectedSectionId === String(section.id) && lessonIsFree} onChange={(event) => {
                                 setSelectedSectionId(String(section.id))
@@ -2652,6 +2653,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                       {coverEditing && (
                         <div className="instructor-cover-editor">
                           <LocalizedFileInput accept="image/*" disabled={loading} file={courseThumbnailFile} onChange={selectCourseCover} t={t} />
+                          <p className="muted media-format-help">{t('coverFormatHelp')}</p>
                           <div className="instructor-cover-editor-actions">
                             <button
                               className="outline-button"
@@ -2688,7 +2690,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         t={t}
                         onChange={(file, input) => selectTrailerFile(file, setTrailerFile, setTrailerValidating, input)}
                       />
-                      <p className="muted video-format-help">{t('videoFormatHelp')}</p>
+                      <p className="muted media-format-help">{t('videoFormatHelp')}</p>
                       <div className="instructor-edit-actions">
                         <button className="outline-button" type="button" onClick={() => setMediaEditing(false)}>{t('cancel')}</button>
                         {trailerFile && <button className="primary-button" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>{detailTrailer ? t('replaceTrailer') : t('uploadTrailer')}</button>}
@@ -2781,6 +2783,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
             <input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
             <label>{t('coverImage')}</label>
             <input type="file" accept="image/*" onChange={(event) => setThumbnailFile(event.target.files[0])} />
+            <p className="muted media-format-help">{t('coverFormatHelp')}</p>
             <div className="course-setup-divider">
               <h3>{t('courseTrailer')}</h3>
               <p className="muted">{t('trailerOptionalAtCreation')}</p>
@@ -2804,7 +2807,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               )}
             />
             <p className="muted">{t('trailerMaxDuration')}</p>
-            <p className="muted video-format-help">{t('videoFormatHelp')}</p>
+            <p className="muted media-format-help">{t('videoFormatHelp')}</p>
             {newCourseTrailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
             {loading && newCourseTrailerFile && (
               <div className="upload-progress">
@@ -2929,6 +2932,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         />
                         <label>{t('replaceCoverImage')}</label>
                         <input type="file" accept="image/*" onChange={(event) => setCourseThumbnailFile(event.target.files[0] || null)} />
+                        <p className="muted media-format-help">{t('coverFormatHelp')}</p>
                         <button className="primary-button full" type="button" disabled={loading} onClick={saveCourseDetails}>
                           {loading ? t('loading') : t('saveCourseDetails')}
                         </button>
@@ -2960,7 +2964,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           )}
                         />
                         <p className="muted">{t('trailerMaxDuration')}</p>
-                        <p className="muted video-format-help">{t('videoFormatHelp')}</p>
+                        <p className="muted media-format-help">{t('videoFormatHelp')}</p>
                         {trailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
                         {loading && trailerFile && (
                           <div className="upload-progress">
@@ -3026,7 +3030,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
                         <label>{t('videoFile')}</label>
                         <input type="file" accept="video/*" disabled={loading} onChange={(event) => selectLessonFile(event.target.files[0] || null)} />
-                        <p className="muted video-format-help">{t('videoFormatHelp')}</p>
+                        <p className="muted media-format-help">{t('videoFormatHelp')}</p>
                         <p className="muted">{t('bunnyUploadHelp')}</p>
 
                         {loading && uploadPercent > 0 && (
