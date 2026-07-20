@@ -1012,8 +1012,8 @@ function CoursePage({ user, profile, handleLogout }) {
           headers,
           body: JSON.stringify(
             playerVideo?.is_trailer
-              ? { trailerCourseId: courseId, muted: muteAutoplay }
-              : { videoId: playerVideoId, muted: muteAutoplay }
+              ? { trailerCourseId: courseId, autoplay: true, muted: previewModalOpen || !canViewFullCourse ? true : muteAutoplay }
+              : { videoId: playerVideoId, autoplay: true, muted: previewModalOpen || !canViewFullCourse ? true : muteAutoplay }
           ),
         })
         // Parse defensively — an empty/HTML body (e.g. functions not running)
@@ -1035,7 +1035,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [courseId, muteAutoplay, playerVideo?.is_trailer, playerVideoId, playerBunnyId])
+  }, [canViewFullCourse, courseId, muteAutoplay, playerVideo?.is_trailer, playerVideoId, playerBunnyId, previewModalOpen])
 
   useEffect(() => {
     const lessonChoices = previewChoices.filter((video) => !video.is_trailer && video.bunny_video_id)
@@ -1101,6 +1101,11 @@ function CoursePage({ user, profile, handleLogout }) {
         postPlayerMessage('addEventListener', eventName, `bilx-${eventName}`)
       }
     }
+    const shouldStartPreview = playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse
+    const startPreviewPlayback = () => {
+      if (!shouldStartPreview) return
+      postPlayerMessage('play')
+    }
 
     function handleMessage(event) {
       if (event.source !== iframe.contentWindow) return
@@ -1112,7 +1117,10 @@ function CoursePage({ user, profile, handleLogout }) {
       }
       if (!data || data.context !== 'player.js') return
       // The player announces "ready" once it can take commands; subscribe then.
-      if (data.event === 'ready') subscribe()
+      if (data.event === 'ready') {
+        subscribe()
+        startPreviewPlayback()
+      }
       else if (data.event === 'ended') {
         if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
         else playNext(playerVideo.id)
@@ -1128,9 +1136,9 @@ function CoursePage({ user, profile, handleLogout }) {
     subscribe()
     const retry = window.setInterval(subscribe, 700)
     const stopRetry = window.setTimeout(() => window.clearInterval(retry), 4200)
-    const shouldStartPreview = playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse
-    const playKick = shouldStartPreview ? window.setTimeout(() => postPlayerMessage('play'), 350) : null
-    const secondPlayKick = shouldStartPreview ? window.setTimeout(() => postPlayerMessage('play'), 1300) : null
+    const playKick = shouldStartPreview ? window.setTimeout(startPreviewPlayback, 350) : null
+    const secondPlayKick = shouldStartPreview ? window.setTimeout(startPreviewPlayback, 1300) : null
+    const thirdPlayKick = shouldStartPreview ? window.setTimeout(startPreviewPlayback, 2600) : null
 
     return () => {
       window.removeEventListener('message', handleMessage)
@@ -1138,6 +1146,7 @@ function CoursePage({ user, profile, handleLogout }) {
       window.clearTimeout(stopRetry)
       if (playKick) window.clearTimeout(playKick)
       if (secondPlayKick) window.clearTimeout(secondPlayKick)
+      if (thirdPlayKick) window.clearTimeout(thirdPlayKick)
     }
   }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playNext, playNextPreview])
 
@@ -1821,6 +1830,14 @@ function CoursePage({ user, profile, handleLogout }) {
                       title={publicPreviewVideo.title}
                       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                       allowFullScreen
+                      onLoad={() => {
+                        window.setTimeout(() => {
+                          bunnyFrameRef.current?.contentWindow?.postMessage(
+                            JSON.stringify({ context: 'player.js', version: '0.0.1', method: 'play' }),
+                            '*'
+                          )
+                        }, 250)
+                      }}
                     />
                   ) : (
                     <div className="empty-player">{signedError ? t('videoNotSupported') : t('loadingVideo')}</div>
