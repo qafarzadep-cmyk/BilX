@@ -6,7 +6,7 @@ import { getCourseUrl } from './courseUrl'
 import { InboxPanel } from './Inbox'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
-import { isAdmin } from './profileApi'
+import { ADMIN_EMAIL, isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function formatDateTime(value) {
@@ -291,17 +291,30 @@ function AdminDashboard({ user, profile, handleLogout }) {
     loadData()
   }
 
-  const deleteSelectedUser = async () => {
-    if (!selectedUser?.userId) return
+  const canDeleteUser = (userRow) => {
+    if (!userRow?.userId) return false
+    if (!['student', 'instructor'].includes(userRow.role)) return false
+    if (userRow.userId === user?.id) return false
+    if (String(userRow.email || '').toLowerCase() === ADMIN_EMAIL) return false
+    return true
+  }
+
+  const deleteUserAccount = async (userRow) => {
+    if (!canDeleteUser(userRow)) return
     if (!window.confirm(t('adminConfirmDeleteUser'))) return
-    const { error } = await supabase.rpc('admin_delete_user', { p_user_id: selectedUser.userId })
+    const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userRow.userId })
     if (error) {
       setMessage(`${t('errorOccurred')}${error.message}`)
       return
     }
-    setSelectedUser(null)
+    if (selectedUser?.userId === userRow.userId) setSelectedUser(null)
     setMessage(t('adminUserDeleted'))
     loadData()
+  }
+
+  const deleteSelectedUser = async () => {
+    if (!selectedUser?.userId) return
+    await deleteUserAccount(selectedUser)
   }
 
   const reviewTeacherApplication = async (applicationId, decision) => {
@@ -817,7 +830,12 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       <td>{formatDateTime(item.teacherApprovedAt)}</td>
                       <td>{item.banned ? t('userBanned') : t('userActive')}</td>
                       <td>
-                        <button className="outline-button" onClick={() => openUserProfile(item)}>{t('viewProfile')}</button>
+                        <div className="admin-user-actions">
+                          <button className="outline-button" onClick={() => openUserProfile(item)}>{t('viewProfile')}</button>
+                          {canDeleteUser(item) && (
+                            <button className="danger-button" onClick={() => deleteUserAccount(item)}>{t('deleteUser')}</button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -982,7 +1000,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
                     <button className="outline-button" onClick={() => banSelectedUser(!selectedUser.banned)}>
                       {selectedUser.banned ? t('unbanUser') : t('banUser')}
                     </button>
-                    <button className="danger-button" onClick={deleteSelectedUser}>{t('deleteUser')}</button>
+                    {canDeleteUser(selectedUser) && (
+                      <button className="danger-button" onClick={deleteSelectedUser}>{t('deleteUser')}</button>
+                    )}
                   </div>
                 </>
               )}
