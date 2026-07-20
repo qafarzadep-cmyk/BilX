@@ -883,7 +883,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
             <div className="panel-card table-wrap">
               <h2>{t('approvedCoursesTitle')}</h2>
               <table>
-                <thead><tr><th>{t('rowLabel')}</th><th>{t('courseLabel')}</th><th>{t('instructorLabel')}</th><th>{t('priceAzN')}</th><th>{t('statusLabel')}</th><th>{t('accessCountLabel')}</th><th>{t('actionLabel')}</th></tr></thead>
+                <thead><tr><th>{t('rowLabel')}</th><th>{t('courseLabel')}</th><th>{t('instructorLabel')}</th><th>{t('priceAzN')}</th><th>{t('statusLabel')}</th><th>{t('courseStudentCountLabel')}</th><th>{t('actionLabel')}</th></tr></thead>
                 <tbody>{approvedCourses.map((course, index) => {
                   const accessRows = getCourseAccessEnrollments(course.id)
                   return (
