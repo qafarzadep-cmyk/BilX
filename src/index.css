@@ -674,6 +674,8 @@ button {
 }
 
 .course-card-whatsapp-button {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   min-height: 36px;
   display: inline-flex;
@@ -688,10 +690,24 @@ button {
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(37, 211, 102, 0.24);
+  animation: acquire-button-pulse 2.6s ease-in-out infinite;
+  isolation: isolate;
 }
 
 .course-card-whatsapp-button:hover {
   background: #1fb75a;
+}
+
+.course-card-whatsapp-button::after,
+.hero-whatsapp-button::after {
+  content: "";
+  position: absolute;
+  inset: -45% -70%;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 36%, rgba(255, 255, 255, 0.68) 50%, transparent 64%);
+  transform: translateX(-80%) rotate(8deg);
+  animation: acquire-button-shine 2.9s ease-in-out infinite;
 }
 
 .course-pagination {
@@ -1057,6 +1073,8 @@ button {
 }
 
 .hero-whatsapp-button {
+  position: relative;
+  overflow: hidden;
   min-height: 34px;
   display: inline-flex;
   align-items: center;
@@ -1071,11 +1089,53 @@ button {
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(37, 211, 102, 0.24);
+  animation: acquire-button-pulse 2.6s ease-in-out infinite;
+  isolation: isolate;
 }
 
 .hero-whatsapp-button:hover {
   background: #1fb75a;
   border-color: #1fb75a;
+}
+
+@keyframes acquire-button-pulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 8px 20px rgba(37, 211, 102, 0.22);
+  }
+
+  42% {
+    transform: translateY(-1px) scale(1.025);
+    box-shadow: 0 12px 28px rgba(37, 211, 102, 0.42);
+  }
+
+  50% {
+    transform: translateY(0) scale(0.995);
+  }
+
+  58% {
+    transform: translateY(-1px) scale(1.018);
+  }
+}
+
+@keyframes acquire-button-shine {
+  0%,
+  42% {
+    transform: translateX(-80%) rotate(8deg);
+    opacity: 0;
+  }
+
+  52% {
+    opacity: 1;
+  }
+
+  68%,
+  100% {
+    transform: translateX(80%) rotate(8deg);
+    opacity: 0;
+  }
 }
 
 .learning-grid,
