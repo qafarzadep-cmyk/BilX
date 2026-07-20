@@ -653,6 +653,19 @@ button {
   -webkit-line-clamp: 2;
 }
 
+.course-card-progress {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+
+.course-card-progress small {
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .course-card strong,
 .price {
   color: #1435c3;

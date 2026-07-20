@@ -125,6 +125,7 @@ function Home({ user, profile, handleLogout }) {
   const [coursePage, setCoursePage] = useState(1)
   const [enrolledCourseIds, setEnrolledCourseIds] = useState(() => new Set())
   const [startedCourseIds, setStartedCourseIds] = useState(() => new Set())
+  const [courseProgressPercents, setCourseProgressPercents] = useState(() => new Map())
 
   useEffect(() => {
     let mounted = true
@@ -163,6 +164,7 @@ function Home({ user, profile, handleLogout }) {
         if (mounted) {
           setEnrolledCourseIds(new Set())
           setStartedCourseIds(new Set())
+          setCourseProgressPercents(new Map())
         }
         return
       }
@@ -176,6 +178,7 @@ function Home({ user, profile, handleLogout }) {
       const activeEnrollments = enrollmentError ? [] : enrollmentData || []
       const nextEnrolledCourseIds = new Set(activeEnrollments.map((item) => String(item.course_id)))
       const videoToCourse = new Map()
+      const courseVideoCounts = new Map()
       const courseIds = Array.from(nextEnrolledCourseIds)
       if (courseIds.length > 0) {
         const { data: videoData } = await supabase
@@ -184,11 +187,14 @@ function Home({ user, profile, handleLogout }) {
           .in('course_id', courseIds)
 
         ;(videoData || []).forEach((video) => {
-          videoToCourse.set(String(video.id), String(video.course_id))
+          const courseId = String(video.course_id)
+          videoToCourse.set(String(video.id), courseId)
+          courseVideoCounts.set(courseId, (courseVideoCounts.get(courseId) || 0) + 1)
         })
       }
 
       let nextStartedCourseIds = new Set()
+      const watchedByCourse = new Map()
       const videoIds = Array.from(videoToCourse.keys())
       if (videoIds.length > 0) {
         const { data: progressData } = await supabase
@@ -200,14 +206,25 @@ function Home({ user, profile, handleLogout }) {
         nextStartedCourseIds = new Set(
           (progressData || [])
             .filter((item) => item.watched)
-            .map((item) => videoToCourse.get(String(item.video_id)))
+            .map((item) => {
+              const courseId = videoToCourse.get(String(item.video_id))
+              if (courseId) watchedByCourse.set(courseId, (watchedByCourse.get(courseId) || 0) + 1)
+              return courseId
+            })
             .filter(Boolean)
         )
       }
 
+      const nextProgressPercents = new Map(courseIds.map((courseId) => {
+        const total = courseVideoCounts.get(courseId) || 0
+        const watched = watchedByCourse.get(courseId) || 0
+        return [courseId, total ? Math.round((watched / total) * 100) : 0]
+      }))
+
       if (mounted) {
         setEnrolledCourseIds(nextEnrolledCourseIds)
         setStartedCourseIds(nextStartedCourseIds)
+        setCourseProgressPercents(nextProgressPercents)
       }
     }
 
@@ -299,8 +316,9 @@ function Home({ user, profile, handleLogout }) {
   const goTeach = () => navigate(user ? '/instructor' : '/register')
   const openCourse = (course) => navigate(getCourseUrl(course), { state: { course } })
   const isCourseEnrolled = (course) => enrolledCourseIds.has(String(course.id))
+  const getCourseProgressPercent = (course) => courseProgressPercents.get(String(course.id)) || 0
   const getCourseLearnLabel = (course) => (
-    startedCourseIds.has(String(course.id)) ? t('continueButton') : t('startLearningButton')
+    getCourseProgressPercent(course) > 0 || startedCourseIds.has(String(course.id)) ? t('continueButton') : t('startLearningButton')
   )
   const openOwnedCourse = (event, course) => {
     event.stopPropagation()
@@ -426,6 +444,7 @@ function Home({ user, profile, handleLogout }) {
                   {featuredCourses.map((course) => {
                     const instructorName = getCourseAuthorName(course)
                     const hasThumbnail = Boolean(course.thumbnail_url)
+                    const progressPercent = getCourseProgressPercent(course)
 
                     return (
                       <article
@@ -447,6 +466,12 @@ function Home({ user, profile, handleLogout }) {
                             <button className="teacher-profile-link home-course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
                               {instructorName}
                             </button>
+                          )}
+                          {isCourseEnrolled(course) && (
+                            <div className="course-card-progress">
+                              <div className="progress-bar"><span style={{ width: `${progressPercent}%` }} /></div>
+                              <small>{progressPercent}% {t('completedPercent')}</small>
+                            </div>
                           )}
                           <div className="course-card-footer">
                             <strong className="home-course-price course-card-price">
@@ -510,6 +535,7 @@ function Home({ user, profile, handleLogout }) {
                   }
 
                   const instructorName = getCourseAuthorName(course)
+                  const progressPercent = getCourseProgressPercent(course)
                   return (
                     <article
                       key={course.id}
@@ -527,6 +553,12 @@ function Home({ user, profile, handleLogout }) {
                           <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
                             {instructorName}
                           </button>
+                        )}
+                        {isCourseEnrolled(course) && (
+                          <div className="course-card-progress">
+                            <div className="progress-bar"><span style={{ width: `${progressPercent}%` }} /></div>
+                            <small>{progressPercent}% {t('completedPercent')}</small>
+                          </div>
                         )}
                         <div className="course-card-footer">
                           <strong className="course-card-price">

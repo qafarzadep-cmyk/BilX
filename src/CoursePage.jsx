@@ -160,6 +160,47 @@ function normalizeSearchText(value) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+function getCourseResumeStorageKey(userId, courseId) {
+  return `bilx-course-resume-${userId || 'student'}-${courseId}`
+}
+
+function getStoredResumeVideoId(userId, courseId, videos) {
+  if (!userId || !courseId || !videos?.length) return null
+  try {
+    const storedId = window.localStorage.getItem(getCourseResumeStorageKey(userId, courseId))
+    return videos.some((video) => String(video.id) === String(storedId)) ? storedId : null
+  } catch {
+    return null
+  }
+}
+
+function getResumeVideoId({ requestedVideoId, userId, courseId, videos, progress }) {
+  if (!videos?.length) return null
+  if (requestedVideoId && videos.some((video) => String(video.id) === String(requestedVideoId))) {
+    return requestedVideoId
+  }
+
+  const storedVideoId = getStoredResumeVideoId(userId, courseId, videos)
+  if (storedVideoId) return storedVideoId
+
+  const watchedIds = new Set((progress || []).filter((item) => item.watched).map((item) => String(item.video_id)))
+  const firstUnwatched = videos.find((video) => !watchedIds.has(String(video.id)))
+  if (watchedIds.size > 0) return firstUnwatched?.id || videos[videos.length - 1]?.id || null
+  return null
+}
+
+function getTrailerDisplayTitle(title, fallback) {
+  const value = String(title || '').trim()
+  if (!value) return fallback
+  const normalized = normalizeSearchText(value).replaceAll('ı', 'i').replaceAll('ə', 'e')
+  if (/^kurs(un)?\s+tanitim\s+videosu$/.test(normalized)) return fallback
+
+  return value
+    .replace(/tanıtım/gi, 'təqdimat')
+    .replace(/tanitim/gi, 'təqdimat')
+    .replace(/tanidim/gi, 'təqdimat')
+}
+
 function getOrderedSectionItems(sectionId, sectionVideos, sectionQuizzes) {
   const videos = sectionVideos
     .filter((video) => String(video.section_id) === String(sectionId))
@@ -319,7 +360,7 @@ function CoursePage({ user, profile, handleLogout }) {
   )
   const activeQuiz = playableQuizzes.find((quiz) => String(quiz.id) === String(activeQuizId)) || null
   const selectedActiveVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || null
-  const activeVideo = selectedActiveVideo || (activeQuiz || trailer?.bunny_video_id ? null : lessons[0])
+  const activeVideo = selectedActiveVideo || null
 
   useEffect(() => {
     activeVideoIdRef.current = activeVideo?.id || null
@@ -336,7 +377,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const trailerVideo = useMemo(() => (
     trailer ? {
       id: `trailer-${trailer.course_id}`,
-      title: trailer.title || t('courseTrailer'),
+      title: getTrailerDisplayTitle(trailer.title, t('courseTrailer')),
       bunny_video_id: trailer.bunny_video_id,
       is_trailer: true,
     } : null
@@ -526,6 +567,17 @@ function CoursePage({ user, profile, handleLogout }) {
     })
   }
 
+  const selectTrailer = () => {
+    if (!trailerVideo) return
+    setActiveQuizId(null)
+    setActiveQuizQuestionIndex(0)
+    setCheckedQuizId(null)
+    setActivePreviewId('trailer')
+    setPreviewModalOpen(false)
+    activeVideoIdRef.current = null
+    setActiveVideoId(null)
+  }
+
   const selectLesson = (sectionId, videoId) => {
     const lesson = lessons.find((item) => String(item.id) === String(videoId))
     if (!lesson || lesson.locked) {
@@ -643,6 +695,7 @@ function CoursePage({ user, profile, handleLogout }) {
       ])
 
       const sortedVideos = videoData || []
+      const shouldInitializeVideo = String(initializedCourseIdRef.current) !== String(lookupCourseId)
       if (mounted) {
         setVideos(sortedVideos)
         setLessonPreviews(previewData || [])
@@ -651,7 +704,7 @@ function CoursePage({ user, profile, handleLogout }) {
         setQuizPreviews(quizPreviewResponse?.quizzes || [])
         setTrailer(trailerData || null)
         setActivePreviewId(trailerData ? 'trailer' : '')
-        if (String(initializedCourseIdRef.current) !== String(lookupCourseId)) {
+        if (!userId && shouldInitializeVideo) {
           const initialVideoId = location.state?.videoId || (trailerData ? null : sortedVideos[0]?.id) || null
           initializedCourseIdRef.current = lookupCourseId
           activeVideoIdRef.current = initialVideoId
@@ -666,6 +719,12 @@ function CoursePage({ user, profile, handleLogout }) {
 
       if (adminPreview) {
         if (mounted) {
+          if (shouldInitializeVideo) {
+            const initialVideoId = location.state?.videoId || sortedVideos[0]?.id || null
+            initializedCourseIdRef.current = lookupCourseId
+            activeVideoIdRef.current = initialVideoId
+            setActiveVideoId(initialVideoId)
+          }
           setHasAccess(true)
           setIsEnrolled(false)
           setProgress([])
@@ -676,6 +735,12 @@ function CoursePage({ user, profile, handleLogout }) {
 
       if (currentCourse?.instructor_id === userId) {
         if (mounted) {
+          if (shouldInitializeVideo) {
+            const initialVideoId = location.state?.videoId || sortedVideos[0]?.id || null
+            initializedCourseIdRef.current = lookupCourseId
+            activeVideoIdRef.current = initialVideoId
+            setActiveVideoId(initialVideoId)
+          }
           setHasAccess(true)
           setIsEnrolled(false)
           setProgress([])
@@ -725,6 +790,23 @@ function CoursePage({ user, profile, handleLogout }) {
       }
 
       if (mounted) {
+        if (shouldInitializeVideo) {
+          const resumeVideoId = access
+            ? getResumeVideoId({
+              requestedVideoId: location.state?.videoId,
+              userId,
+              courseId: lookupCourseId,
+              videos: sortedVideos,
+              progress: progressData,
+            })
+            : null
+          const initialVideoId = access
+            ? resumeVideoId || (trailerData ? null : sortedVideos[0]?.id) || null
+            : (trailerData ? null : sortedVideos[0]?.id) || null
+          initializedCourseIdRef.current = lookupCourseId
+          activeVideoIdRef.current = initialVideoId
+          setActiveVideoId(initialVideoId)
+        }
         setHasAccess(access)
         setIsEnrolled(enrolled || access)
         setProgress(progressData)
@@ -756,6 +838,15 @@ function CoursePage({ user, profile, handleLogout }) {
       setShowAccessWelcome(true)
     }
   }, [course?.id, isEnrolled, loading, userId])
+
+  useEffect(() => {
+    if (!canViewFullCourse || !userId || !courseId || !activeVideo?.id || activeVideo.locked) return
+    try {
+      window.localStorage.setItem(getCourseResumeStorageKey(userId, courseId), String(activeVideo.id))
+    } catch {
+      // Resume is a convenience; playback still works when storage is blocked.
+    }
+  }, [activeVideo?.id, activeVideo?.locked, canViewFullCourse, courseId, userId])
 
   useEffect(() => {
     let mounted = true
@@ -1706,6 +1797,21 @@ function CoursePage({ user, profile, handleLogout }) {
                 </div>
               )}
               <div className="course-lesson-list" ref={curriculumListRef}>
+                {canViewFullCourse && trailerVideo && (
+                  <button
+                    type="button"
+                    className={`${playerVideo?.is_trailer ? 'course-lesson-item intro-lesson-item active' : 'course-lesson-item intro-lesson-item'}`}
+                    onClick={selectTrailer}
+                  >
+                    <span className="lesson-status">
+                      {playerVideo?.is_trailer ? <PlayCircle size={20} /> : <Play size={20} />}
+                    </span>
+                    <span className="lesson-copy">
+                      <strong>0. {t('courseTrailer')}</strong>
+                      <small>{trailerVideo.title}</small>
+                    </span>
+                  </button>
+                )}
                 {visibleCurriculumSections.length === 0 ? (
                   <p className="curriculum-search-empty">{t('curriculumSearchEmpty')}</p>
                 ) : visibleCurriculumSections.map((section, sectionIndex) => {
