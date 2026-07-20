@@ -26,6 +26,7 @@ const HOME_STEPS = [
   ['3', 'step3Title', 'step3Text'],
 ]
 
+const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
 
 const UPCOMING_COURSES = [
@@ -141,6 +142,7 @@ function Home({ user, profile, handleLogout }) {
   const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [courses, setCourses] = useState([])
   const [loadingCourses, setLoadingCourses] = useState(true)
+  const [coursePage, setCoursePage] = useState(1)
 
   useEffect(() => {
     let mounted = true
@@ -212,7 +214,27 @@ function Home({ user, profile, handleLogout }) {
   )
   const visibleUpcomingCourses = searchIsActive ? filteredUpcomingCourses : UPCOMING_COURSES
   const showCourseGridSkeletons = loadingCourses && (!searchIsActive || visibleUpcomingCourses.length === 0)
-  const hasVisibleCourses = loadingCourses || filteredCourses.length > 0 || visibleUpcomingCourses.length > 0
+  const gridCourseItems = [
+    ...filteredCourses.map((course) => ({ type: 'course', course })),
+    ...visibleUpcomingCourses.map((course) => ({ type: 'upcoming', course })),
+  ]
+  const skeletonSlotCount = showCourseGridSkeletons ? Math.min(4, COURSE_PAGE_SIZE) : 0
+  const totalGridItems = skeletonSlotCount + gridCourseItems.length
+  const totalCoursePages = Math.max(1, Math.ceil(totalGridItems / COURSE_PAGE_SIZE))
+  const safeCoursePage = Math.min(coursePage, totalCoursePages)
+  const visibleGridStart = (safeCoursePage - 1) * COURSE_PAGE_SIZE
+  const visibleGridEnd = visibleGridStart + COURSE_PAGE_SIZE
+  const visibleSkeletonIndexes = showCourseGridSkeletons
+    ? Array.from({ length: skeletonSlotCount }, (_, index) => index).filter((index) => (
+      index >= visibleGridStart && index < visibleGridEnd
+    ))
+    : []
+  const visibleGridCourseItems = gridCourseItems.slice(
+    Math.max(0, visibleGridStart - skeletonSlotCount),
+    Math.max(0, visibleGridEnd - skeletonSlotCount)
+  )
+  const hasVisibleCourses = loadingCourses || totalGridItems > 0
+  const showCoursePagination = totalCoursePages > 1
   // Only highlight a "Featured" shelf when there are enough courses for it to be
   // meaningful — otherwise it just repeats the grid. Hidden while searching.
   const showFeatured = !loadingCourses && !searchIsActive && filteredCourses.length > 6
@@ -222,6 +244,14 @@ function Home({ user, profile, handleLogout }) {
     courseRowRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' })
   }
   const scrollToCourses = () => coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const handleSearchChange = (value) => {
+    setSearch(value)
+    setCoursePage(1)
+  }
+  const goToCoursePage = (nextPage) => {
+    setCoursePage(Math.min(Math.max(nextPage, 1), totalCoursePages))
+    coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   const goTeach = () => navigate(user ? '/instructor' : '/register')
   const openCourse = (course) => navigate(`/course/${course.id}`, { state: { course } })
   const openTeacher = (event, teacherId) => {
@@ -280,7 +310,7 @@ function Home({ user, profile, handleLogout }) {
         user={user}
         profile={profile}
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={handleSearchChange}
         onLogout={handleLogout}
       />
 
@@ -388,7 +418,7 @@ function Home({ user, profile, handleLogout }) {
                 <p>{t('allCoursesSubtitle')}</p>
               </div>
               <div className="course-grid" aria-busy={loadingCourses}>
-                {showCourseGridSkeletons && Array.from({ length: 4 }).map((_, index) => (
+                {visibleSkeletonIndexes.map((index) => (
                   <article className="course-card skeleton-card course-grid-skeleton" key={`course-loading-${index}`}>
                     <div className="skeleton skeleton-course-thumb" />
                     <div className="course-card-body">
@@ -399,9 +429,27 @@ function Home({ user, profile, handleLogout }) {
                     </div>
                   </article>
                 ))}
-                {filteredCourses.map((course) => {
-                  const instructorName = getCourseAuthorName(course)
+                {visibleGridCourseItems.map(({ type, course }) => {
+                  if (type === 'upcoming') {
+                    return (
+                      <article
+                        key={course.id}
+                        className="course-card upcoming-course-card"
+                        aria-label={`${course.title} - ${t('upcomingCourseLabel')}`}
+                      >
+                        <div className="course-card-upcoming-thumb" aria-hidden="true">
+                          <span>{course.title.charAt(0)}</span>
+                        </div>
+                        <div className="course-card-body">
+                          <h3><HighlightedText text={course.title} query={search} /></h3>
+                          <p><HighlightedText text={t('upcomingCourseText')} query={search} /></p>
+                          <span className="upcoming-course-badge">{t('upcomingCourseLabel')}</span>
+                        </div>
+                      </article>
+                    )
+                  }
 
+                  const instructorName = getCourseAuthorName(course)
                   return (
                     <article
                       key={course.id}
@@ -430,23 +478,28 @@ function Home({ user, profile, handleLogout }) {
                     </article>
                   )
                 })}
-                {visibleUpcomingCourses.map((course) => (
-                  <article
-                    key={course.id}
-                    className="course-card upcoming-course-card"
-                    aria-label={`${course.title} - ${t('upcomingCourseLabel')}`}
-                  >
-                    <div className="course-card-upcoming-thumb" aria-hidden="true">
-                      <span>{course.title.charAt(0)}</span>
-                    </div>
-                    <div className="course-card-body">
-                      <h3><HighlightedText text={course.title} query={search} /></h3>
-                      <p><HighlightedText text={t('upcomingCourseText')} query={search} /></p>
-                      <span className="upcoming-course-badge">{t('upcomingCourseLabel')}</span>
-                    </div>
-                  </article>
-                ))}
               </div>
+              {showCoursePagination && (
+                <div className="course-pagination" aria-label={t('coursesTitle')}>
+                  <button
+                    type="button"
+                    className="outline-button"
+                    disabled={safeCoursePage <= 1}
+                    onClick={() => goToCoursePage(safeCoursePage - 1)}
+                  >
+                    {t('previousQuestion')}
+                  </button>
+                  <span>{safeCoursePage} / {totalCoursePages}</span>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={safeCoursePage >= totalCoursePages}
+                    onClick={() => goToCoursePage(safeCoursePage + 1)}
+                  >
+                    {t('nextButton')}
+                  </button>
+                </div>
+              )}
             </section>
           </>
         )}

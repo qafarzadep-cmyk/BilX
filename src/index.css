@@ -694,6 +694,26 @@ button {
   background: #1fb75a;
 }
 
+.course-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.course-pagination span {
+  min-width: 64px;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.course-pagination button {
+  min-width: 112px;
+}
+
 .upcoming-course-badge {
   margin-top: auto;
   display: inline-flex;
