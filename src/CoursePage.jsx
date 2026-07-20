@@ -1537,6 +1537,10 @@ function CoursePage({ user, profile, handleLogout }) {
                 <div>
                   <h2>{t('courseContent')}</h2>
                   <p>{t('courseCurriculumSubtitle')}</p>
+                  <div className="curriculum-summary-pills" aria-label={t('courseContent')}>
+                    <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
+                    <span>{outlineQuizzes.length} {t('explainedTestCollection')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
+                  </div>
                 </div>
                 {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>

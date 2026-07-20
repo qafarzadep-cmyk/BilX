@@ -1274,6 +1274,26 @@ button {
   font-weight: 700;
 }
 
+.curriculum-summary-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.curriculum-summary-pills span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid #dfe5f5;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #1435c3;
+  background: #f7f9ff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .lesson-panel-header strong {
   color: #1435c3;
   font-size: 16px;
