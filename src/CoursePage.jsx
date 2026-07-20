@@ -683,14 +683,36 @@ function CoursePage({ user, profile, handleLogout }) {
         return
       }
 
-      const studentKeys = [userId, userEmail].filter(Boolean)
-      const { data: enrollmentData } = await supabase
-        .from('enrollments')
-        .select('*')
-        .eq('course_id', lookupCourseId)
-        .in('user_id', studentKeys)
+      let access = false
+      let enrolled = false
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          const response = await fetch(`/api/course-access?courseId=${encodeURIComponent(lookupCourseId)}`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+          const result = await response.json().catch(() => ({}))
+          if (response.ok) {
+            access = Boolean(result.access)
+            enrolled = Boolean(result.isEnrolled)
+          }
+        }
+      } catch {
+        access = false
+        enrolled = false
+      }
 
-      const access = enrollmentData?.some((item) => (item.status || 'active') === 'active') || false
+      if (!access) {
+        const studentKeys = Array.from(new Set([userId, userEmail, userEmail?.toLowerCase()].filter(Boolean)))
+        const { data: enrollmentData } = await supabase
+          .from('enrollments')
+          .select('*')
+          .eq('course_id', lookupCourseId)
+          .in('user_id', studentKeys)
+
+        enrolled = enrollmentData?.some((item) => (item.status || 'active') === 'active') || false
+        access = enrolled
+      }
       let progressData = []
       if (access && sortedVideos.length > 0) {
         const { data } = await supabase
@@ -703,7 +725,7 @@ function CoursePage({ user, profile, handleLogout }) {
 
       if (mounted) {
         setHasAccess(access)
-        setIsEnrolled(access)
+        setIsEnrolled(enrolled || access)
         setProgress(progressData)
         setLoading(false)
       }
@@ -845,6 +867,21 @@ function CoursePage({ user, profile, handleLogout }) {
     setActiveVideoId(nextVideo.id)
     void markWatched(currentId)
   }, [lessons, markWatched, orderedCurriculumLessons])
+
+  const playFirstLessonAfterTrailer = useCallback((expectedChoiceId = null) => {
+    if (expectedChoiceId !== null && String(expectedChoiceId) !== 'trailer') return
+    if (String(advancingVideoIdRef.current) === 'trailer') return
+
+    const orderedLessons = orderedCurriculumLessons.length > 0 ? orderedCurriculumLessons : lessons.filter((lesson) => !lesson.locked)
+    const firstLesson = orderedLessons[0]
+    if (!firstLesson) return
+
+    advancingVideoIdRef.current = 'trailer'
+    setActiveQuizId(null)
+    setActivePreviewId(getPreviewChoiceId(firstLesson))
+    activeVideoIdRef.current = firstLesson.id
+    setActiveVideoId(firstLesson.id)
+  }, [lessons, orderedCurriculumLessons, setActivePreviewId, setActiveQuizId, setActiveVideoId])
 
   const playNextPreview = useCallback((expectedChoiceId = null) => {
     if (!publicPreviewVideo) return
@@ -1135,7 +1172,8 @@ function CoursePage({ user, profile, handleLogout }) {
         startPreviewPlayback()
       }
       else if (data.event === 'ended') {
-        if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+        if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
+        else if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
         else playNext(playerVideo.id)
       }
       else if (data.event === 'timeupdate') {
@@ -1161,7 +1199,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (secondPlayKick) window.clearTimeout(secondPlayKick)
       if (thirdPlayKick) window.clearTimeout(thirdPlayKick)
     }
-  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playNext, playNextPreview])
+  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playFirstLessonAfterTrailer, playNext, playNextPreview])
 
   useEffect(() => {
     if (activeQuiz || !playerVideo?.video_url || !isYouTubeUrl(playerVideo.video_url) || !playerFrameRef.current) return undefined
@@ -1175,7 +1213,8 @@ function CoursePage({ user, profile, handleLogout }) {
         events: {
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.ENDED) {
-              if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+              if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
+              else if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
               else playNext(playerVideo.id)
             }
           },
@@ -1203,7 +1242,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playNext, playNextPreview])
+  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playFirstLessonAfterTrailer, playNext, playNextPreview])
 
   const handleWhatsApp = async () => {
     if (user) {
@@ -1273,11 +1312,14 @@ function CoursePage({ user, profile, handleLogout }) {
   const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
   const showInlineLessonPlayer = canViewFullCourse
   const isCourseContentLoading = loading && lessons.length === 0 && outlineQuizzes.length === 0 && !trailerVideo
+  const showCourseHero = !isEnrolled || isCourseOwner || adminPreview
+  const showBuyerCourseActions = !canViewFullCourse || isTeacherBuyerPreview
 
   return (
     <div className="page">
       <Navbar user={user} profile={profile} onLogout={handleLogout} />
       <main className="content-shell">
+        {showCourseHero && (
         <section className="course-hero course-hero-public">
           <div className="course-hero-copy">
             <p className="role-pill course-brand-pill">BilX</p>
@@ -1296,9 +1338,11 @@ function CoursePage({ user, profile, handleLogout }) {
                 </>
               )}
               <span>{t('lifetimeAccess')}</span>
+              {showBuyerCourseActions && (
               <button className="hero-whatsapp-button" type="button" onClick={handleWhatsApp}>
                 <MessageCircle size={16} /> {t('courseAcquire')}
               </button>
+              )}
             </div>
             <button type="button" className="outline-button share-button" onClick={handleShare}>
               <Share2 size={16} /> {t('shareCourse')}
@@ -1334,6 +1378,7 @@ function CoursePage({ user, profile, handleLogout }) {
               </div>
             )}
           </div>
+          {showBuyerCourseActions && (
           <button
             type="button"
             className="course-preview-card"
@@ -1350,7 +1395,16 @@ function CoursePage({ user, profile, handleLogout }) {
               </>
             )}
           </button>
+          )}
         </section>
+        )}
+
+        {isEnrolled && !isCourseContentLoading && (
+          <section className="course-access-welcome" aria-live="polite">
+            <strong>{t('courseAccessWelcomeTitle').replace('{title}', course.title)}</strong>
+            <p>{t('courseAccessWelcomeBody')}</p>
+          </section>
+        )}
 
         {isCourseContentLoading ? (
           <section className="course-player-layout curriculum-only course-content-loading" aria-live="polite">
@@ -1518,7 +1572,8 @@ function CoursePage({ user, profile, handleLogout }) {
                     src={playerVideo.video_url}
                     onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
                     onEnded={() => {
-                      if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+                      if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
+                      else if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
                       else playNext(playerVideo.id)
                     }}
                     className="youtube-player"

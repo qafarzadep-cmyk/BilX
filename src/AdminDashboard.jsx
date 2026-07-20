@@ -91,6 +91,27 @@ function AdminDashboard({ user, profile, handleLogout }) {
     }
   }
 
+  const sendStudentAccessEmail = async ({ email, courseTitle, link }) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const response = await fetch('/api/send-enrollment-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ email, courseTitle, link }),
+      })
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}))
+        throw new Error(result.error || 'Student access email failed')
+      }
+    } catch (error) {
+      console.warn('Student access email failed:', error)
+    }
+  }
+
   const loadData = useCallback(async () => {
     const [
       { data: courseData, error: courseError },
@@ -206,13 +227,15 @@ function AdminDashboard({ user, profile, handleLogout }) {
       loadData()
       const course = courses.find((item) => String(item.id) === String(courseIdNum))
       if (course) {
+        const coursePath = getCourseUrl(course)
+        const courseLink = `${window.location.origin}${coursePath}`
         // Notify the admin/instructor (existing behaviour).
         await sendEmailNotification({
           type: 'enroll',
           courseId: course.id,
           courseTitle: course.title,
           instructorId: course.instructor_id,
-          link: `${window.location.origin}${getCourseUrl(course)}`,
+          link: courseLink,
         })
 
         // Notify the student: in-app (if they have an account) + email.
@@ -222,14 +245,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
             p_user_id: studentUser.user_id,
             p_title: t('enrollGrantedTitle'),
             p_body: t('enrollGrantedBody').replace('{title}', course.title),
-            p_link: '/profile',
+            p_link: coursePath,
           })
         }
-        await sendEmailNotification({
-          type: 'enroll_student',
+        await sendStudentAccessEmail({
           courseTitle: course.title,
           email: studentKey,
-          link: `${window.location.origin}/profile`,
+          link: courseLink,
         })
       }
     }

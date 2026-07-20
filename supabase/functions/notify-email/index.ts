@@ -93,7 +93,7 @@ serve(async (req) => {
     rating: 'BilX: Yeni reytinq',
     inbox: 'BilX: Yeni inbox mesajı',
     teacher_approved: 'BilX: Müəllim statusunuz təsdiqləndi 🎉',
-    enroll_student: 'BilX: Kursa girişiniz açıldı',
+    enroll_student: 'BilX: Kursa girişiniz açıldı 🎉',
   }
 
   const bodyMap = {
@@ -103,8 +103,8 @@ serve(async (req) => {
     inbox: 'Sizə yeni inbox mesajı gəldi.',
     teacher_approved: 'Təbriklər! Artıq BilX-də müəllim kimi dərslərinizi paylaşa bilərsiniz.',
     enroll_student: courseTitle
-      ? `${courseTitle} kursuna girişiniz açıldı. Öyrənməyə başlaya bilərsiniz!`
-      : 'Kursa girişiniz açıldı. Öyrənməyə başlaya bilərsiniz!',
+      ? `Təbriklər! Seçdiyiniz "${courseTitle}" kursuna tam girişiniz açıldı. İndi öyrənməyə başlaya bilərsiniz.`
+      : 'Təbriklər! Seçdiyiniz kursa tam girişiniz açıldı. İndi öyrənməyə başlaya bilərsiniz.',
   }
 
   const subject = subjectMap[type] || 'BilX bildirişi'
@@ -151,7 +151,7 @@ serve(async (req) => {
       <div style="font-family: Arial, Helvetica, sans-serif; color: #111;">
         <h2>${escapeHtml(subject)}</h2>
         <p>${escapeHtml(message)}</p>
-        ${linkHref ? `<p><a href="${escapeHtml(linkHref)}">Keçid</a></p>` : ''}
+        ${linkHref ? `<p><a href="${escapeHtml(linkHref)}">Kursa keç</a></p>` : ''}
       </div>
     `
 

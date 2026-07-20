@@ -39,7 +39,7 @@ async function hasAccess(client, user, video) {
   if (course?.instructor_id && course.instructor_id === user.id) return true
 
   // Enrollment is keyed by the student's id OR email (see CoursePage/giveAccess).
-  const keys = [user.id, user.email].filter(Boolean)
+  const keys = [user.id, user.email, user.email?.toLowerCase()].filter(Boolean)
   const { data: enrollments } = await client
     .from('enrollments')
     .select('status')
