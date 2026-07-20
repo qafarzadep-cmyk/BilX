@@ -67,6 +67,10 @@ function getPreviewChoiceId(video) {
   return video?.is_trailer ? 'trailer' : video?.id
 }
 
+function getBunnyThumbnailSrc(video) {
+  return video?.bunny_video_id ? `/api/bunny-thumbnail?videoId=${encodeURIComponent(video.bunny_video_id)}` : ''
+}
+
 function isYouTubeUrl(url) {
   if (!url) return false
 
@@ -1809,7 +1813,9 @@ function CoursePage({ user, profile, handleLogout }) {
               {previewChoices.map((video) => {
                 const choiceId = video.is_trailer ? 'trailer' : video.id
                 const isActive = String(activePreviewId) === String(choiceId)
-                const thumbnailUrl = video.is_trailer ? course.thumbnail_url : video.thumbnail_url
+                const thumbnailUrl = video.is_trailer
+                  ? (course.thumbnail_url || getBunnyThumbnailSrc(video))
+                  : (video.thumbnail_url || getBunnyThumbnailSrc(video))
                 return (
                   <button
                     type="button"
@@ -1818,11 +1824,14 @@ function CoursePage({ user, profile, handleLogout }) {
                     onClick={() => setActivePreviewId(choiceId)}
                   >
                     <span className="course-preview-choice-thumb">
+                      <span className="course-preview-choice-placeholder" aria-hidden="true" />
                       {thumbnailUrl ? (
-                        <img src={thumbnailUrl} alt="" />
-                      ) : (
-                        <span className="course-preview-choice-placeholder" aria-hidden="true" />
-                      )}
+                        <img
+                          src={thumbnailUrl}
+                          alt=""
+                          onError={(event) => { event.currentTarget.hidden = true }}
+                        />
+                      ) : null}
                       <PlayCircle size={22} />
                     </span>
                     <span>
