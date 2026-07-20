@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut, Shield } from 'lucide-react'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl } from './courseUrl'
@@ -56,8 +56,12 @@ function getCourseStatusLabel(status) {
   return 'courseStatusPending'
 }
 
+const ADMIN_TAB_IDS = ['pending', 'teacher-applications', 'access', 'users', 'inbox', 'courses', 'stats']
+
 function AdminDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = ADMIN_TAB_IDS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'pending'
   const [courses, setCourses] = useState([])
   const [profiles, setProfiles] = useState([])
   const [adminUsers, setAdminUsers] = useState([])
@@ -65,7 +69,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [enrollments, setEnrollments] = useState([])
   const [requests, setRequests] = useState([])
   const [inboxMessages, setInboxMessages] = useState([])
-  const [activeTab, setActiveTab] = useState('pending')
   const [studentEmail, setStudentEmail] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
   const [message, setMessage] = useState('')
@@ -134,6 +137,14 @@ function AdminDashboard({ user, profile, handleLogout }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (canAdmin) loadData()
   }, [canAdmin, loadData])
+
+  const changeAdminTab = (id) => {
+    setMessage('')
+    const nextParams = new URLSearchParams(searchParams)
+    if (id === 'pending') nextParams.delete('tab')
+    else nextParams.set('tab', id)
+    setSearchParams(nextParams, { replace: true })
+  }
 
   const approveCourse = async (courseId) => {
     const { error } = await supabase
@@ -665,10 +676,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
           <nav className="admin-nav">
             {adminTabs.map(([id, label, count]) => (
-              <button key={id} className={activeTab === id ? 'active' : ''} onClick={() => {
-                setMessage('')
-                setActiveTab(id)
-              }}>
+              <button key={id} className={activeTab === id ? 'active' : ''} onClick={() => changeAdminTab(id)}>
                 <span>{label}</span>
                 <strong>{count}</strong>
               </button>
