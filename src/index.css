@@ -1333,12 +1333,32 @@ button {
   line-height: 1.35;
 }
 
-.lesson-panel-header .curriculum-detail-card p {
-  margin-top: 5px;
+.lesson-panel-header .curriculum-detail-card ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-panel-header .curriculum-detail-card li {
+  position: relative;
+  padding-left: 14px;
   color: #566070;
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.4;
+}
+
+.lesson-panel-header .curriculum-detail-card li::before {
+  content: "";
+  position: absolute;
+  top: 0.62em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #1435c3;
 }
 
 .lesson-panel-header strong {
@@ -4504,9 +4524,9 @@ button:disabled {
     font-size: 13px;
   }
 
-  .lesson-panel-header .curriculum-detail-card p {
+  .lesson-panel-header .curriculum-detail-card li {
     font-size: 12px;
-    line-height: 1.45;
+    line-height: 1.35;
   }
 
   .unlock-course-button {

@@ -130,6 +130,16 @@ function formatSectionDuration(seconds, t) {
     : `${minutes}${t('minuteShort')}`
 }
 
+function formatLongSectionDuration(seconds, t) {
+  if (!seconds) return ''
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.ceil((seconds % 3600) / 60)
+  const parts = []
+  if (hours > 0) parts.push(`${hours} ${t('hourLong')}`)
+  if (minutes > 0) parts.push(`${minutes} ${t('minuteLong')}`)
+  return parts.join(' ')
+}
+
 function getQuizQuestionCount(quizzes) {
   return (quizzes || []).reduce((total, quiz) => {
     const fullQuestionCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0
@@ -358,10 +368,9 @@ function CoursePage({ user, profile, handleLogout }) {
   )
   const completedCount = lessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
   const completionPercent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0
-  const fullCourseDuration = formatSectionDuration(
-    lessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0),
-    t
-  )
+  const fullCourseDurationSeconds = lessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
+  const fullCourseDuration = formatSectionDuration(fullCourseDurationSeconds, t)
+  const fullCourseDurationLong = formatLongSectionDuration(fullCourseDurationSeconds, t)
   const outlineQuizQuestionCount = getQuizQuestionCount(outlineQuizzes)
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
@@ -1577,14 +1586,13 @@ function CoursePage({ user, profile, handleLogout }) {
                         .replace('{sectionCount}', curriculumSections.length)
                         .replace('{lessonCount}', lessons.length)}
                     </strong>
-                    <p>
-                      {t('courseCurriculumDescription')
-                        .replace('{sectionCount}', curriculumSections.length)
-                        .replace('{lessonCount}', lessons.length)
-                        .replace('{duration}', fullCourseDuration || t('durationMissing'))
-                        .replace('{quizCount}', outlineQuizzes.length)
-                        .replace('{questionCount}', outlineQuizQuestionCount)}
-                    </p>
+                    <ul>
+                      <li>{t('courseCurriculumBulletSections').replace('{sectionCount}', curriculumSections.length)}</li>
+                      <li>{t('courseCurriculumBulletLessons').replace('{lessonCount}', lessons.length)}</li>
+                      <li>{t('courseCurriculumBulletDuration').replace('{duration}', fullCourseDurationLong || t('durationMissing'))}</li>
+                      <li>{t('courseCurriculumBulletQuizzes').replace('{quizCount}', outlineQuizzes.length)}</li>
+                      <li>{t('courseCurriculumBulletQuestions').replace('{questionCount}', outlineQuizQuestionCount)}</li>
+                    </ul>
                   </div>
                 </div>
                 {canViewFullCourse ? (
