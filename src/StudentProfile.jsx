@@ -6,6 +6,14 @@ import Navbar from './Navbar'
 import { useLanguage } from './i18n'
 import { supabase } from './supabase'
 
+function getStudentKeys(user) {
+  return Array.from(new Set([
+    user?.id,
+    user?.email,
+    user?.email?.toLowerCase(),
+  ].filter(Boolean).map((item) => String(item))))
+}
+
 function StudentProfile({ user, profile, handleLogout }) {
   const navigate = useNavigate()
   const [enrollments, setEnrollments] = useState([])
@@ -24,7 +32,7 @@ function StudentProfile({ user, profile, handleLogout }) {
         return
       }
 
-      const studentKeys = [user.id, user.email].filter(Boolean)
+      const studentKeys = getStudentKeys(user)
       const { data: enrollmentData } = await supabase
         .from('enrollments')
         .select('*, Courses(*, videos(*))')
@@ -78,6 +86,7 @@ function StudentProfile({ user, profile, handleLogout }) {
       if (!user || loading || courses.length > 0) return
 
       setDiscoverLoading(true)
+      const enrolledCourseIds = new Set(enrollments.map((item) => String(item.course_id)))
       const { data } = await supabase
         .from('Courses')
         .select('*')
@@ -85,7 +94,9 @@ function StudentProfile({ user, profile, handleLogout }) {
         .order('id', { ascending: false })
         .limit(8)
 
-      const coursesWithAuthors = await attachCourseAuthorNames(data || [])
+      const coursesWithAuthors = await attachCourseAuthorNames(
+        (data || []).filter((course) => !enrolledCourseIds.has(String(course.id)))
+      )
       if (mounted) {
         setDiscoverCourses(coursesWithAuthors)
         setDiscoverLoading(false)
@@ -96,7 +107,7 @@ function StudentProfile({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [courses.length, loading, user])
+  }, [courses.length, enrollments, loading, user])
 
   if (!user) {
     return (
