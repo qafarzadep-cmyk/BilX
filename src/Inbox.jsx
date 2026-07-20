@@ -32,6 +32,7 @@ function writeInboxCache(user, adminMode, teacherMode, payload) {
 
 export function InboxPanel({ user, profile, compact = false, adminMode = false, teacherMode = false }) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { t } = useLanguage()
   const cachedInbox = readInboxCache(user, adminMode, teacherMode)
   const [messages, setMessages] = useState(cachedInbox?.messages || [])
@@ -49,6 +50,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const [loadingInbox, setLoadingInbox] = useState(!cachedInbox)
   const [message, setMessage] = useState('')
   const chatScrollRef = useRef(null)
+  const requestPrefillRef = useRef('')
   const canUseTeacherInbox = profile?.role === 'instructor'
   const isInstructorInbox = teacherMode && canUseTeacherInbox && !adminMode
 
@@ -162,6 +164,28 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     if (!filteredConversations.length) return null
     return filteredConversations.find((conversation) => conversation.key === selectedConversationKey) || filteredConversations[0]
   }, [filteredConversations, selectedConversationKey])
+
+  useEffect(() => {
+    if (adminMode || !isInstructorInbox || loadingInbox) return
+    if (searchParams.get('request') !== 'course-edit') return
+
+    const courseTitle = searchParams.get('courseTitle') || ''
+    const prefillKey = `${searchParams.get('request')}:${searchParams.get('courseId') || courseTitle}`
+    if (requestPrefillRef.current === prefillKey) return
+
+    const adminConversation = conversations.find((conversation) => (
+      getConversationCategory(conversation) === 'admin'
+    ))
+
+    setRecipientType('admin')
+    setSelectedCourseId('')
+    const adminProfile = adminConversation?.profile || getPersonProfile(adminConversation?.person)
+    setReplyTo(adminConversation ? { id: adminProfile?.id || null, email: adminProfile?.email || ADMIN_EMAIL } : null)
+    setSelectedConversationKey(adminConversation?.key || '')
+    setBody(t('courseEditRequestMessage').replace('{title}', courseTitle || t('courseLabel')))
+    setMessage('')
+    requestPrefillRef.current = prefillKey
+  }, [adminMode, conversations, getConversationCategory, getPersonProfile, isInstructorInbox, loadingInbox, searchParams, t])
 
   const loadMessages = useCallback(async () => {
     let query = supabase

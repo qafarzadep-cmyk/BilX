@@ -2094,6 +2094,32 @@ body.quiz-fullscreen-open {
   color: #1435c3;
 }
 
+.approved-course-lock-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.approved-course-lock-note span {
+  min-width: 0;
+}
+
+.approved-course-lock-note .primary-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .approved-course-lock-note {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .approved-course-lock-note .primary-button {
+    width: 100%;
+  }
+}
+
 .error-box {
   background: #ffe7e3;
   color: #b32d0f;

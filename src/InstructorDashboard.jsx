@@ -1740,6 +1740,17 @@ function InstructorDashboard({ user, profile, handleLogout }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const openAdminEditRequest = (course) => {
+    if (!course) return
+    const params = new URLSearchParams({
+      mode: 'teacher',
+      request: 'course-edit',
+      courseId: String(course.id),
+      courseTitle: course.title || '',
+    })
+    navigate(`/inbox?${params.toString()}`)
+  }
+
   const goToCourseList = () => {
     setMessage('')
     setSearchParams({})
@@ -1996,7 +2007,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               </header>
 
               {detailApproved ? (
-                <div className="notice-box">{t('approvedCourseLockNote')}</div>
+                <div className="notice-box approved-course-lock-note">
+                  <span>{t('approvedCourseLockNote')}</span>
+                  <button className="primary-button" type="button" onClick={() => openAdminEditRequest(detailCourse)}>
+                    {t('messageAdmin')}
+                  </button>
+                </div>
               ) : (
                 <>
                 <section className="instructor-curriculum-studio">
@@ -2847,8 +2863,12 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
                   {selectedCourseApproved ? (
                     <>
-                      <div className="notice-box">{t('approvedCourseLockNote')}</div>
-                      <button className="outline-button full" onClick={() => navigate('/inbox')}>{t('messageAdmin')}</button>
+                      <div className="notice-box approved-course-lock-note">
+                        <span>{t('approvedCourseLockNote')}</span>
+                        <button className="primary-button" type="button" onClick={() => openAdminEditRequest(visibleSelectedCourse)}>
+                          {t('messageAdmin')}
+                        </button>
+                      </div>
 
                       <div className="lesson-list">
                         {visibleCourseVideos.length === 0 ? <p className="muted">{t('noLessons')}</p> : visibleCourseVideos.map((video, index) => (
