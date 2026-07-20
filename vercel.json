@@ -27,6 +27,9 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/send-welcome", "destination": "/api/email?template=welcome" },
+    { "source": "/api/send-password-reset", "destination": "/api/email?template=password-reset" },
+    { "source": "/api/notify", "destination": "/api/email?template=notify" },
     {
       "source": "/course/:id",
       "has": [
