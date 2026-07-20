@@ -107,6 +107,17 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     return { id: id || null, email: email || '' }
   }
 
+  const isIncomingUnreadMessage = useCallback((item) => {
+    if (!user || !item || item.read_at) return false
+    const userEmail = user.email?.toLowerCase() || ''
+    const senderEmail = item.sender_email?.toLowerCase() || ''
+    const recipientEmail = item.recipient_email?.toLowerCase() || ''
+
+    if (item.sender_id === user.id || senderEmail === userEmail) return false
+    if (item.recipient_id === user.id || recipientEmail === userEmail) return true
+    return adminMode && recipientEmail === ADMIN_EMAIL.toLowerCase()
+  }, [adminMode, user])
+
   const conversations = useMemo(() => {
     const byKey = new Map()
 
@@ -297,6 +308,30 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     setMessage('')
   }
 
+  useEffect(() => {
+    if (!user || !selectedConversation) return
+    const unreadIds = selectedConversation.messages
+      .filter(isIncomingUnreadMessage)
+      .map((item) => item.id)
+
+    if (unreadIds.length === 0) return
+
+    const readAt = new Date().toISOString()
+    supabase
+      .from('inbox_messages')
+      .update({ read_at: readAt })
+      .in('id', unreadIds)
+      .then(({ error }) => {
+        if (error) console.warn('Could not mark inbox messages as read:', error)
+        else {
+          setMessages((items) => items.map((item) => (
+            unreadIds.includes(item.id) ? { ...item, read_at: readAt } : item
+          )))
+          window.dispatchEvent(new Event('bilx-inbox-updated'))
+        }
+      })
+  }, [isIncomingUnreadMessage, selectedConversation, user])
+
   const startEmailChat = (event) => {
     event.preventDefault()
     const email = recipientEmailInput.trim()
@@ -400,6 +435,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     }
     setLoading(false)
     await loadMessages()
+    window.dispatchEvent(new Event('bilx-inbox-updated'))
   }
 
   const handleComposerKeyDown = (event) => {

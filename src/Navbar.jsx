@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
 import bilxLogo from './assets/bilx-logo.png'
 import { useLanguage } from './i18n'
-import { isAdmin } from './profileApi'
+import { ADMIN_EMAIL, isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
@@ -22,6 +22,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const [nameLoading, setNameLoading] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const menuRef = useRef(null)
   const notificationRef = useRef(null)
@@ -65,6 +66,28 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     return data || []
   }, [user])
 
+  const isIncomingMessage = useCallback((message) => {
+    if (!user || !message || message.read_at) return false
+    const userEmail = user.email?.toLowerCase() || ''
+    const senderEmail = message.sender_email?.toLowerCase() || ''
+    const recipientEmail = message.recipient_email?.toLowerCase() || ''
+
+    if (message.sender_id === user.id || senderEmail === userEmail) return false
+    if (message.recipient_id === user.id || recipientEmail === userEmail) return true
+    return isAdmin(user) && recipientEmail === ADMIN_EMAIL.toLowerCase()
+  }, [user])
+
+  const fetchUnreadMessageCount = useCallback(async () => {
+    if (!user) return 0
+    const { data } = await supabase
+      .from('inbox_messages')
+      .select('id, sender_id, sender_email, recipient_id, recipient_email, read_at')
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+
+    return (data || []).filter(isIncomingMessage).length
+  }, [isIncomingMessage, user])
+
   useEffect(() => {
     let mounted = true
     fetchNotifications().then((items) => {
@@ -94,6 +117,47 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
       supabase.removeChannel(channel)
     }
   }, [fetchNotifications, user])
+
+  useEffect(() => {
+    let mounted = true
+    fetchUnreadMessageCount().then((count) => {
+      if (mounted) setUnreadMessageCount(count)
+    })
+
+    if (!user) {
+      return () => {
+        mounted = false
+      }
+    }
+
+    const channel = supabase
+      .channel(`inbox-unread:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inbox_messages' },
+        () => {
+          fetchUnreadMessageCount().then((count) => {
+            if (mounted) setUnreadMessageCount(count)
+          })
+        }
+      )
+      .subscribe()
+
+    const refreshOnFocus = () => {
+      fetchUnreadMessageCount().then((count) => {
+        if (mounted) setUnreadMessageCount(count)
+      })
+    }
+    window.addEventListener('focus', refreshOnFocus)
+    window.addEventListener('bilx-inbox-updated', refreshOnFocus)
+
+    return () => {
+      mounted = false
+      window.removeEventListener('focus', refreshOnFocus)
+      window.removeEventListener('bilx-inbox-updated', refreshOnFocus)
+      supabase.removeChannel(channel)
+    }
+  }, [fetchUnreadMessageCount, user])
 
   const unreadCount = notifications.filter((item) => !item.is_read).length
 
@@ -253,22 +317,6 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     await onLogout?.()
   }
 
-  const handleTeachClick = () => {
-    if (!user) {
-      navigate('/login')
-      return
-    }
-    if (isAdmin(user)) {
-      go('/admin')
-      return
-    }
-    if (isInstructor) {
-      go('/instructor')
-      return
-    }
-    openApplicationForm()
-  }
-
   const handleModeSwitch = () => {
     if (isTeacherMode) {
       go('/profile')
@@ -342,6 +390,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
             </div>
             <button className="icon-button nav-inbox-button" type="button" onClick={() => navigate(isTeacherMode ? '/inbox?mode=teacher' : '/inbox')} aria-label={t('inbox')} title={t('inbox')}>
               <Mail size={18} />
+              {unreadMessageCount > 0 && <span className="badge">{unreadMessageCount}</span>}
             </button>
             <div className={`nav-role-stack ${profileReady ? '' : 'loading'}`}>
               <span className="nav-role-pill">{roleLabel}</span>
