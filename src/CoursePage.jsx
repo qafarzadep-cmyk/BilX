@@ -265,11 +265,10 @@ function CoursePage({ user, profile, handleLogout }) {
         : null
       const locked = !rawUrl && !bunnyId
       const title = item.title || t(placeholderLessons[index % placeholderLessons.length].titleKey)
-      const showTitle = canViewFullCourse || !locked
       return {
         id: item.id,
         title,
-        displayTitle: showTitle ? title : t('lockedLessonTitle'),
+        displayTitle: title,
         duration: item.duration || playable?.duration || '',
         is_free: item.is_free,
         section_id: item.section_id || playable?.section_id || null,
@@ -352,13 +351,6 @@ function CoursePage({ user, profile, handleLogout }) {
   const outlineQuizQuestionCount = canViewFullCourse
     ? totalQuizQuestionCount
     : (quizPreviews || []).reduce((total, quiz) => total + (Number(quiz.question_count) || 0), 0)
-  const courseContentSummary = formatCourseContentSummary(
-    lessons.length,
-    fullCourseDuration,
-    outlineQuizzes.length,
-    outlineQuizQuestionCount,
-    t
-  )
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     const effective = orderedSections.length > 0
@@ -459,33 +451,6 @@ function CoursePage({ user, profile, handleLogout }) {
 
     return null
   })()
-  const publicPreviewItems = useMemo(() => {
-    if (canViewFullCourse) return []
-
-    return curriculumSections.flatMap((section, sectionIndex) => (
-      (section.items || [])
-        .map((entry, itemIndex) => ({ ...entry, itemIndex }))
-        .filter((entry) => (
-          entry.type === 'video'
-            ? entry.item.is_free && !entry.item.locked
-            : entry.item.is_free
-        ))
-        .map((entry) => {
-          const item = entry.item
-          const contentNumber = `${section.sectionNumber || sectionIndex + 1}.${entry.itemIndex + 1}`
-          return {
-            type: entry.type,
-            id: item.id,
-            sectionId: section.id,
-            sectionTitle: section.displayTitle || `${t('sectionLabel')} ${section.sectionNumber || sectionIndex + 1}`,
-            title: item.displayTitle || item.title,
-            number: contentNumber,
-            duration: entry.type === 'video' ? item.duration : '',
-            questionCount: entry.type === 'quiz' ? item.questions?.length || item.question_count || 0 : 0,
-          }
-        })
-    ))
-  }, [canViewFullCourse, curriculumSections, t])
   const orderedCurriculumLessons = useMemo(() => (
     curriculumSections
       .flatMap((section) => section.items || [])
@@ -1560,11 +1525,7 @@ function CoursePage({ user, profile, handleLogout }) {
               <div className="lesson-panel-header">
                 <div>
                   <h2>{t('courseContent')}</h2>
-                  <p>
-                    {canViewFullCourse
-                      ? `${completedCount}/${lessons.length} ${t('completedLabel')}`
-                      : courseContentSummary}
-                  </p>
+                  <p>{t('courseCurriculumSubtitle')}</p>
                 </div>
                 {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>
@@ -1589,48 +1550,6 @@ function CoursePage({ user, profile, handleLogout }) {
                     aria-label={t('curriculumSearchLabel')}
                   />
                 </div>
-              )}
-              {publicPreviewItems.length > 0 && (
-                <section className="public-preview-strip" aria-label={t('previewLessonsCta')}>
-                  <div className="public-preview-strip-header">
-                    <strong>{t('previewLessonsCta')}</strong>
-                    <small>
-                      {publicPreviewItems.length} {t('previewAvailableCount')}
-                    </small>
-                  </div>
-                  <div className="public-preview-strip-list">
-                    {publicPreviewItems.map((previewItem) => {
-                      const isVideo = previewItem.type === 'video'
-                      const isActive = isVideo
-                        ? String(previewItem.id) === String(activeLessonRowId)
-                        : String(previewItem.id) === String(activeQuiz?.id)
-
-                      return (
-                        <button
-                          key={`${previewItem.type}-${previewItem.id}`}
-                          type="button"
-                          className={isActive ? 'public-preview-item active' : 'public-preview-item'}
-                          onClick={() => {
-                            if (isVideo) selectLesson(previewItem.sectionId, previewItem.id)
-                            else selectQuiz(previewItem.sectionId, previewItem.id)
-                          }}
-                        >
-                          <span className="public-preview-icon">
-                            {isVideo ? <PlayCircle size={20} /> : <ClipboardList size={20} />}
-                          </span>
-                          <span className="public-preview-copy">
-                            <strong>{isVideo ? `${t('lessonLabel')} ${previewItem.number}: ` : ''}{previewItem.title}</strong>
-                            <small>
-                              {previewItem.sectionTitle}
-                              {isVideo && previewItem.duration && <><span>|</span><Clock3 size={13} /> {previewItem.duration}</>}
-                              {!isVideo && <><span>|</span>{previewItem.questionCount} {t('questionCountLabel')}</>}
-                            </small>
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </section>
               )}
               <div className="course-lesson-list" ref={curriculumListRef}>
                 {visibleCurriculumSections.length === 0 ? (
