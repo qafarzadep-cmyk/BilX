@@ -5730,6 +5730,7 @@ td button + .outline-button {
 }
 
 .course-preview-play {
+  position: relative;
   align-self: center;
   justify-self: center;
   display: grid;
@@ -5742,6 +5743,37 @@ td button + .outline-button {
   background: #fff;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
   transition: transform 0.2s ease;
+  overflow: hidden;
+  isolation: isolate;
+  animation: preview-play-pulse 2.6s ease-in-out infinite;
+}
+
+.course-preview-play::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: inherit;
+  border: 2px solid rgba(20, 53, 195, 0.22);
+  opacity: 0;
+  transform: scale(0.72);
+  animation: preview-play-ring 2.6s ease-out infinite;
+  z-index: 0;
+}
+
+.course-preview-play::after {
+  content: "";
+  position: absolute;
+  inset: -45% -80%;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 36%, rgba(20, 53, 195, 0.2) 50%, transparent 64%);
+  transform: translateX(-82%) rotate(8deg);
+  animation: preview-play-shine 2.9s ease-in-out infinite;
+  z-index: 1;
+}
+
+.course-preview-play svg {
+  position: relative;
+  z-index: 2;
 }
 
 .course-preview-card strong {
@@ -5756,7 +5788,65 @@ td button + .outline-button {
 }
 
 .course-preview-card:hover .course-preview-play {
+  animation-play-state: paused;
   transform: scale(1.08);
+}
+
+@keyframes preview-play-pulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  42% {
+    transform: translateY(-2px) scale(1.06);
+    box-shadow: 0 16px 36px rgba(255, 255, 255, 0.2), 0 12px 34px rgba(20, 53, 195, 0.28);
+  }
+
+  52% {
+    transform: translateY(0) scale(0.98);
+  }
+
+  62% {
+    transform: translateY(-1px) scale(1.035);
+  }
+}
+
+@keyframes preview-play-ring {
+  0%,
+  44% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+
+  55% {
+    opacity: 0.75;
+  }
+
+  78%,
+  100% {
+    opacity: 0;
+    transform: scale(1.38);
+  }
+}
+
+@keyframes preview-play-shine {
+  0%,
+  42% {
+    transform: translateX(-82%) rotate(8deg);
+    opacity: 0;
+  }
+
+  52% {
+    opacity: 1;
+  }
+
+  68%,
+  100% {
+    transform: translateX(82%) rotate(8deg);
+    opacity: 0;
+  }
 }
 
 .course-preview-card:focus-visible {
