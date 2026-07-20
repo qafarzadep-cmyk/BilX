@@ -1294,6 +1294,15 @@ button {
   font-weight: 900;
 }
 
+.lesson-panel-header .curriculum-detail-copy {
+  max-width: 760px;
+  margin-top: 10px;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
 .lesson-panel-header strong {
   color: #1435c3;
   font-size: 16px;

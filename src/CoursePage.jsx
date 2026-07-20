@@ -1541,6 +1541,14 @@ function CoursePage({ user, profile, handleLogout }) {
                     <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
                     <span>{outlineQuizzes.length} {t('explainedTestCollection')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
                   </div>
+                  <p className="curriculum-detail-copy">
+                    {t('courseCurriculumDescription')
+                      .replace('{sectionCount}', curriculumSections.length)
+                      .replace('{lessonCount}', lessons.length)
+                      .replace('{duration}', fullCourseDuration || t('durationMissing'))
+                      .replace('{quizCount}', outlineQuizzes.length)
+                      .replace('{questionCount}', outlineQuizQuestionCount)}
+                  </p>
                 </div>
                 {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>
