@@ -4126,12 +4126,25 @@ th {
   font-size: 12px;
 }
 
+.course-below-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(460px, 28vw, 560px);
+  gap: 0;
+  align-items: start;
+}
+
 .lesson-comments-panel {
-  max-width: 900px;
+  width: 100%;
+  max-width: none;
+  margin-top: 12px;
+  border-color: #dbe4ff;
+  box-shadow: 0 14px 32px rgba(20, 53, 195, 0.07);
 }
 
 .youtube-comment-heading {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eef2ff;
 }
 
 .youtube-comment-form {
@@ -4142,17 +4155,22 @@ th {
 
 .youtube-comment-form textarea {
   width: 100%;
-  min-height: 48px;
-  border: 0;
-  border-bottom: 1px solid #9ca3af;
-  border-radius: 0;
-  padding: 8px 0;
+  min-height: 86px;
+  border: 1px solid #dbe4ff;
+  border-radius: 8px;
+  padding: 12px 14px;
   outline: 0;
   resize: vertical;
+  background: #fbfcff;
+  color: #1c1d1f;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .youtube-comment-form textarea:focus {
-  border-bottom: 2px solid #1c1d1f;
+  border-color: #1435c3;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(20, 53, 195, 0.12);
 }
 
 .youtube-comment-form-actions {
@@ -4165,6 +4183,13 @@ th {
 
 .youtube-comment-form-actions small {
   color: #6a6f73;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.youtube-comment-form-actions .primary-button {
+  flex: 0 0 auto;
+  min-width: 148px;
 }
 
 .comment-avatar {
@@ -4184,6 +4209,10 @@ th {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
   gap: 14px;
+  border: 1px solid #eef2ff;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcff;
 }
 
 .youtube-comment-meta {
@@ -4788,6 +4817,28 @@ button:disabled {
     grid-template-columns: 22px minmax(0, 1fr);
     gap: 10px;
     padding: 12px 14px;
+  }
+
+  .course-below-layout {
+    display: block;
+  }
+
+  .lesson-comments-panel {
+    margin-top: 10px;
+  }
+
+  .youtube-comment-form {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .youtube-comment-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .youtube-comment-form-actions .primary-button {
+    width: 100%;
   }
 
   .quiz-player {

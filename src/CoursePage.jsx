@@ -275,6 +275,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [muteAutoplay, setMuteAutoplay] = useState(shouldMuteMobileAutoplay)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
   const adminPreview = isAdmin(user)
   const userId = user?.id
   const userEmail = user?.email
@@ -1051,11 +1052,15 @@ function CoursePage({ user, profile, handleLogout }) {
 
   const submitComment = async (event) => {
     event.preventDefault()
-    if (!user || !activeVideo?.id || !commentBody.trim()) return
-    if (String(activeVideo.id).startsWith('placeholder-')) return
+    if (!user || !activeVideo?.id || !commentBody.trim() || commentSubmitting) return
+    if (String(activeVideo.id).startsWith('placeholder-')) {
+      toast.error(t('commentSaveFailed'))
+      return
+    }
 
     const timestampSeconds = Math.max(0, Math.floor(getCurrentPlaybackSeconds()))
     const storedBody = `[[bilx-time:${timestampSeconds}]] ${commentBody.trim()}`
+    setCommentSubmitting(true)
     const { error } = await supabase
       .from('video_comments')
       .insert({
@@ -1064,8 +1069,24 @@ function CoursePage({ user, profile, handleLogout }) {
         body: storedBody,
       })
 
-    if (!error) {
-      setCommentBody('')
+    if (error) {
+      setCommentSubmitting(false)
+      toast.error(error.message || t('commentSaveFailed'))
+      return
+    }
+
+    setCommentBody('')
+    const { data, error: reloadError } = await supabase
+      .from('video_comments')
+      .select('*, profiles(full_name)')
+      .eq('video_id', activeVideo.id)
+      .order('created_at', { ascending: false })
+    setCommentSubmitting(false)
+
+    if (reloadError) toast.error(reloadError.message || t('commentsLoadFailed'))
+    else setComments(data || [])
+
+    try {
       if (course?.instructor_id) {
         await supabase.rpc('create_notification', {
           p_user_id: course.instructor_id,
@@ -1081,12 +1102,8 @@ function CoursePage({ user, profile, handleLogout }) {
         instructorId: course.instructor_id,
         link: `${window.location.origin}${getCourseUrl(course)}`,
       })
-      const { data } = await supabase
-        .from('video_comments')
-        .select('*, profiles(full_name)')
-        .eq('video_id', activeVideo.id)
-        .order('created_at', { ascending: false })
-      setComments(data || [])
+    } catch {
+      // Comment is already saved; notification/email failures should not block it.
     }
   }
 
@@ -1903,6 +1920,7 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
           )}
           {hasAccess && activeVideo && (
+          <section className="course-below-layout">
           <section className="panel-card lesson-comments-panel">
             <div className="section-heading youtube-comment-heading">
               <div>
@@ -1918,7 +1936,9 @@ function CoursePage({ user, profile, handleLogout }) {
                 <textarea rows={2} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t('commentPlaceholder')} />
                 <div className="youtube-comment-form-actions">
                   <small>{t('commentTimestampHelp')}</small>
-                  <button className="primary-button" disabled={!commentBody.trim()}>{t('addComment')}</button>
+                  <button className="primary-button" type="submit" disabled={!commentBody.trim() || commentSubmitting}>
+                    {commentSubmitting ? t('loading') : t('addComment')}
+                  </button>
                 </div>
               </div>
             </form>
@@ -1954,6 +1974,8 @@ function CoursePage({ user, profile, handleLogout }) {
                 })}
               </div>
             )}
+          </section>
+          <div className="course-below-spacer" aria-hidden="true" />
           </section>
           )}
           </>
