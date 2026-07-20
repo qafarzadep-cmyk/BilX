@@ -3706,14 +3706,22 @@ table {
 }
 
 .admin-count-button {
-  min-width: 42px;
-  min-height: 34px;
-  border: 1px solid #cdd8ff;
-  border-radius: 999px;
-  background: #eef2ff;
+  min-width: 46px;
+  min-height: 38px;
+  border: 1px solid #c7d3ff;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f5f7ff 0%, #e9efff 100%);
   color: #1435c3;
   font-weight: 900;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgba(20, 53, 195, 0.08);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.admin-count-button:not(:disabled):hover {
+  border-color: #1435c3;
+  box-shadow: 0 12px 24px rgba(20, 53, 195, 0.16);
+  transform: translateY(-1px);
 }
 
 .admin-count-button:disabled {
@@ -3746,6 +3754,43 @@ table {
 
 .course-access-student-row small {
   color: #6a6f73;
+}
+
+.approved-course-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.approved-course-actions button {
+  min-height: 38px;
+  margin-left: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.approved-course-actions .outline-button {
+  border-color: #cbd3e1;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.approved-course-actions .outline-button:hover {
+  border-color: #1435c3;
+  color: #1435c3;
+}
+
+.approved-course-actions .danger-button {
+  border-color: #ffc7c1;
+  background: #fff6f5;
+  color: #b83216;
+}
+
+.approved-course-actions .danger-button:hover {
+  border-color: #f06a58;
+  background: #ffecea;
 }
 
 th,
@@ -4996,9 +5041,9 @@ td button + .outline-button {
 .admin-nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   flex: 1;
-  margin-top: 10px;
+  margin-top: 14px;
 }
 
 .admin-sidebar .admin-nav button {
@@ -5008,39 +5053,56 @@ td button + .outline-button {
   justify-content: space-between;
   gap: 10px;
   text-align: left;
-  padding: 10px 12px;
-  border-radius: 10px;
+  min-height: 52px;
+  margin-bottom: 0;
+  padding: 11px 12px 11px 14px;
+  border: 1px solid transparent;
   border-left: 3px solid transparent;
-  background: transparent;
-  color: #c2c7d0;
-  font-weight: 600;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #d3d8e3;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .admin-sidebar .admin-nav button:hover {
   background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(111, 140, 255, 0.28);
   color: #fff;
+  transform: translateX(2px);
 }
 
 .admin-sidebar .admin-nav button.active {
-  background: rgba(20, 53, 195, 0.22);
+  background: linear-gradient(90deg, rgba(20, 53, 195, 0.58), rgba(20, 53, 195, 0.24));
+  border-color: rgba(111, 140, 255, 0.45);
   border-left-color: #6f8cff;
   color: #fff;
+  box-shadow: 0 12px 24px rgba(20, 53, 195, 0.18);
 }
 
 .admin-sidebar .admin-nav button strong {
-  min-width: 24px;
-  padding: 2px 7px;
+  min-width: 30px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #e7eaf0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
+  color: #eef2ff;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 900;
   text-align: center;
+  flex: 0 0 auto;
 }
 
 .admin-sidebar .admin-nav button.active strong {
-  background: #6f8cff;
-  color: #0f1730;
+  border-color: #9fb1ff;
+  background: #9fb1ff;
+  color: #07174c;
 }
 
 .admin-sidebar-footer {

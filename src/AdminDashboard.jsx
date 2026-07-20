@@ -610,7 +610,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     if (canOpenPublicTeacherProfile(item)) navigate(`/teacher/${item.userId}`)
   }
   const getCourseAccessEnrollments = (courseId) => enrollments.filter((item) => (
-    item.course_id === courseId && (item.status || 'active') === 'active'
+    String(item.course_id) === String(courseId) && (item.status || 'active') === 'active'
   ))
   const findStudentForEnrollment = (enrollment) => {
     const enrollmentKey = String(enrollment.user_id || '').toLowerCase()
@@ -668,7 +668,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
             || (selectedUser.email && uid === String(selectedUser.email).toLowerCase())
         })
         .map((item) => {
-          const course = courses.find((entry) => entry.id === item.course_id)
+          const course = courses.find((entry) => String(entry.id) === String(item.course_id))
           return course ? { course, enrolledAt: item.enrolled_at } : null
         })
         .filter(Boolean)
@@ -904,13 +904,15 @@ function AdminDashboard({ user, profile, handleLogout }) {
                         </button>
                       </td>
                       <td>
-                        {getCourseStatus(course) === 'approved' || course.is_published ? (
-                          <button className="danger-button" onClick={() => rejectCourse(course.id)}>{t('reject')}</button>
-                        ) : (
-                          <button className="approve-button" onClick={() => approveCourse(course.id)}>{t('approve')}</button>
-                        )}
-                        <button className="outline-button" onClick={() => navigate(`/edit-course/${course.id}`, { state: { course } })}>{t('edit')}</button>
-                        <button className="danger-button" onClick={() => deleteCourse(course.id)}>{t('delete')}</button>
+                        <div className="approved-course-actions">
+                          {getCourseStatus(course) === 'approved' || course.is_published ? (
+                            <button className="danger-button" onClick={() => rejectCourse(course.id)}>{t('reject')}</button>
+                          ) : (
+                            <button className="approve-button" onClick={() => approveCourse(course.id)}>{t('approve')}</button>
+                          )}
+                          <button className="outline-button" onClick={() => navigate(`/edit-course/${course.id}`, { state: { course } })}>{t('edit')}</button>
+                          <button className="danger-button" onClick={() => deleteCourse(course.id)}>{t('delete')}</button>
+                        </div>
                       </td>
                     </tr>
                   )
