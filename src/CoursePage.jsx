@@ -131,9 +131,10 @@ function formatSectionDuration(seconds, t) {
 }
 
 function getQuizQuestionCount(quizzes) {
-  return (quizzes || []).reduce((total, quiz) => (
-    total + (Array.isArray(quiz.questions) ? quiz.questions.length : 0)
-  ), 0)
+  return (quizzes || []).reduce((total, quiz) => {
+    const fullQuestionCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0
+    return total + (fullQuestionCount || Number(quiz.question_count) || 0)
+  }, 0)
 }
 
 function formatCourseContentSummary(lessonCount, duration, quizCount, questionCount, t) {
@@ -282,11 +283,15 @@ function CoursePage({ user, profile, handleLogout }) {
     })
   }, [canViewFullCourse, lessonPreviews, playableById, t, videos])
 
-  const activeQuiz = canViewFullCourse
-    ? quizzes.find((quiz) => String(quiz.id) === String(activeQuizId))
-      || quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId))
-      || null
-    : quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId)) || null
+  const outlineQuizzes = useMemo(
+    () => (quizzes.length > 0 ? quizzes : quizPreviews),
+    [quizPreviews, quizzes]
+  )
+  const playableQuizzes = useMemo(
+    () => (canViewFullCourse ? quizzes : quizPreviews.filter((quiz) => quiz.is_free)),
+    [canViewFullCourse, quizPreviews, quizzes]
+  )
+  const activeQuiz = playableQuizzes.find((quiz) => String(quiz.id) === String(activeQuizId)) || null
   const selectedActiveVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || null
   const activeVideo = selectedActiveVideo || (activeQuiz || trailer?.bunny_video_id ? null : lessons[0])
 
@@ -346,11 +351,7 @@ function CoursePage({ user, profile, handleLogout }) {
     lessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0),
     t
   )
-  const totalQuizQuestionCount = getQuizQuestionCount(quizzes)
-  const outlineQuizzes = canViewFullCourse ? quizzes : quizPreviews
-  const outlineQuizQuestionCount = canViewFullCourse
-    ? totalQuizQuestionCount
-    : (quizPreviews || []).reduce((total, quiz) => total + (Number(quiz.question_count) || 0), 0)
+  const outlineQuizQuestionCount = getQuizQuestionCount(outlineQuizzes)
   const curriculumSections = useMemo(() => {
     const orderedSections = [...sections].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     const effective = orderedSections.length > 0
@@ -368,9 +369,7 @@ function CoursePage({ user, profile, handleLogout }) {
       const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
       const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
-      const questionCount = canViewFullCourse
-        ? getQuizQuestionCount(sectionQuizzes)
-        : sectionQuizzes.reduce((total, quiz) => total + (Number(quiz.question_count) || 0), 0)
+      const questionCount = getQuizQuestionCount(sectionQuizzes)
       const numberedTitle = `${t('sectionLabel')} ${sectionNumber}`
       const defaultTitle = `Section ${sectionNumber}`
 
@@ -388,7 +387,7 @@ function CoursePage({ user, profile, handleLogout }) {
         questionCount,
       }
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
-  }, [canViewFullCourse, lessons, outlineQuizzes, sections, t, watchedIds])
+  }, [lessons, outlineQuizzes, sections, t, watchedIds])
   const curriculumSearchTerm = curriculumSearch.trim()
   const visibleCurriculumSections = useMemo(() => {
     const query = normalizeSearchText(curriculumSearchTerm)
@@ -528,7 +527,8 @@ function CoursePage({ user, profile, handleLogout }) {
 
   const selectQuiz = (sectionId, quizId) => {
     const quiz = outlineQuizzes.find((item) => String(item.id) === String(quizId))
-    if (!canViewFullCourse && !quiz?.is_free) {
+    const playableQuiz = playableQuizzes.find((item) => String(item.id) === String(quizId))
+    if (!quiz || (!canViewFullCourse && !playableQuiz)) {
       toast(t('unlockFullCourse'))
       return
     }
