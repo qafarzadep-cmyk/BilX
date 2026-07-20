@@ -1312,7 +1312,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
   const showInlineLessonPlayer = canViewFullCourse
   const isCourseContentLoading = loading && lessons.length === 0 && outlineQuizzes.length === 0 && !trailerVideo
-  const showCourseHero = !isEnrolled || isCourseOwner || adminPreview
+  const showCourseHero = (!loading && !isEnrolled) || isCourseOwner || adminPreview
   const showBuyerCourseActions = !canViewFullCourse || isTeacherBuyerPreview
 
   return (
@@ -1655,6 +1655,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     <span><strong>{lessons.length}</strong> {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
                     <span><strong>{outlineQuizzes.length}</strong> {t('explainedTestCollection')} / <strong>{outlineQuizQuestionCount}</strong> {t('questionCountLabel')}</span>
                   </div>
+                  {!canViewFullCourse && (
                   <div className="curriculum-detail-card">
                     <strong>
                       {t('courseCurriculumCardTitle')
@@ -1669,6 +1670,7 @@ function CoursePage({ user, profile, handleLogout }) {
                       <li>{t('courseCurriculumBulletQuestions').replace('{questionCount}', outlineQuizQuestionCount)}</li>
                     </ul>
                   </div>
+                  )}
                 </div>
                 {canViewFullCourse ? (
                   <strong>{completionPercent}%</strong>
