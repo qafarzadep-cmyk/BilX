@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import CertificatePage from './CertificatePage'
 import CoursePage from './CoursePage'
+import { UPCOMING_COURSES } from './courseCatalog'
 import { getCourseUrl } from './courseUrl'
 import EditCourse from './EditCourse'
 import InstructorDashboard from './InstructorDashboard'
@@ -23,30 +24,6 @@ import { supabase } from './supabase'
 
 const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
-
-const UPCOMING_COURSES = [
-  'Azərbaycan dili Abituriyent hazırlığı',
-  'Riyaziyyat Abituriyent hazırlığı',
-  'Fizika Abituriyent hazırlığı',
-  'Kimya Abituriyent hazırlığı',
-  'Biologiya Abituriyent hazırlığı',
-  'Tarix Abituriyent hazırlığı',
-  'Coğrafiya Abituriyent hazırlığı',
-  'Ədəbiyyat Abituriyent hazırlığı',
-  'İnformatika Abituriyent hazırlığı',
-  'IELTS hazırlığı',
-  'Magistratura hazırlığı',
-  'Dövlət qulluğu hazırlığı',
-  'SAT hazırlığı',
-  'Rus dili danışıq dərsi',
-  'Alman dili danışıq dərsi',
-  'Çin dili danışıq dərsi',
-  'Koreya dili danışıq dərsi',
-  'Fransız dili danışıq dərsi',
-].map((title, index) => ({
-  id: `upcoming-${index + 1}`,
-  title,
-}))
 
 function normalizeSearchText(value) {
   return String(value || '')

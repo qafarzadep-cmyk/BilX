@@ -1,0 +1,23 @@
+export const UPCOMING_COURSES = [
+  'Azərbaycan dili Abituriyent hazırlığı',
+  'Riyaziyyat Abituriyent hazırlığı',
+  'Fizika Abituriyent hazırlığı',
+  'Kimya Abituriyent hazırlığı',
+  'Biologiya Abituriyent hazırlığı',
+  'Tarix Abituriyent hazırlığı',
+  'Coğrafiya Abituriyent hazırlığı',
+  'Ədəbiyyat Abituriyent hazırlığı',
+  'İnformatika Abituriyent hazırlığı',
+  'IELTS hazırlığı',
+  'Magistratura hazırlığı',
+  'Dövlət qulluğu hazırlığı',
+  'SAT hazırlığı',
+  'Rus dili danışıq dərsi',
+  'Alman dili danışıq dərsi',
+  'Çin dili danışıq dərsi',
+  'Koreya dili danışıq dərsi',
+  'Fransız dili danışıq dərsi',
+].map((title, index) => ({
+  id: `upcoming-${index + 1}`,
+  title,
+}))

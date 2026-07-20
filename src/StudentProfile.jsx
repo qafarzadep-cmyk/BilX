@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { UPCOMING_COURSES } from './courseCatalog'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl } from './courseUrl'
 import Navbar from './Navbar'
@@ -74,6 +75,10 @@ function StudentProfile({ user, profile, handleLogout }) {
   }, [user])
 
   const courses = enrollments.map((item) => item.Courses).filter(Boolean)
+  const discoverCourseItems = [
+    ...discoverCourses.map((course) => ({ type: 'course', course })),
+    ...UPCOMING_COURSES.map((course) => ({ type: 'upcoming', course })),
+  ]
   const watchedIds = useMemo(
     () => new Set(progress.filter((item) => item.watched).map((item) => String(item.video_id))),
     [progress]
@@ -83,7 +88,7 @@ function StudentProfile({ user, profile, handleLogout }) {
     let mounted = true
 
     async function loadDiscoverCourses() {
-      if (!user || loading || courses.length > 0) return
+      if (!user || loading) return
 
       setDiscoverLoading(true)
       const enrolledCourseIds = new Set(enrollments.map((item) => String(item.course_id)))
@@ -92,7 +97,6 @@ function StudentProfile({ user, profile, handleLogout }) {
         .select('*')
         .eq('is_published', true)
         .order('id', { ascending: false })
-        .limit(8)
 
       const coursesWithAuthors = await attachCourseAuthorNames(
         (data || []).filter((course) => !enrolledCourseIds.has(String(course.id)))
@@ -181,50 +185,67 @@ function StudentProfile({ user, profile, handleLogout }) {
           )}
         </section>
 
-        {courses.length === 0 && (
-          <section className="panel-card">
-            <div className="section-heading">
-              <h2>{t('discoverCoursesTitle')}</h2>
-              <p>{t('discoverCoursesSubtitle')}</p>
-            </div>
+        <section className="panel-card">
+          <div className="section-heading">
+            <h2>{t('discoverCoursesTitle')}</h2>
+            <p>{t('discoverCoursesSubtitle')}</p>
+          </div>
 
-            {discoverLoading ? (
-              <p className="muted">{t('loading')}</p>
-            ) : discoverCourses.length === 0 ? (
-              <div className="empty-box">{t('noPublicCourses')}</div>
-            ) : (
-              <div className="course-grid">
-                {discoverCourses.map((course) => {
-                  const instructorName = getCourseAuthorName(course)
-
+          {discoverLoading ? (
+            <p className="muted">{t('loading')}</p>
+          ) : discoverCourseItems.length === 0 ? (
+            <div className="empty-box">{t('noPublicCourses')}</div>
+          ) : (
+            <div className="course-grid">
+              {discoverCourseItems.map(({ type, course }) => {
+                if (type === 'upcoming') {
                   return (
                     <article
                       key={course.id}
-                      className="course-card"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate(getCourseUrl(course), { state: { course } })}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          navigate(getCourseUrl(course), { state: { course } })
-                        }
-                      }}
+                      className="course-card upcoming-course-card"
+                      aria-label={`${course.title} - ${t('upcomingCourseLabel')}`}
                     >
-                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                      <div className="course-card-upcoming-thumb" aria-hidden="true">
+                        <span>{course.title.charAt(0)}</span>
+                      </div>
                       <div className="course-card-body">
                         <h3>{course.title}</h3>
-                        {course.description && <p>{course.description}</p>}
-                        {instructorName && <small className="course-instructor">{instructorName}</small>}
-                        <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                        <p>{t('upcomingCourseText')}</p>
+                        <span className="upcoming-course-badge">{t('upcomingCourseLabel')}</span>
                       </div>
                     </article>
                   )
-                })}
-              </div>
-            )}
-          </section>
-        )}
+                }
+
+                const instructorName = getCourseAuthorName(course)
+
+                return (
+                  <article
+                    key={course.id}
+                    className="course-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(getCourseUrl(course), { state: { course } })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        navigate(getCourseUrl(course), { state: { course } })
+                      }
+                    }}
+                  >
+                    <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                    <div className="course-card-body">
+                      <h3>{course.title}</h3>
+                      {course.description && <p>{course.description}</p>}
+                      {instructorName && <small className="course-instructor">{instructorName}</small>}
+                      <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   )
