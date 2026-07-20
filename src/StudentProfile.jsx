@@ -34,17 +34,38 @@ function StudentProfile({ user, profile, handleLogout }) {
       }
 
       const studentKeys = getStudentKeys(user)
-      const { data: enrollmentData } = await supabase
+      const { data: enrollmentData, error: enrollmentError } = await supabase
         .from('enrollments')
-        .select('*, Courses(*, videos(*))')
+        .select('*')
         .in('user_id', studentKeys)
         .eq('status', 'active')
 
-      const coursesWithAuthors = await attachCourseAuthorNames((enrollmentData || []).map((item) => item.Courses).filter(Boolean))
+      const activeEnrollments = enrollmentError ? [] : enrollmentData || []
+      const courseIds = Array.from(new Set(activeEnrollments.map((item) => item.course_id).filter(Boolean)))
+      const [{ data: courseData }, { data: videoData }] = courseIds.length > 0
+        ? await Promise.all([
+            supabase.from('Courses').select('*').in('id', courseIds),
+            supabase.from('videos').select('*').in('course_id', courseIds).order('order_index', { ascending: true }),
+          ])
+        : [{ data: [] }, { data: [] }]
+
+      const videosByCourseId = new Map()
+      ;(videoData || []).forEach((video) => {
+        const key = String(video.course_id)
+        const list = videosByCourseId.get(key) || []
+        list.push(video)
+        videosByCourseId.set(key, list)
+      })
+
+      const coursesWithVideos = (courseData || []).map((course) => ({
+        ...course,
+        videos: videosByCourseId.get(String(course.id)) || [],
+      }))
+      const coursesWithAuthors = await attachCourseAuthorNames(coursesWithVideos)
       const coursesById = new Map(coursesWithAuthors.map((course) => [course.id, course]))
-      const nextEnrollments = (enrollmentData || []).map((item) => ({
+      const nextEnrollments = activeEnrollments.map((item) => ({
         ...item,
-        Courses: item.Courses ? coursesById.get(item.Courses.id) || item.Courses : item.Courses,
+        Courses: coursesById.get(item.course_id) || null,
       }))
 
       const videoIds = nextEnrollments

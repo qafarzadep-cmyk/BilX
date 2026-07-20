@@ -167,19 +167,26 @@ function Home({ user, profile, handleLogout }) {
         return
       }
 
-      const { data: enrollmentData } = await supabase
+      const { data: enrollmentData, error: enrollmentError } = await supabase
         .from('enrollments')
-        .select('course_id, Courses(videos(id))')
+        .select('course_id')
         .in('user_id', getStudentKeys(user))
         .eq('status', 'active')
 
-      const nextEnrolledCourseIds = new Set((enrollmentData || []).map((item) => String(item.course_id)))
+      const activeEnrollments = enrollmentError ? [] : enrollmentData || []
+      const nextEnrolledCourseIds = new Set(activeEnrollments.map((item) => String(item.course_id)))
       const videoToCourse = new Map()
-      ;(enrollmentData || []).forEach((enrollment) => {
-        ;(enrollment.Courses?.videos || []).forEach((video) => {
-          videoToCourse.set(String(video.id), String(enrollment.course_id))
+      const courseIds = Array.from(nextEnrolledCourseIds)
+      if (courseIds.length > 0) {
+        const { data: videoData } = await supabase
+          .from('videos')
+          .select('id, course_id')
+          .in('course_id', courseIds)
+
+        ;(videoData || []).forEach((video) => {
+          videoToCourse.set(String(video.id), String(video.course_id))
         })
-      })
+      }
 
       let nextStartedCourseIds = new Set()
       const videoIds = Array.from(videoToCourse.keys())
