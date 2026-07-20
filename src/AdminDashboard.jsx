@@ -71,6 +71,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [inboxMessages, setInboxMessages] = useState([])
   const [studentEmail, setStudentEmail] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
+  const [selectedAccessCourse, setSelectedAccessCourse] = useState(null)
   const [message, setMessage] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
   const [userFilter, setUserFilter] = useState('all')
@@ -608,6 +609,22 @@ function AdminDashboard({ user, profile, handleLogout }) {
     event.stopPropagation()
     if (canOpenPublicTeacherProfile(item)) navigate(`/teacher/${item.userId}`)
   }
+  const getCourseAccessEnrollments = (courseId) => enrollments.filter((item) => (
+    item.course_id === courseId && (item.status || 'active') === 'active'
+  ))
+  const findStudentForEnrollment = (enrollment) => {
+    const enrollmentKey = String(enrollment.user_id || '').toLowerCase()
+    return visibleUsers.find((item) => (
+      (item.userId && String(item.userId).toLowerCase() === enrollmentKey)
+      || (item.email && String(item.email).toLowerCase() === enrollmentKey)
+    )) || null
+  }
+  const selectedCourseAccessRows = selectedAccessCourse
+    ? getCourseAccessEnrollments(selectedAccessCourse.id).map((enrollment) => ({
+        enrollment,
+        student: findStudentForEnrollment(enrollment),
+      }))
+    : []
   const pendingTeacherApplications = teacherApplications.filter((application) => application.status === 'pending')
 
   // Monthly report (4.6): bucket events by year-month from already-loaded data.
@@ -867,25 +884,37 @@ function AdminDashboard({ user, profile, handleLogout }) {
               <h2>{t('approvedCoursesTitle')}</h2>
               <table>
                 <thead><tr><th>{t('rowLabel')}</th><th>{t('courseLabel')}</th><th>{t('instructorLabel')}</th><th>{t('priceAzN')}</th><th>{t('statusLabel')}</th><th>{t('accessCountLabel')}</th><th>{t('actionLabel')}</th></tr></thead>
-                <tbody>{approvedCourses.map((course, index) => (
-                  <tr key={course.id}>
-                    <td>{index + 1}</td>
-                    <td>{course.title}</td>
-                    <td>{getCourseAuthorName(course) || '-'}</td>
-                    <td>{course.price} AZN</td>
-                    <td>{t(getCourseStatusLabel(getCourseStatus(course)))}</td>
-                    <td>{enrollments.filter((item) => item.course_id === course.id).length}</td>
-                    <td>
-                      {getCourseStatus(course) === 'approved' || course.is_published ? (
-                        <button className="danger-button" onClick={() => rejectCourse(course.id)}>{t('reject')}</button>
-                      ) : (
-                        <button className="approve-button" onClick={() => approveCourse(course.id)}>{t('approve')}</button>
-                      )}
-                      <button className="outline-button" onClick={() => navigate(`/edit-course/${course.id}`, { state: { course } })}>{t('edit')}</button>
-                      <button className="danger-button" onClick={() => deleteCourse(course.id)}>{t('delete')}</button>
-                    </td>
-                  </tr>
-                ))}</tbody>
+                <tbody>{approvedCourses.map((course, index) => {
+                  const accessRows = getCourseAccessEnrollments(course.id)
+                  return (
+                    <tr key={course.id}>
+                      <td>{index + 1}</td>
+                      <td>{course.title}</td>
+                      <td>{getCourseAuthorName(course) || '-'}</td>
+                      <td>{course.price} AZN</td>
+                      <td>{t(getCourseStatusLabel(getCourseStatus(course)))}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="admin-count-button"
+                          onClick={() => setSelectedAccessCourse(course)}
+                          disabled={accessRows.length === 0}
+                        >
+                          {accessRows.length}
+                        </button>
+                      </td>
+                      <td>
+                        {getCourseStatus(course) === 'approved' || course.is_published ? (
+                          <button className="danger-button" onClick={() => rejectCourse(course.id)}>{t('reject')}</button>
+                        ) : (
+                          <button className="approve-button" onClick={() => approveCourse(course.id)}>{t('approve')}</button>
+                        )}
+                        <button className="outline-button" onClick={() => navigate(`/edit-course/${course.id}`, { state: { course } })}>{t('edit')}</button>
+                        <button className="danger-button" onClick={() => deleteCourse(course.id)}>{t('delete')}</button>
+                      </td>
+                    </tr>
+                  )
+                })}</tbody>
               </table>
             </div>
           )}
@@ -1021,6 +1050,50 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {selectedAccessCourse && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setSelectedAccessCourse(null)}>
+          <div className="modal-panel wide-modal-panel" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>{t('courseAccessStudentsTitle')}</h2>
+                <p className="muted">{selectedAccessCourse.title}</p>
+              </div>
+              <button type="button" className="modal-close-button" onClick={() => setSelectedAccessCourse(null)}>x</button>
+            </div>
+            {selectedCourseAccessRows.length === 0 ? (
+              <p className="muted">{t('noCourseAccessStudents')}</p>
+            ) : (
+              <div className="course-access-student-list">
+                {selectedCourseAccessRows.map(({ enrollment, student }) => (
+                  <div className="course-access-student-row" key={enrollment.id}>
+                    <span>
+                      <strong>
+                        {student
+                          ? `${student.name || ''}${student.surname && student.surname !== '-' ? ` ${student.surname}` : ''}`.trim()
+                          : enrollment.user_id}
+                      </strong>
+                      <small>{student?.email || enrollment.user_id}</small>
+                      <small>{t('purchaseDateLabel')}: {formatDateTime(enrollment.enrolled_at)}</small>
+                    </span>
+                    {student?.userId && (
+                      <button
+                        type="button"
+                        className="outline-button"
+                        onClick={() => {
+                          setSelectedAccessCourse(null)
+                          openUserProfile(student)
+                        }}
+                      >
+                        {t('viewProfile')}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

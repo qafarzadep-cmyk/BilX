@@ -272,6 +272,10 @@ button {
   padding: 22px;
 }
 
+.wide-modal-panel {
+  width: min(100%, 680px);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -3699,6 +3703,49 @@ table {
 
 .admin-user-actions button {
   margin-left: 0;
+}
+
+.admin-count-button {
+  min-width: 42px;
+  min-height: 34px;
+  border: 1px solid #cdd8ff;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1435c3;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-count-button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.course-access-student-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.course-access-student-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #e5e9f3;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcff;
+}
+
+.course-access-student-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.course-access-student-row small {
+  color: #6a6f73;
 }
 
 th,
