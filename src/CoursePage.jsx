@@ -1449,7 +1449,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const instructorName = getCourseAuthorName(course)
   const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
   const showInlineLessonPlayer = canViewFullCourse
-  const isCourseContentLoading = loading && lessons.length === 0 && outlineQuizzes.length === 0 && !trailerVideo
+  const isCourseContentLoading = loading
   const showCourseHero = (!loading && !isEnrolled) || isCourseOwner || adminPreview
   const showBuyerCourseActions = !canViewFullCourse || isTeacherBuyerPreview
 
