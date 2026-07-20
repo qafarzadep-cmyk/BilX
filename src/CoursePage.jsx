@@ -220,7 +220,6 @@ function CoursePage({ user, profile, handleLogout }) {
   const [signedFor, setSignedFor] = useState(null)
   const [signedError, setSignedError] = useState(false)
   const [previewThumbFrames, setPreviewThumbFrames] = useState({})
-  const [teacherViewMode, setTeacherViewMode] = useState('student')
   const [muteAutoplay, setMuteAutoplay] = useState(shouldMuteMobileAutoplay)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
@@ -235,9 +234,21 @@ function CoursePage({ user, profile, handleLogout }) {
   const [resolvedCourseId, setResolvedCourseId] = useState(initialCourseId)
   const courseId = resolvedCourseId
   const courseInstructorId = course?.instructor_id
+  const teacherViewMode = new URLSearchParams(location.search).get('view') === 'buyer' ? 'buyer' : 'student'
   const isCourseOwner = Boolean(courseInstructorId && userId && courseInstructorId === userId)
   const isTeacherBuyerPreview = isCourseOwner && teacherViewMode === 'buyer'
   const canViewFullCourse = (hasAccess || adminPreview || isCourseOwner) && !isTeacherBuyerPreview
+
+  const setTeacherCourseViewMode = useCallback((mode) => {
+    const nextMode = mode === 'buyer' ? 'buyer' : 'student'
+    const params = new URLSearchParams(location.search)
+    if (nextMode === 'buyer') params.set('view', 'buyer')
+    else params.delete('view')
+    navigate({
+      pathname: location.pathname,
+      search: params.toString() ? `?${params.toString()}` : '',
+    }, { replace: true, state: location.state })
+  }, [location.pathname, location.search, location.state, navigate])
 
   // Map of lessons the current viewer can actually play (full set for
   // enrolled/admin/owner; only free-preview lessons for everyone else).
@@ -1253,7 +1264,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     className={teacherViewMode === 'student' ? 'active' : ''}
                     aria-pressed={teacherViewMode === 'student'}
                     onClick={() => {
-                      setTeacherViewMode('student')
+                      setTeacherCourseViewMode('student')
                       setPreviewModalOpen(false)
                     }}
                   >
@@ -1264,7 +1275,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     className={teacherViewMode === 'buyer' ? 'active' : ''}
                     aria-pressed={teacherViewMode === 'buyer'}
                     onClick={() => {
-                      setTeacherViewMode('buyer')
+                      setTeacherCourseViewMode('buyer')
                       setActiveQuizId(null)
                       setPreviewModalOpen(false)
                     }}
