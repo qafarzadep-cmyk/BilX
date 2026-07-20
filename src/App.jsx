@@ -211,10 +211,11 @@ function Home({ user, profile, handleLogout }) {
     normalizeSearchText(course.title).includes(normalizedSearch)
   )
   const visibleUpcomingCourses = searchIsActive ? filteredUpcomingCourses : UPCOMING_COURSES
-  const hasVisibleCourses = filteredCourses.length > 0 || visibleUpcomingCourses.length > 0
+  const showCourseGridSkeletons = loadingCourses && (!searchIsActive || visibleUpcomingCourses.length === 0)
+  const hasVisibleCourses = loadingCourses || filteredCourses.length > 0 || visibleUpcomingCourses.length > 0
   // Only highlight a "Featured" shelf when there are enough courses for it to be
   // meaningful — otherwise it just repeats the grid. Hidden while searching.
-  const showFeatured = !searchIsActive && filteredCourses.length > 6
+  const showFeatured = !loadingCourses && !searchIsActive && filteredCourses.length > 6
   const featuredCourses = filteredCourses.slice(0, 8)
 
   const scrollCourses = (direction) => {
@@ -311,22 +312,7 @@ function Home({ user, profile, handleLogout }) {
       </section>
 
       <main className="content-shell" ref={coursesRef}>
-        {loadingCourses ? (
-          <section className="home-course-section" aria-label={t('coursesTitle')} aria-busy="true">
-            <div className="home-course-header">
-              <h2>{t('featuredTitle')}</h2>
-            </div>
-            <div className="home-course-row">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="home-course-card skeleton-card">
-                  <div className="skeleton skeleton-thumb" />
-                  <div className="skeleton skeleton-line" />
-                  <div className="skeleton skeleton-line short" />
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : !hasVisibleCourses ? (
+        {!hasVisibleCourses ? (
           <section className="home-course-section" aria-label={t('coursesTitle')}>
             <div className="home-course-header">
               <h2>{t('coursesTitle')}</h2>
@@ -401,7 +387,18 @@ function Home({ user, profile, handleLogout }) {
                 <h2>{showFeatured ? t('allCoursesTitle') : t('coursesTitle')}</h2>
                 <p>{t('allCoursesSubtitle')}</p>
               </div>
-              <div className="course-grid">
+              <div className="course-grid" aria-busy={loadingCourses}>
+                {showCourseGridSkeletons && Array.from({ length: 4 }).map((_, index) => (
+                  <article className="course-card skeleton-card course-grid-skeleton" key={`course-loading-${index}`}>
+                    <div className="skeleton skeleton-course-thumb" />
+                    <div className="course-card-body">
+                      <div className="skeleton skeleton-line" />
+                      <div className="skeleton skeleton-line short" />
+                      <div className="skeleton skeleton-line" />
+                      <div className="skeleton skeleton-button-line" />
+                    </div>
+                  </article>
+                ))}
                 {filteredCourses.map((course) => {
                   const instructorName = getCourseAuthorName(course)
 
