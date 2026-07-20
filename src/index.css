@@ -4612,57 +4612,6 @@ td button + .outline-button {
   border-top: 1px solid #e6e9f2;
 }
 
-/* How it works */
-.home-how {
-  margin-top: 48px;
-}
-
-.home-how > h2 {
-  font-size: 26px;
-  margin: 0 0 22px;
-  text-align: center;
-}
-
-.home-how-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-}
-
-.home-how-step {
-  background: #fff;
-  border: 1px solid #e6e9f2;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: var(--shadow-soft);
-}
-
-.home-how-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--brand);
-  color: #fff;
-  font-weight: 900;
-  font-size: 18px;
-  margin-bottom: 14px;
-}
-
-.home-how-step strong {
-  display: block;
-  font-size: 17px;
-  margin-bottom: 6px;
-}
-
-.home-how-step p {
-  margin: 0;
-  color: #6a6f73;
-  line-height: 1.6;
-}
-
 /* Instructor CTA band */
 .home-teach-band {
   margin-top: 48px;
@@ -4953,10 +4902,6 @@ td button + .outline-button {
 @media (max-width: 900px) {
   .home-values {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .home-how-steps {
-    grid-template-columns: 1fr;
   }
 
   .home-footer-inner {

@@ -20,12 +20,6 @@ import { useLanguage } from './i18n'
 import { ensureProfile, fallbackProfile } from './profileApi'
 import { supabase } from './supabase'
 
-const HOME_STEPS = [
-  ['1', 'step1Title', 'step1Text'],
-  ['2', 'step2Title', 'step2Text'],
-  ['3', 'step3Title', 'step3Text'],
-]
-
 const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
 
@@ -503,19 +497,6 @@ function Home({ user, profile, handleLogout }) {
             </section>
           </>
         )}
-
-        <section className="home-how reveal">
-          <h2>{t('howItWorksTitle')}</h2>
-          <div className="home-how-steps">
-            {HOME_STEPS.map(([num, titleKey, textKey]) => (
-              <div className="home-how-step" key={num}>
-                <span className="home-how-num">{num}</span>
-                <strong>{t(titleKey)}</strong>
-                <p>{t(textKey)}</p>
-              </div>
-            ))}
-          </div>
-        </section>
 
         <section className="home-teach-band reveal">
           <div>
