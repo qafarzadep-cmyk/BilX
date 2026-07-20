@@ -306,7 +306,12 @@ function Home({ user, profile, handleLogout }) {
             <div><strong>∞</strong><span>{t('valueAccessTitle')}</span></div>
             <div><strong>★</strong><span>{t('valueVideoTitle')}</span></div>
           </div>
-          <p className="home-hero-next-step">{t('homeHeroNextStep')}</p>
+          <div className="home-hero-next-step" aria-label={t('homeHeroNextStep')}>
+            <span className="home-hero-next-step-track" aria-hidden="true">
+              <span>{t('homeHeroNextStep')}</span>
+              <span>{t('homeHeroNextStep')}</span>
+            </span>
+          </div>
         </div>
       </section>
 
