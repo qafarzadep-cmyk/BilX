@@ -5778,7 +5778,9 @@ td button + .outline-button {
 .course-preview-card img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  min-height: 0;
+  object-fit: contain;
+  background: #0d0e13;
   transition: transform 0.25s ease;
 }
 
