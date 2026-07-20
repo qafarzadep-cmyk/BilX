@@ -53,6 +53,7 @@ const UPCOMING_COURSES = [
   'Alman dili danışıq dərsi',
   'Çin dili danışıq dərsi',
   'Koreya dili danışıq dərsi',
+  'Fransız dili danışıq dərsi',
 ].map((title, index) => ({
   id: `upcoming-${index + 1}`,
   title,
