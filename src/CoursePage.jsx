@@ -1178,6 +1178,7 @@ function CoursePage({ user, profile, handleLogout }) {
     if (!publicPreviewVideo) return
     if (trailerVideo) setActivePreviewId('trailer')
     else if (previewLessons[0]) setActivePreviewId(previewLessons[0].id)
+    setMuteAutoplay(true)
     setPreviewModalOpen(true)
   }
 
