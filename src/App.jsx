@@ -25,6 +25,14 @@ import { supabase } from './supabase'
 const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
 
+function getStudentKeys(user) {
+  return Array.from(new Set([
+    user?.id,
+    user?.email,
+    user?.email?.toLowerCase(),
+  ].filter(Boolean).map((item) => String(item))))
+}
+
 function normalizeSearchText(value) {
   return String(value || '')
     .toLocaleLowerCase('az-AZ')
@@ -115,6 +123,8 @@ function Home({ user, profile, handleLogout }) {
   const [courses, setCourses] = useState([])
   const [loadingCourses, setLoadingCourses] = useState(true)
   const [coursePage, setCoursePage] = useState(1)
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState(() => new Set())
+  const [startedCourseIds, setStartedCourseIds] = useState(() => new Set())
 
   useEffect(() => {
     let mounted = true
@@ -144,6 +154,61 @@ function Home({ user, profile, handleLogout }) {
       mounted = false
     }
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadStudentCourseState() {
+      if (!user) {
+        if (mounted) {
+          setEnrolledCourseIds(new Set())
+          setStartedCourseIds(new Set())
+        }
+        return
+      }
+
+      const { data: enrollmentData } = await supabase
+        .from('enrollments')
+        .select('course_id, Courses(videos(id))')
+        .in('user_id', getStudentKeys(user))
+        .eq('status', 'active')
+
+      const nextEnrolledCourseIds = new Set((enrollmentData || []).map((item) => String(item.course_id)))
+      const videoToCourse = new Map()
+      ;(enrollmentData || []).forEach((enrollment) => {
+        ;(enrollment.Courses?.videos || []).forEach((video) => {
+          videoToCourse.set(String(video.id), String(enrollment.course_id))
+        })
+      })
+
+      let nextStartedCourseIds = new Set()
+      const videoIds = Array.from(videoToCourse.keys())
+      if (videoIds.length > 0) {
+        const { data: progressData } = await supabase
+          .from('video_progress')
+          .select('video_id, watched')
+          .eq('user_id', user.id)
+          .in('video_id', videoIds)
+
+        nextStartedCourseIds = new Set(
+          (progressData || [])
+            .filter((item) => item.watched)
+            .map((item) => videoToCourse.get(String(item.video_id)))
+            .filter(Boolean)
+        )
+      }
+
+      if (mounted) {
+        setEnrolledCourseIds(nextEnrolledCourseIds)
+        setStartedCourseIds(nextStartedCourseIds)
+      }
+    }
+
+    loadStudentCourseState()
+    return () => {
+      mounted = false
+    }
+  }, [user])
 
   // Reveal-on-scroll motion (disabled gracefully where unsupported / reduced-motion).
   useEffect(() => {
@@ -226,6 +291,14 @@ function Home({ user, profile, handleLogout }) {
   }
   const goTeach = () => navigate(user ? '/instructor' : '/register')
   const openCourse = (course) => navigate(getCourseUrl(course), { state: { course } })
+  const isCourseEnrolled = (course) => enrolledCourseIds.has(String(course.id))
+  const getCourseLearnLabel = (course) => (
+    startedCourseIds.has(String(course.id)) ? t('continueButton') : t('startLearningButton')
+  )
+  const openOwnedCourse = (event, course) => {
+    event.stopPropagation()
+    openCourse(course)
+  }
   const openTeacher = (event, teacherId) => {
     event.stopPropagation()
     if (teacherId) navigate(`/teacher/${teacherId}`)
@@ -369,10 +442,18 @@ function Home({ user, profile, handleLogout }) {
                             </button>
                           )}
                           <div className="course-card-footer">
-                            <strong className="home-course-price course-card-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
-                            <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
-                              <MessageCircle size={16} /> {t('courseAcquire')}
-                            </button>
+                            <strong className="home-course-price course-card-price">
+                              {isCourseEnrolled(course) ? t('myCourseBadge') : (Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel'))}
+                            </strong>
+                            {isCourseEnrolled(course) ? (
+                              <button className="primary-button" type="button" onClick={(event) => openOwnedCourse(event, course)}>
+                                {getCourseLearnLabel(course)}
+                              </button>
+                            ) : (
+                              <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
+                                <MessageCircle size={16} /> {t('courseAcquire')}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </article>
@@ -441,10 +522,18 @@ function Home({ user, profile, handleLogout }) {
                           </button>
                         )}
                         <div className="course-card-footer">
-                          <strong className="course-card-price">{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
-                          <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
-                            <MessageCircle size={16} /> {t('courseAcquire')}
-                          </button>
+                          <strong className="course-card-price">
+                            {isCourseEnrolled(course) ? t('myCourseBadge') : (Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel'))}
+                          </strong>
+                          {isCourseEnrolled(course) ? (
+                            <button className="primary-button" type="button" onClick={(event) => openOwnedCourse(event, course)}>
+                              {getCourseLearnLabel(course)}
+                            </button>
+                          ) : (
+                            <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
+                              <MessageCircle size={16} /> {t('courseAcquire')}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </article>

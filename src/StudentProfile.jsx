@@ -152,6 +152,7 @@ function StudentProfile({ user, profile, handleLogout }) {
                 const watched = videos.filter((video) => watchedIds.has(String(video.id))).length
                 const percent = videos.length ? Math.round((watched / videos.length) * 100) : 0
                 const instructorName = getCourseAuthorName(course)
+                const courseActionLabel = percent > 0 ? t('continueButton') : t('startLearningButton')
 
                 return (
                   <article
@@ -176,7 +177,7 @@ function StudentProfile({ user, profile, handleLogout }) {
                       <p>{videos.length} {t('courseLessons')}</p>
                       <div className="progress-bar"><span style={{ width: `${percent}%` }} /></div>
                       <small>{percent}% {t('completedPercent')}</small>
-                      <button className="primary-button full">{t('continueButton')}</button>
+                      <button className="primary-button full">{courseActionLabel}</button>
                     </div>
                   </article>
                 )
