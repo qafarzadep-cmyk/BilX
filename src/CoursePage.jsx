@@ -338,6 +338,7 @@ function CoursePage({ user, profile, handleLogout }) {
         id: item.id,
         title,
         displayTitle: title,
+        course_id: item.course_id || playable?.course_id || courseId,
         duration: item.duration || playable?.duration || '',
         is_free: item.is_free,
         section_id: item.section_id || playable?.section_id || null,
@@ -349,7 +350,7 @@ function CoursePage({ user, profile, handleLogout }) {
         locked,
       }
     })
-  }, [canViewFullCourse, lessonPreviews, playableById, t, videos])
+  }, [canViewFullCourse, courseId, lessonPreviews, playableById, t, videos])
 
   const outlineQuizzes = useMemo(
     () => (quizzes.length > 0 ? quizzes : quizPreviews),
@@ -1070,6 +1071,10 @@ function CoursePage({ user, profile, handleLogout }) {
       },
       body: JSON.stringify({
         videoId: activeVideo.id,
+        courseId,
+        lessonTitle: activeVideo.title || activeVideo.displayTitle,
+        orderIndex: activeVideo.order_index,
+        sectionId: activeVideo.section_id,
         body: storedBody,
       }),
     })

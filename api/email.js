@@ -73,6 +73,56 @@ function userMatchesEnrollment(user, enrollment) {
   return keys.includes(String(enrollment?.user_id || '').toLowerCase())
 }
 
+async function queryVideo(client, videoId) {
+  if (!Number.isInteger(videoId) || videoId <= 0) return { data: null, error: null }
+  return client
+    .from('videos')
+    .select('id, course_id, section_id, title, order_index')
+    .eq('id', videoId)
+    .maybeSingle()
+}
+
+async function queryVideoByMetadata(client, { courseId, sectionId, orderIndex, lessonTitle }) {
+  if (!Number.isInteger(courseId) || courseId <= 0) return { data: null, error: null }
+
+  let query = client
+    .from('videos')
+    .select('id, course_id, section_id, title, order_index')
+    .eq('course_id', courseId)
+
+  if (sectionId !== null && sectionId !== undefined && sectionId !== '') {
+    query = query.eq('section_id', sectionId)
+  }
+
+  if (orderIndex !== null && orderIndex !== undefined && orderIndex !== '') {
+    query = query.eq('order_index', Number(orderIndex))
+  } else if (lessonTitle) {
+    query = query.eq('title', lessonTitle)
+  }
+
+  return query.order('id', { ascending: true }).limit(1).maybeSingle()
+}
+
+async function resolveCommentVideo({ service, authClient, videoId, courseId, sectionId, orderIndex, lessonTitle }) {
+  const attempts = [
+    () => queryVideo(service, videoId),
+    () => queryVideo(authClient, videoId),
+    () => queryVideoByMetadata(service, { courseId, sectionId, orderIndex, lessonTitle }),
+    () => queryVideoByMetadata(authClient, { courseId, sectionId, orderIndex, lessonTitle }),
+    () => queryVideoByMetadata(service, { courseId, sectionId: null, orderIndex, lessonTitle }),
+    () => queryVideoByMetadata(authClient, { courseId, sectionId: null, orderIndex, lessonTitle }),
+  ]
+
+  let lastError = null
+  for (const attempt of attempts) {
+    const { data, error } = await attempt()
+    if (data?.id) return { video: data, error: null }
+    if (error) lastError = error
+  }
+
+  return { video: null, error: lastError }
+}
+
 async function saveVideoComment(req, res) {
   const config = getSupabaseConfig()
   if (!config) {
@@ -88,8 +138,14 @@ async function saveVideoComment(req, res) {
   }
 
   const videoId = Number(req.body?.videoId)
+  const courseId = Number(req.body?.courseId)
+  const sectionId = req.body?.sectionId ?? null
+  const orderIndex = req.body?.orderIndex ?? null
+  const lessonTitle = String(req.body?.lessonTitle || '').trim()
   const body = String(req.body?.body || '').trim()
-  if (!Number.isInteger(videoId) || videoId <= 0 || !body) {
+  const canResolveByVideoId = Number.isInteger(videoId) && videoId > 0
+  const canResolveByCourse = Number.isInteger(courseId) && courseId > 0 && (lessonTitle || orderIndex !== null)
+  if ((!canResolveByVideoId && !canResolveByCourse) || !body) {
     res.status(400).json({ error: 'Invalid comment.' })
     return
   }
@@ -97,15 +153,20 @@ async function saveVideoComment(req, res) {
   const service = createClient(config.url, config.serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
+  const authClient = createAuthedClient(config, token)
 
-  const { data: video, error: videoError } = await service
-    .from('videos')
-    .select('id, course_id')
-    .eq('id', videoId)
-    .maybeSingle()
+  const { video, error: videoError } = await resolveCommentVideo({
+    service,
+    authClient,
+    videoId,
+    courseId,
+    sectionId,
+    orderIndex,
+    lessonTitle,
+  })
 
   if (videoError || !video) {
-    res.status(404).json({ error: 'Lesson not found.' })
+    res.status(404).json({ error: videoError?.message || 'Lesson not found.' })
     return
   }
 
@@ -125,7 +186,6 @@ async function saveVideoComment(req, res) {
     .eq('course_id', video.course_id)
 
   if (enrollmentError) {
-    const authClient = createAuthedClient(config, token)
     const fallback = await authClient
       .from('enrollments')
       .select('user_id, status')
@@ -147,24 +207,55 @@ async function saveVideoComment(req, res) {
     return
   }
 
-  const { error: insertError } = await service
+  let { error: insertError } = await service
     .from('video_comments')
     .insert({
       user_id: user.id,
-      video_id: videoId,
+      video_id: video.id,
       body,
     })
+
+  if (insertError) {
+    const fallback = await authClient
+      .from('video_comments')
+      .insert({
+        user_id: user.id,
+        video_id: video.id,
+        body,
+      })
+    insertError = fallback.error
+  }
 
   if (insertError) {
     res.status(500).json({ error: insertError.message || 'Could not send the comment.' })
     return
   }
 
-  const { data: comments, error: commentsError } = await service
+  let { data: comments, error: commentsError } = await service
     .from('video_comments')
     .select('*, profiles(full_name)')
-    .eq('video_id', videoId)
+    .eq('video_id', video.id)
     .order('created_at', { ascending: false })
+
+  if (commentsError) {
+    const fallback = await authClient
+      .from('video_comments')
+      .select('*, profiles(full_name)')
+      .eq('video_id', video.id)
+      .order('created_at', { ascending: false })
+    comments = fallback.data
+    commentsError = fallback.error
+  }
+
+  if (commentsError) {
+    const fallback = await service
+      .from('video_comments')
+      .select('*')
+      .eq('video_id', video.id)
+      .order('created_at', { ascending: false })
+    comments = fallback.data
+    commentsError = fallback.error
+  }
 
   if (commentsError) {
     res.status(200).json({ ok: true, comments: [] })
