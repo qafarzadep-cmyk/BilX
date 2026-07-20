@@ -349,6 +349,9 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
     if (loading || !user || !body.trim()) return
 
     const trimmedBody = body.trim()
+    const activeRecipientType = selectedConversation
+      ? getConversationCategory(selectedConversation)
+      : recipientType
     let recipientId = null
     let recipientEmail = null
     let courseId = null
@@ -426,8 +429,8 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
 
     const nextPerson = { id: recipientId || null, email: recipientEmail || '' }
     setBody('')
-    setSelectedCourseId('')
-    setRecipientType('admin')
+    if (recipientType === 'instructor') setSelectedCourseId('')
+    setRecipientType(activeRecipientType)
     setRecipientEmailInput('')
     if (nextPerson.id || nextPerson.email) {
       setReplyTo(nextPerson)
