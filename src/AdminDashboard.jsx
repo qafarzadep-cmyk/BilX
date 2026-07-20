@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut, Shield } from 'lucide-react'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl } from './courseUrl'
@@ -57,18 +57,11 @@ function getCourseStatusLabel(status) {
 }
 
 const ADMIN_TAB_IDS = ['pending', 'teacher-applications', 'access', 'users', 'inbox', 'courses', 'stats']
-const ADMIN_TAB_STORAGE_KEY = 'bilx-admin-active-tab'
-
-function getInitialAdminTab() {
-  if (typeof window === 'undefined') return 'pending'
-  const tabFromUrl = new URLSearchParams(window.location.search).get('tab')
-  if (ADMIN_TAB_IDS.includes(tabFromUrl)) return tabFromUrl
-  const storedTab = window.localStorage.getItem(ADMIN_TAB_STORAGE_KEY)
-  return ADMIN_TAB_IDS.includes(storedTab) ? storedTab : 'pending'
-}
 
 function AdminDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = ADMIN_TAB_IDS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'pending'
   const [courses, setCourses] = useState([])
   const [profiles, setProfiles] = useState([])
   const [adminUsers, setAdminUsers] = useState([])
@@ -76,7 +69,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [enrollments, setEnrollments] = useState([])
   const [requests, setRequests] = useState([])
   const [inboxMessages, setInboxMessages] = useState([])
-  const [activeTab, setActiveTab] = useState(getInitialAdminTab)
   const [studentEmail, setStudentEmail] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
   const [message, setMessage] = useState('')
@@ -146,16 +138,12 @@ function AdminDashboard({ user, profile, handleLogout }) {
     if (canAdmin) loadData()
   }, [canAdmin, loadData])
 
-  useEffect(() => {
-    window.localStorage.setItem(ADMIN_TAB_STORAGE_KEY, activeTab)
-    if (window.location.search.includes('tab=')) {
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-  }, [activeTab])
-
   const changeAdminTab = (id) => {
     setMessage('')
-    setActiveTab(id)
+    const nextParams = new URLSearchParams(searchParams)
+    if (id === 'pending') nextParams.delete('tab')
+    else nextParams.set('tab', id)
+    setSearchParams(nextParams, { replace: true })
   }
 
   const approveCourse = async (courseId) => {
@@ -494,6 +482,8 @@ function AdminDashboard({ user, profile, handleLogout }) {
   })
   const approvedTeacherApplications = teacherApplications.filter((application) => application.status === 'approved')
   const approvedTeacherByUserId = new Map(approvedTeacherApplications.map((application) => [application.user_id, application]))
+  const authDirectoryReady = adminUsers.length > 0
+  const authUserIds = new Set(adminUsers.map((item) => item.user_id).filter(Boolean))
   const userRowsByKey = new Map()
 
   const upsertUserRow = (key, next) => {
@@ -528,6 +518,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   // Fallback for any profile not returned by the RPC (e.g. RPC unavailable).
   profiles.forEach((item) => {
     if (userRowsByKey.has(item.user_id)) return
+    if (authDirectoryReady && !authUserIds.has(item.user_id)) return
     const application = approvedTeacherByUserId.get(item.user_id)
     const nameParts = application ? { name: application.name || '-', surname: application.surname || '-' } : splitFullName(item.full_name)
     upsertUserRow(item.user_id, {
@@ -545,6 +536,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
   approvedTeacherApplications.forEach((application) => {
     const key = application.user_id || application.email
+    if (authDirectoryReady && (!application.user_id || !authUserIds.has(application.user_id))) return
     upsertUserRow(key, {
       key,
       userId: application.user_id || null,
@@ -560,6 +552,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   enrollments.forEach((item) => {
     const key = item.user_id
     if (!key || userRowsByKey.has(key)) return
+    if (authDirectoryReady) return
     upsertUserRow(key, {
       key,
       name: item.user_id,
@@ -575,6 +568,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   requests.forEach((item) => {
     const key = item.user_id || item.user_email
     if (!key || userRowsByKey.has(key)) return
+    if (authDirectoryReady) return
     const nameParts = splitFullName(item.user_name || '')
     upsertUserRow(key, {
       key,
