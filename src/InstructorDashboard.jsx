@@ -1918,6 +1918,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                   )}
                 />
                 <p className="muted">{t('trailerMaxDuration')}</p>
+                <p className="muted video-format-help">{t('videoFormatHelp')}</p>
                 {newCourseTrailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
                 {loading && newCourseTrailerFile && (
                   <div className="upload-progress">
@@ -2504,6 +2505,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                                 selectLessonFile(file)
                               }}
                             />
+                            <p className="muted video-format-help">{t('videoFormatHelp')}</p>
                             <label className="instructor-checkbox">
                               <input type="checkbox" checked={validSelectedSectionId === String(section.id) && lessonIsFree} onChange={(event) => {
                                 setSelectedSectionId(String(section.id))
@@ -2686,6 +2688,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                         t={t}
                         onChange={(file, input) => selectTrailerFile(file, setTrailerFile, setTrailerValidating, input)}
                       />
+                      <p className="muted video-format-help">{t('videoFormatHelp')}</p>
                       <div className="instructor-edit-actions">
                         <button className="outline-button" type="button" onClick={() => setMediaEditing(false)}>{t('cancel')}</button>
                         {trailerFile && <button className="primary-button" type="button" disabled={loading || trailerValidating} onClick={uploadTrailer}>{detailTrailer ? t('replaceTrailer') : t('uploadTrailer')}</button>}
@@ -2801,6 +2804,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
               )}
             />
             <p className="muted">{t('trailerMaxDuration')}</p>
+            <p className="muted video-format-help">{t('videoFormatHelp')}</p>
             {newCourseTrailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
             {loading && newCourseTrailerFile && (
               <div className="upload-progress">
@@ -2956,6 +2960,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
                           )}
                         />
                         <p className="muted">{t('trailerMaxDuration')}</p>
+                        <p className="muted video-format-help">{t('videoFormatHelp')}</p>
                         {trailerValidating && <p className="muted">{t('checkingVideoDuration')}</p>}
                         {loading && trailerFile && (
                           <div className="upload-progress">
@@ -3021,6 +3026,7 @@ function InstructorDashboard({ user, profile, handleLogout }) {
 
                         <label>{t('videoFile')}</label>
                         <input type="file" accept="video/*" disabled={loading} onChange={(event) => selectLessonFile(event.target.files[0] || null)} />
+                        <p className="muted video-format-help">{t('videoFormatHelp')}</p>
                         <p className="muted">{t('bunnyUploadHelp')}</p>
 
                         {loading && uploadPercent > 0 && (
