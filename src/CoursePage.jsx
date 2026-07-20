@@ -319,7 +319,7 @@ function CoursePage({ user, profile, handleLogout }) {
       ? null
     : canViewFullCourse
       ? (activeVideo || trailerVideo)
-      : publicPreviewVideo
+      : null
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
   const activePlayerLesson = !activeQuiz && playerVideo && !playerVideo.is_trailer
@@ -548,7 +548,11 @@ function CoursePage({ user, profile, handleLogout }) {
       return next
     })
     setActiveVideoId(videoId)
-    if (!hasAccess) setActivePreviewId(videoId)
+    if (!canViewFullCourse) {
+      setActivePreviewId(videoId)
+      setMuteAutoplay(true)
+      setPreviewModalOpen(true)
+    }
   }
 
   const selectQuiz = (sectionId, quizId) => {
@@ -1242,6 +1246,7 @@ function CoursePage({ user, profile, handleLogout }) {
   if (!course) return null
   const instructorName = getCourseAuthorName(course)
   const canUseLessonPlayer = canViewFullCourse || previewLessons.length > 0 || Boolean(trailerVideo)
+  const showInlineLessonPlayer = canViewFullCourse
 
   return (
     <div className="page">
@@ -1294,7 +1299,8 @@ function CoursePage({ user, profile, handleLogout }) {
               {t('courseHasNoLessonsYet')}
             </section>
           ) : (
-          <section className="course-player-layout">
+          <section className={showInlineLessonPlayer ? 'course-player-layout' : 'course-player-layout curriculum-only'}>
+            {showInlineLessonPlayer && (
             <div className="course-player-main">
               <div className="youtube-player-shell">
                 {previewModalOpen ? (
@@ -1491,6 +1497,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 )}
               </div>
             </div>
+            )}
 
             <aside className="course-lesson-panel">
               {isEnrolled && (

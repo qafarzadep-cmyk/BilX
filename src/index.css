@@ -1063,6 +1063,13 @@ button {
   box-shadow: 0 10px 28px rgba(28, 29, 31, 0.08);
 }
 
+.course-player-layout.curriculum-only {
+  height: auto;
+  min-height: 0;
+  display: block;
+  overflow: visible;
+}
+
 .course-player-main {
   min-height: 0;
   min-width: 0;
@@ -1195,6 +1202,12 @@ button {
   flex-direction: column;
   border-left: 1px solid #d1d7dc;
   background: #fff;
+}
+
+.course-player-layout.curriculum-only .course-lesson-panel {
+  max-height: none;
+  border-left: 0;
+  border-top: 0;
 }
 
 .lesson-panel-header {
