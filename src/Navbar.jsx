@@ -145,6 +145,16 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
     navigate(path)
   }
 
+  const goHome = () => {
+    setOpen(false)
+    if (location.pathname === '/') {
+      handleSearchInput('')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    navigate('/')
+  }
+
   const openApplicationForm = () => {
     const [firstName = '', ...rest] = (profile?.full_name || user?.user_metadata?.full_name || '').trim().split(/\s+/)
     setApplicationForm({ name: firstName, surname: rest.join(' '), phone: '' })
@@ -282,7 +292,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
 
   return (
     <nav className="top-nav">
-      <button className="logo-button" onClick={() => navigate('/')} aria-label="BilX">
+      <button className="logo-button" onClick={goHome} aria-label="BilX">
         <img src={bilxLogo} alt="BilX" />
       </button>
 
