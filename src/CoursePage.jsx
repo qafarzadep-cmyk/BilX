@@ -1083,12 +1083,22 @@ function CoursePage({ user, profile, handleLogout }) {
     const iframe = bunnyFrameRef.current
     if (!iframe) return undefined
 
+    const postPlayerMessage = (method, value = undefined, listener = undefined) => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({
+          context: 'player.js',
+          version: '0.0.1',
+          method,
+          ...(value !== undefined ? { value } : {}),
+          ...(listener !== undefined ? { listener } : {}),
+        }),
+        '*'
+      )
+    }
+
     const subscribe = () => {
       for (const eventName of ['ended', 'timeupdate']) {
-        iframe.contentWindow?.postMessage(
-          JSON.stringify({ context: 'player.js', version: '0.0.1', method: 'addEventListener', value: eventName, listener: `bilx-${eventName}` }),
-          '*'
-        )
+        postPlayerMessage('addEventListener', eventName, `bilx-${eventName}`)
       }
     }
 
@@ -1116,8 +1126,19 @@ function CoursePage({ user, profile, handleLogout }) {
     window.addEventListener('message', handleMessage)
     // The player may already be ready (e.g. on lesson switch) — subscribe now too.
     subscribe()
+    const retry = window.setInterval(subscribe, 700)
+    const stopRetry = window.setTimeout(() => window.clearInterval(retry), 4200)
+    const shouldStartPreview = playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse
+    const playKick = shouldStartPreview ? window.setTimeout(() => postPlayerMessage('play'), 350) : null
+    const secondPlayKick = shouldStartPreview ? window.setTimeout(() => postPlayerMessage('play'), 1300) : null
 
-    return () => window.removeEventListener('message', handleMessage)
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      window.clearInterval(retry)
+      window.clearTimeout(stopRetry)
+      if (playKick) window.clearTimeout(playKick)
+      if (secondPlayKick) window.clearTimeout(secondPlayKick)
+    }
   }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playNext, playNextPreview])
 
   useEffect(() => {
@@ -1793,6 +1814,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 {publicPreviewVideo.bunny_video_id ? (
                   signedUrl && signedFor === String(publicPreviewVideo.id) ? (
                     <iframe
+                      key={publicPreviewVideo.id}
                       ref={bunnyFrameRef}
                       className="youtube-player"
                       src={signedUrl}
