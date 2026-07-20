@@ -275,7 +275,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeQuiz = quizzes.find((quiz) => String(quiz.id) === String(activeQuizId))
     || quizPreviews.find((quiz) => quiz.is_free && String(quiz.id) === String(activeQuizId))
     || null
-  const activeVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || lessons[0]
+  const selectedActiveVideo = activeQuiz ? null : lessons.find((video) => String(video.id) === String(activeVideoId)) || null
+  const activeVideo = selectedActiveVideo || (activeQuiz || trailer?.bunny_video_id ? null : lessons[0])
 
   useEffect(() => {
     activeVideoIdRef.current = activeVideo?.id || null
@@ -645,7 +646,7 @@ function CoursePage({ user, profile, handleLogout }) {
         setTrailer(trailerData || null)
         setActivePreviewId(trailerData ? 'trailer' : '')
         if (String(initializedCourseIdRef.current) !== String(lookupCourseId)) {
-          const initialVideoId = location.state?.videoId || sortedVideos[0]?.id || null
+          const initialVideoId = location.state?.videoId || (trailerData ? null : sortedVideos[0]?.id) || null
           initializedCourseIdRef.current = lookupCourseId
           activeVideoIdRef.current = initialVideoId
           setActiveVideoId(initialVideoId)
@@ -1074,7 +1075,7 @@ function CoursePage({ user, profile, handleLogout }) {
       // The player announces "ready" once it can take commands; subscribe then.
       if (data.event === 'ready') subscribe()
       else if (data.event === 'ended') {
-        if (previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+        if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
         else playNext(playerVideo.id)
       }
       else if (data.event === 'timeupdate') {
@@ -1102,7 +1103,7 @@ function CoursePage({ user, profile, handleLogout }) {
         events: {
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.ENDED) {
-              if (previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+              if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
               else playNext(playerVideo.id)
             }
           },
@@ -1397,7 +1398,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     src={playerVideo.video_url}
                     onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
                     onEnded={() => {
-                      if (previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+                      if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
                       else playNext(playerVideo.id)
                     }}
                     className="youtube-player"
