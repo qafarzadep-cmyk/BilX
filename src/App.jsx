@@ -306,6 +306,7 @@ function Home({ user, profile, handleLogout }) {
             <div><strong>∞</strong><span>{t('valueAccessTitle')}</span></div>
             <div><strong>★</strong><span>{t('valueVideoTitle')}</span></div>
           </div>
+          <p className="home-hero-next-step">{t('homeHeroNextStep')}</p>
         </div>
       </section>
 
