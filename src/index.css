@@ -1701,7 +1701,9 @@ button {
 }
 
 .lesson-status svg[data-lucide='check-circle-2'] {
-  color: #137333;
+  color: #1435c3;
+  fill: #eef2ff;
+  stroke-width: 2.8;
 }
 
 .lesson-copy {
