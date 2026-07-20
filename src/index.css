@@ -5130,7 +5130,10 @@ td button + .outline-button {
     font-size: 15px;
   }
   .home-hero-stats {
-    gap: 28px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 120px));
+    justify-content: center;
+    gap: 18px 28px;
   }
 }
 
