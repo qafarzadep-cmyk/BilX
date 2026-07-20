@@ -264,6 +264,7 @@ function CoursePage({ user, profile, handleLogout }) {
         is_free: item.is_free,
         section_id: item.section_id || playable?.section_id || null,
         order_index: item.order_index,
+        thumbnail_url: playable?.thumbnail_url || item.thumbnail_url || null,
         source_url: rawUrl ? normalizeExternalUrl(rawUrl) : null,
         video_url: embedUrl,
         bunny_video_id: bunnyId,
@@ -1808,6 +1809,7 @@ function CoursePage({ user, profile, handleLogout }) {
               {previewChoices.map((video) => {
                 const choiceId = video.is_trailer ? 'trailer' : video.id
                 const isActive = String(activePreviewId) === String(choiceId)
+                const thumbnailUrl = video.is_trailer ? course.thumbnail_url : video.thumbnail_url
                 return (
                   <button
                     type="button"
@@ -1816,7 +1818,11 @@ function CoursePage({ user, profile, handleLogout }) {
                     onClick={() => setActivePreviewId(choiceId)}
                   >
                     <span className="course-preview-choice-thumb">
-                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt="" />
+                      {thumbnailUrl ? (
+                        <img src={thumbnailUrl} alt="" />
+                      ) : (
+                        <span className="course-preview-choice-placeholder" aria-hidden="true" />
+                      )}
                       <PlayCircle size={22} />
                     </span>
                     <span>

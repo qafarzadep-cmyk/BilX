@@ -5629,6 +5629,14 @@ td button + .outline-button {
   opacity: 0.7;
 }
 
+.course-preview-choice-placeholder {
+  grid-area: 1 / 1;
+  background:
+    linear-gradient(135deg, rgba(20, 53, 195, 0.72), rgba(88, 201, 239, 0.55)),
+    radial-gradient(circle at 76% 28%, rgba(255, 255, 255, 0.2), transparent 28%),
+    #151927;
+}
+
 .course-preview-choice-thumb svg {
   align-self: center;
   justify-self: center;
