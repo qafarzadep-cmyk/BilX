@@ -218,6 +218,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [signedUrl, setSignedUrl] = useState(null)
   const [signedFor, setSignedFor] = useState(null)
   const [signedError, setSignedError] = useState(false)
+  const [previewThumbFrames, setPreviewThumbFrames] = useState({})
   const [muteAutoplay, setMuteAutoplay] = useState(shouldMuteMobileAutoplay)
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
@@ -1050,6 +1051,43 @@ function CoursePage({ user, profile, handleLogout }) {
     }
   }, [courseId, muteAutoplay, playerVideo?.is_trailer, playerVideoId, playerBunnyId])
 
+  useEffect(() => {
+    const lessonChoices = previewChoices.filter((video) => !video.is_trailer && video.bunny_video_id)
+    if (!previewModalOpen || lessonChoices.length === 0) {
+      return undefined
+    }
+
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers = { 'Content-Type': 'application/json' }
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const entries = await Promise.all(lessonChoices.map(async (video) => {
+          const response = await fetch('/api/bunny-playback', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ videoId: video.id, autoplay: false, muted: true }),
+          })
+          const text = await response.text()
+          const data = text ? JSON.parse(text) : {}
+          return response.ok && data.url ? [String(video.id), data.url] : null
+        }))
+
+        if (!cancelled) {
+          setPreviewThumbFrames(Object.fromEntries(entries.filter(Boolean)))
+        }
+      } catch {
+        if (!cancelled) setPreviewThumbFrames({})
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [previewChoices, previewModalOpen])
+
   // Auto-advance Bunny lessons. Bunny's embed speaks the Player.js protocol over
   // postMessage; we subscribe to its "ended" event and roll to the next lesson —
   // the same behaviour the YouTube iframe API gives us below.
@@ -1813,9 +1851,8 @@ function CoursePage({ user, profile, handleLogout }) {
               {previewChoices.map((video) => {
                 const choiceId = video.is_trailer ? 'trailer' : video.id
                 const isActive = String(activePreviewId) === String(choiceId)
-                const thumbnailUrl = video.is_trailer
-                  ? (course.thumbnail_url || getBunnyThumbnailSrc(video))
-                  : (video.thumbnail_url || getBunnyThumbnailSrc(video))
+                const lessonFrameUrl = !video.is_trailer ? previewThumbFrames[String(video.id)] : ''
+                const thumbnailUrl = video.is_trailer ? (course.thumbnail_url || getBunnyThumbnailSrc(video)) : ''
                 return (
                   <button
                     type="button"
@@ -1824,14 +1861,24 @@ function CoursePage({ user, profile, handleLogout }) {
                     onClick={() => setActivePreviewId(choiceId)}
                   >
                     <span className="course-preview-choice-thumb">
-                      <span className="course-preview-choice-placeholder" aria-hidden="true" />
-                      {thumbnailUrl ? (
+                      {lessonFrameUrl ? (
+                        <iframe
+                          src={lessonFrameUrl}
+                          title=""
+                          tabIndex="-1"
+                          aria-hidden="true"
+                          loading="lazy"
+                          allow="encrypted-media; picture-in-picture"
+                        />
+                      ) : thumbnailUrl ? (
                         <img
                           src={thumbnailUrl}
                           alt=""
                           onError={(event) => { event.currentTarget.hidden = true }}
                         />
-                      ) : null}
+                      ) : (
+                        <span className="course-preview-choice-placeholder" aria-hidden="true" />
+                      )}
                       <PlayCircle size={22} />
                     </span>
                     <span>

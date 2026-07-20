@@ -5618,23 +5618,31 @@ td button + .outline-button {
 }
 
 .course-preview-choice-thumb img,
+.course-preview-choice-thumb iframe,
 .course-preview-choice-thumb svg {
   grid-area: 1 / 1;
 }
 
-.course-preview-choice-thumb img {
+.course-preview-choice-thumb img,
+.course-preview-choice-thumb iframe {
   width: 100%;
   height: 100%;
+}
+
+.course-preview-choice-thumb img {
   object-fit: cover;
   opacity: 0.7;
 }
 
+.course-preview-choice-thumb iframe {
+  border: 0;
+  opacity: 0.82;
+  pointer-events: none;
+}
+
 .course-preview-choice-placeholder {
   grid-area: 1 / 1;
-  background:
-    linear-gradient(135deg, rgba(20, 53, 195, 0.72), rgba(88, 201, 239, 0.55)),
-    radial-gradient(circle at 76% 28%, rgba(255, 255, 255, 0.2), transparent 28%),
-    #151927;
+  background: #11131c;
 }
 
 .course-preview-choice-thumb svg {
