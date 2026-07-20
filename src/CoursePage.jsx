@@ -62,6 +62,10 @@ function getEmbedSrc(url) {
   return `${url}${separator}enablejsapi=1&autoplay=1&rel=0&modestbranding=1`
 }
 
+function getPreviewChoiceId(video) {
+  return video?.is_trailer ? 'trailer' : video?.id
+}
+
 function isYouTubeUrl(url) {
   if (!url) return false
 
@@ -271,14 +275,19 @@ function CoursePage({ user, profile, handleLogout }) {
   // Preview samples are explicitly selected by the instructor. Keep this list
   // available for enrolled users and owners too, so they see the same course
   // preview card when reviewing the published page.
-  const previewLessons = lessons.filter((lesson) => lesson.is_free && !lesson.locked)
+  const previewLessons = useMemo(
+    () => lessons.filter((lesson) => lesson.is_free && !lesson.locked),
+    [lessons]
+  )
   const canViewFullCourse = hasAccess || adminPreview || courseInstructorId === userId
-  const trailerVideo = trailer ? {
-    id: `trailer-${trailer.course_id}`,
-    title: trailer.title || t('courseTrailer'),
-    bunny_video_id: trailer.bunny_video_id,
-    is_trailer: true,
-  } : null
+  const trailerVideo = useMemo(() => (
+    trailer ? {
+      id: `trailer-${trailer.course_id}`,
+      title: trailer.title || t('courseTrailer'),
+      bunny_video_id: trailer.bunny_video_id,
+      is_trailer: true,
+    } : null
+  ), [t, trailer])
   const publicPreviewVideo = (
     activePreviewId === 'trailer'
       ? trailerVideo
@@ -293,17 +302,17 @@ function CoursePage({ user, profile, handleLogout }) {
       ? null
     : canViewFullCourse
       ? (activeVideo || trailerVideo)
-      : (!activeVideo?.locked ? activeVideo : publicPreviewVideo)
+      : publicPreviewVideo
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
   const activePlayerLesson = !activeQuiz && playerVideo && !playerVideo.is_trailer
     ? lessons.find((lesson) => String(lesson.id) === String(playerVideo.id)) || playerVideo
     : null
   const activeLessonRowId = activePlayerLesson?.id || (!playerVideo?.is_trailer ? activeVideo?.id : null)
-  const previewChoices = [
+  const previewChoices = useMemo(() => [
     ...(trailerVideo ? [trailerVideo] : []),
     ...previewLessons,
-  ]
+  ], [previewLessons, trailerVideo])
   const activeLessonIndex = lessons.findIndex((video) => String(video.id) === String(activeVideo?.id))
   const watchedIds = useMemo(
     () => new Set(progress.filter((item) => item.watched).map((item) => String(item.video_id))),
@@ -796,6 +805,34 @@ function CoursePage({ user, profile, handleLogout }) {
     void markWatched(currentId)
   }, [lessons, markWatched, orderedCurriculumLessons])
 
+  const playNextPreview = useCallback((expectedChoiceId = null) => {
+    if (!publicPreviewVideo) return
+
+    const currentChoiceId = getPreviewChoiceId(publicPreviewVideo)
+    if (!currentChoiceId || String(advancingVideoIdRef.current) === String(currentChoiceId)) return
+    if (expectedChoiceId !== null && String(expectedChoiceId) !== String(currentChoiceId)) return
+
+    const currentIndex = previewChoices.findIndex((video) => (
+      String(getPreviewChoiceId(video)) === String(currentChoiceId)
+    ))
+    const nextVideo = previewChoices[currentIndex + 1]
+    if (!nextVideo) {
+      if (!publicPreviewVideo.is_trailer) void markWatched(publicPreviewVideo.id)
+      return
+    }
+
+    advancingVideoIdRef.current = currentChoiceId
+    setActiveQuizId(null)
+    setActivePreviewId(getPreviewChoiceId(nextVideo))
+
+    if (!nextVideo.is_trailer) {
+      activeVideoIdRef.current = nextVideo.id
+      setActiveVideoId(nextVideo.id)
+    }
+
+    if (!publicPreviewVideo.is_trailer) void markWatched(publicPreviewVideo.id)
+  }, [markWatched, previewChoices, publicPreviewVideo, setActivePreviewId])
+
   const getCurrentPlaybackSeconds = () => {
     if (legacyVideoRef.current) return legacyVideoRef.current.currentTime || 0
     if (playerRef.current?.getCurrentTime) return playerRef.current.getCurrentTime() || 0
@@ -966,8 +1003,8 @@ function CoursePage({ user, profile, handleLogout }) {
   // postMessage; we subscribe to its "ended" event and roll to the next lesson —
   // the same behaviour the YouTube iframe API gives us below.
   useEffect(() => {
-    if (!hasAccess || !activeVideo?.bunny_video_id) return undefined
-    if (!signedUrl || signedFor !== String(activeVideo.id)) return undefined
+    if (activeQuiz || !playerVideo?.bunny_video_id) return undefined
+    if (!signedUrl || signedFor !== String(playerVideo.id)) return undefined
     const iframe = bunnyFrameRef.current
     if (!iframe) return undefined
 
@@ -991,7 +1028,10 @@ function CoursePage({ user, profile, handleLogout }) {
       if (!data || data.context !== 'player.js') return
       // The player announces "ready" once it can take commands; subscribe then.
       if (data.event === 'ready') subscribe()
-      else if (data.event === 'ended') playNext(activeVideo.id)
+      else if (data.event === 'ended') {
+        if (previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+        else playNext(playerVideo.id)
+      }
       else if (data.event === 'timeupdate') {
         const seconds = data.value?.seconds ?? data.value?.currentTime ?? data.value
         if (Number.isFinite(Number(seconds))) playbackSecondsRef.current = Number(seconds)
@@ -1003,10 +1043,10 @@ function CoursePage({ user, profile, handleLogout }) {
     subscribe()
 
     return () => window.removeEventListener('message', handleMessage)
-  }, [hasAccess, activeVideo?.id, activeVideo?.bunny_video_id, signedUrl, signedFor, playNext])
+  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playNext, playNextPreview])
 
   useEffect(() => {
-    if (!hasAccess || !activeVideo?.video_url || !isYouTubeUrl(activeVideo.video_url) || !playerFrameRef.current) return undefined
+    if (activeQuiz || !playerVideo?.video_url || !isYouTubeUrl(playerVideo.video_url) || !playerFrameRef.current) return undefined
 
     let cancelled = false
 
@@ -1017,7 +1057,8 @@ function CoursePage({ user, profile, handleLogout }) {
         events: {
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.ENDED) {
-              playNext(activeVideo.id)
+              if (previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+              else playNext(playerVideo.id)
             }
           },
         },
@@ -1044,7 +1085,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [activeVideo, hasAccess, playNext])
+  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playNext, playNextPreview])
 
   const handleWhatsApp = async () => {
     if (user) {
@@ -1307,7 +1348,10 @@ function CoursePage({ user, profile, handleLogout }) {
                     autoPlay
                     src={playerVideo.video_url}
                     onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
-                    onEnded={() => playNext(playerVideo.id)}
+                    onEnded={() => {
+                      if (previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
+                      else playNext(playerVideo.id)
+                    }}
                     className="youtube-player"
                   >
                     {t('videoNotSupported')}
@@ -1672,6 +1716,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 {publicPreviewVideo.bunny_video_id ? (
                   signedUrl && signedFor === String(publicPreviewVideo.id) ? (
                     <iframe
+                      ref={bunnyFrameRef}
                       className="youtube-player"
                       src={signedUrl}
                       title={publicPreviewVideo.title}
@@ -1683,6 +1728,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   )
                 ) : publicPreviewVideo.video_url && isYouTubeUrl(publicPreviewVideo.video_url) ? (
                   <iframe
+                    ref={playerFrameRef}
                     className="youtube-player"
                     src={getEmbedSrc(publicPreviewVideo.video_url)}
                     title={publicPreviewVideo.title}
@@ -1690,7 +1736,14 @@ function CoursePage({ user, profile, handleLogout }) {
                     allowFullScreen
                   />
                 ) : publicPreviewVideo.video_url ? (
-                  <video controls autoPlay src={publicPreviewVideo.video_url} className="youtube-player">
+                  <video
+                    ref={legacyVideoRef}
+                    controls
+                    autoPlay
+                    src={publicPreviewVideo.video_url}
+                    className="youtube-player"
+                    onEnded={() => playNextPreview(getPreviewChoiceId(publicPreviewVideo))}
+                  >
                     {t('videoNotSupported')}
                   </video>
                 ) : (
