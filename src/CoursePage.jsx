@@ -167,8 +167,18 @@ function getCourseResumeStorageKey(userId, courseId) {
 function getStoredResumeVideoId(userId, courseId, videos) {
   if (!userId || !courseId || !videos?.length) return null
   try {
-    const storedId = window.localStorage.getItem(getCourseResumeStorageKey(userId, courseId))
-    return videos.some((video) => String(video.id) === String(storedId)) ? storedId : null
+    const storedValue = window.localStorage.getItem(getCourseResumeStorageKey(userId, courseId))
+    if (!storedValue) return null
+    let storedId = storedValue
+    let updatedAt = 0
+    try {
+      const parsed = JSON.parse(storedValue)
+      storedId = parsed.videoId
+      updatedAt = Date.parse(parsed.updatedAt) || 0
+    } catch {
+      // Older releases stored only the lesson id. Treat it as an undated fallback.
+    }
+    return videos.some((video) => String(video.id) === String(storedId)) ? { videoId: storedId, updatedAt } : null
   } catch {
     return null
   }
@@ -180,8 +190,17 @@ function getResumeVideoId({ requestedVideoId, userId, courseId, videos, progress
     return requestedVideoId
   }
 
-  const storedVideoId = getStoredResumeVideoId(userId, courseId, videos)
-  if (storedVideoId) return storedVideoId
+  const storedResume = getStoredResumeVideoId(userId, courseId, videos)
+  const activity = (progress || [])
+    .filter((item) => videos.some((video) => String(video.id) === String(item.video_id)))
+    .sort((a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0))[0]
+  const databaseUpdatedAt = Date.parse(activity?.updated_at) || 0
+  if (activity && databaseUpdatedAt >= (storedResume?.updatedAt || 0)) {
+    if (!activity.watched) return activity.video_id
+    const activityIndex = videos.findIndex((video) => String(video.id) === String(activity.video_id))
+    return videos[activityIndex + 1]?.id || activity.video_id
+  }
+  if (storedResume) return storedResume.videoId
 
   const watchedIds = new Set((progress || []).filter((item) => item.watched).map((item) => String(item.video_id)))
   const firstUnwatched = videos.find((video) => !watchedIds.has(String(video.id)))
@@ -240,6 +259,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const activeVideoIdRef = useRef(null)
   const advancingVideoIdRef = useRef(null)
   const initializedCourseIdRef = useRef(null)
+  const savedResumeVideoIdRef = useRef(null)
   const curriculumListRef = useRef(null)
   const activeCurriculumItemRef = useRef(null)
   const [course, setCourse] = useState(location.state?.course || null)
@@ -569,6 +589,32 @@ function CoursePage({ user, profile, handleLogout }) {
     })
   }
 
+  const saveResumeLesson = useCallback(async (videoId) => {
+    if (!userId || !courseId || !videoId || String(videoId).startsWith('placeholder-')) return
+    if (String(savedResumeVideoIdRef.current) === String(videoId)) return
+    savedResumeVideoIdRef.current = videoId
+
+    const existing = progress.find((item) => String(item.video_id) === String(videoId))
+    const updatedAt = new Date().toISOString()
+    const resumeRow = {
+      user_id: userId,
+      video_id: videoId,
+      watched: Boolean(existing?.watched),
+      updated_at: updatedAt,
+    }
+    const { error } = await supabase.from('video_progress').upsert(resumeRow, { onConflict: 'user_id,video_id' })
+    if (error) {
+      savedResumeVideoIdRef.current = null
+      return
+    }
+    setProgress((items) => {
+      const match = items.some((item) => String(item.video_id) === String(videoId))
+      return match
+        ? items.map((item) => String(item.video_id) === String(videoId) ? { ...item, ...resumeRow } : item)
+        : [...items, resumeRow]
+    })
+  }, [courseId, progress, userId])
+
   const selectTrailer = () => {
     if (!trailerVideo) return
     setActiveQuizId(null)
@@ -598,6 +644,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return next
     })
     setActiveVideoId(videoId)
+    if (canViewFullCourse) void saveResumeLesson(videoId)
     if (!canViewFullCourse) {
       setActivePreviewId(videoId)
       setMuteAutoplay(true)
@@ -848,7 +895,10 @@ function CoursePage({ user, profile, handleLogout }) {
   useEffect(() => {
     if (!canViewFullCourse || !userId || !courseId || !activeVideo?.id || activeVideo.locked) return
     try {
-      window.localStorage.setItem(getCourseResumeStorageKey(userId, courseId), String(activeVideo.id))
+      window.localStorage.setItem(getCourseResumeStorageKey(userId, courseId), JSON.stringify({
+        videoId: activeVideo.id,
+        updatedAt: new Date().toISOString(),
+      }))
     } catch {
       // Resume is a convenience; playback still works when storage is blocked.
     }
@@ -982,8 +1032,9 @@ function CoursePage({ user, profile, handleLogout }) {
     advancingVideoIdRef.current = currentId
     activeVideoIdRef.current = nextVideo.id
     setActiveVideoId(nextVideo.id)
+    void saveResumeLesson(nextVideo.id)
     void markWatched(currentId)
-  }, [lessons, markWatched, orderedCurriculumLessons])
+  }, [lessons, markWatched, orderedCurriculumLessons, saveResumeLesson])
 
   const playFirstLessonAfterTrailer = useCallback((expectedChoiceId = null) => {
     if (expectedChoiceId !== null && String(expectedChoiceId) !== 'trailer') return
@@ -1318,6 +1369,7 @@ function CoursePage({ user, profile, handleLogout }) {
           playbackSecondsRef.current = Number(seconds)
           if (Number(seconds) > 0 && !playerVideo?.is_trailer && canViewFullCourse) {
             setShowAccessWelcome(false)
+            void saveResumeLesson(playerVideo.id)
           }
         }
       }
@@ -1340,7 +1392,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (secondPlayKick) window.clearTimeout(secondPlayKick)
       if (thirdPlayKick) window.clearTimeout(thirdPlayKick)
     }
-  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playFirstLessonAfterTrailer, playNext, playNextPreview])
+  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playFirstLessonAfterTrailer, playNext, playNextPreview, saveResumeLesson])
 
   useEffect(() => {
     if (activeQuiz || !playerVideo?.video_url || !isYouTubeUrl(playerVideo.video_url) || !playerFrameRef.current) return undefined
@@ -1355,6 +1407,7 @@ function CoursePage({ user, profile, handleLogout }) {
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING && !playerVideo?.is_trailer && canViewFullCourse) {
               setShowAccessWelcome(false)
+              void saveResumeLesson(playerVideo.id)
             }
             if (event.data === window.YT.PlayerState.ENDED) {
               if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
@@ -1386,7 +1439,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playFirstLessonAfterTrailer, playNext, playNextPreview])
+  }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playFirstLessonAfterTrailer, playNext, playNextPreview, saveResumeLesson])
 
   const handleWhatsApp = async () => {
     if (user) {
@@ -1725,7 +1778,10 @@ function CoursePage({ user, profile, handleLogout }) {
                     playsInline
                     src={playerVideo.video_url}
                     onPlay={() => {
-                      if (!playerVideo?.is_trailer && canViewFullCourse) setShowAccessWelcome(false)
+                      if (!playerVideo?.is_trailer && canViewFullCourse) {
+                        setShowAccessWelcome(false)
+                        void saveResumeLesson(playerVideo.id)
+                      }
                     }}
                     onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
                     onEnded={() => {
