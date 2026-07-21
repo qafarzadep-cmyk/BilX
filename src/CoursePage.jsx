@@ -507,6 +507,10 @@ function CoursePage({ user, profile, handleLogout }) {
       : null
   const playerVideoId = playerVideo?.id
   const playerBunnyId = playerVideo?.bunny_video_id
+  // Preview playback is opened by an explicit user click, so it should request
+  // audio on every device. Mobile muting remains only for automatic lesson
+  // playback where browsers may require it.
+  const playerStartsMuted = previewModalOpen || !canViewFullCourse ? false : muteAutoplay
   const activePlayerLesson = !activeQuiz && playerVideo && !playerVideo.is_trailer
     ? lessons.find((lesson) => String(lesson.id) === String(playerVideo.id)) || playerVideo
     : null
@@ -1436,8 +1440,8 @@ function CoursePage({ user, profile, handleLogout }) {
           headers,
           body: JSON.stringify(
             playerVideo?.is_trailer
-              ? { trailerCourseId: courseId, autoplay: true, muted: previewModalOpen || !canViewFullCourse ? true : muteAutoplay }
-              : { videoId: playerVideoId, autoplay: true, muted: previewModalOpen || !canViewFullCourse ? true : muteAutoplay }
+              ? { trailerCourseId: courseId, autoplay: true, muted: playerStartsMuted }
+              : { videoId: playerVideoId, autoplay: true, muted: playerStartsMuted }
           ),
         })
         // Parse defensively — an empty/HTML body (e.g. functions not running)
@@ -1459,7 +1463,7 @@ function CoursePage({ user, profile, handleLogout }) {
     return () => {
       cancelled = true
     }
-  }, [canViewFullCourse, courseId, muteAutoplay, playerVideo?.is_trailer, playerVideoId, playerBunnyId, previewModalOpen])
+  }, [courseId, playerStartsMuted, playerVideo?.is_trailer, playerVideoId, playerBunnyId])
 
   useEffect(() => {
     const lessonChoices = previewChoices.filter((video) => !video.is_trailer && video.bunny_video_id)
@@ -2070,7 +2074,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     key={playerVideo.id}
                     ref={playerFrameRef}
                     className="youtube-player"
-                    src={getEmbedSrc(playerVideo.video_url, muteAutoplay)}
+                    src={getEmbedSrc(playerVideo.video_url, playerStartsMuted)}
                     title={playerVideo.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -2081,7 +2085,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     ref={legacyVideoRef}
                     controls
                     autoPlay
-                    muted={muteAutoplay}
+                    muted={playerStartsMuted}
                     playsInline
                     src={playerVideo.video_url}
                     onLoadedMetadata={(event) => {
@@ -2498,7 +2502,7 @@ function CoursePage({ user, profile, handleLogout }) {
                   <iframe
                     ref={playerFrameRef}
                     className="youtube-player"
-                    src={getEmbedSrc(publicPreviewVideo.video_url, muteAutoplay)}
+                    src={getEmbedSrc(publicPreviewVideo.video_url, false)}
                     title={publicPreviewVideo.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -2508,7 +2512,7 @@ function CoursePage({ user, profile, handleLogout }) {
                     ref={legacyVideoRef}
                     controls
                     autoPlay
-                    muted={muteAutoplay}
+                    muted={false}
                     playsInline
                     src={publicPreviewVideo.video_url}
                     className="youtube-player"
