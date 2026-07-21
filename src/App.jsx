@@ -46,7 +46,6 @@ function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
 
   return (
     <div className="course-card-offer" aria-label={`${formatAzN(pricing.currentPrice)}, ${discountPercent}% endirim`}>
-      <span className="course-card-offer-label">Yeni kurs üçün xüsusi qiymət</span>
       <div className="course-card-price-row">
         <strong className="course-card-price">{formatAzN(pricing.currentPrice)}</strong>
         <del>{formatAzN(pricing.regularPrice)}</del>
