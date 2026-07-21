@@ -69,8 +69,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [enrollments, setEnrollments] = useState([])
   const [requests, setRequests] = useState([])
   const [inboxMessages, setInboxMessages] = useState([])
-  const [studentEmail, setStudentEmail] = useState('')
-  const [selectedCourse, setSelectedCourse] = useState('')
   const [selectedAccessCourse, setSelectedAccessCourse] = useState(null)
   const [message, setMessage] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
@@ -262,18 +260,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
     return false
   }
 
-  const giveAccess = async () => {
-    if (!studentEmail || !selectedCourse) {
-      setMessage(t('adminStudentCourseRequired'))
-      return
-    }
-    const granted = await grantCourseAccess({ email: studentEmail, courseId: selectedCourse })
-    if (granted) {
-      setStudentEmail('')
-      setSelectedCourse('')
-    }
-  }
-
   const approvePaymentRequest = async (request) => {
     if (!request?.user_email || !request?.course_id) return
     if (!window.confirm(t('confirmPaymentAndGrant'))) return
@@ -297,12 +283,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
     setMessage(error ? `${t('errorOccurred')}${error.message}` : t('paymentRequestDeclined'))
     if (!error) await loadData()
     setDecliningRequestId(null)
-  }
-
-  const removeAccess = async (id) => {
-    const { error } = await supabase.from('enrollments').delete().eq('id', id)
-    setMessage(error ? `${t('errorOccurred')}${error.message}` : t('adminAccessRevoked'))
-    if (!error) loadData()
   }
 
   const sendAdminMessage = async () => {
@@ -823,31 +803,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
           )}
 
           {activeTab === 'access' && (
-            <>
-              <div className="panel-card form-panel">
-                <h2>{t('accessAfterPayment')}</h2>
-                <label>{t('studentEmailLabel')}</label>
-                <input type="email" value={studentEmail} onChange={(event) => setStudentEmail(event.target.value)} placeholder="telebe@example.com" />
-                <label>{t('courseLabel')}</label>
-                <select value={selectedCourse} onChange={(event) => setSelectedCourse(event.target.value)}>
-                  <option value="">{t('chooseCourse')}</option>
-                  {approvedCourses.map((course) => {
-                    const instructorName = getCourseAuthorName(course)
-                    return <option key={course.id} value={course.id}>{course.title}{instructorName ? ` - ${instructorName}` : ''} - {course.price} AZN</option>
-                  })}
-                </select>
-                <button className="primary-button full" onClick={giveAccess}>{t('grantAccess')}</button>
-              </div>
-              <div className="panel-card">
-                <h2>{t('grantedAccessTitle')}</h2>
-                {enrollments.map((item) => (
-                  <div key={item.id} className="admin-row">
-                    <span>{item.user_id} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_id}</span>
-                    <button className="danger-button" onClick={() => removeAccess(item.id)}>{t('revokeAccess')}</button>
-                  </div>
-                ))}
-              </div>
-              <div className="panel-card">
+              <div className="panel-card payment-requests-panel">
                 <h2>{t('paymentRequestsTitle')}</h2>
                 {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
                   <div key={item.id} className="admin-row">
@@ -877,7 +833,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   </div>
                 ))}
               </div>
-            </>
           )}
 
           {activeTab === 'teacher-applications' && (
