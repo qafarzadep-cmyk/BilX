@@ -7606,3 +7606,89 @@ td button + .outline-button {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Dense course grid: remains practical with dozens of courses. */
+.admin-course-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.admin-course-card {
+  max-width: 360px;
+  border-radius: 14px;
+}
+
+.admin-course-card-top {
+  padding: 11px 13px 0;
+}
+
+.admin-course-card-body {
+  padding: 13px;
+}
+
+.admin-course-card-body h3 {
+  min-height: 42px;
+  margin-bottom: 7px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.admin-course-card-body p {
+  font-size: 12px;
+}
+
+.admin-course-status {
+  min-height: 23px;
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.admin-course-metrics {
+  margin: 0 13px;
+  border-radius: 10px;
+}
+
+.admin-course-metrics > div {
+  min-height: 55px;
+  gap: 3px;
+  padding: 8px 10px;
+}
+
+.admin-course-metrics strong {
+  font-size: 14px;
+}
+
+.admin-course-metrics .admin-count-button {
+  min-width: 35px;
+  min-height: 27px;
+  padding: 2px 7px;
+}
+
+.admin-course-card-actions {
+  gap: 6px;
+  margin-top: 11px;
+  padding: 10px 13px 13px;
+}
+
+.admin-course-card-actions button {
+  min-height: 33px;
+  padding: 6px 7px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+@media (min-width: 1400px) {
+  .admin-course-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-course-card {
+    max-width: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .admin-course-card {
+    max-width: none;
+  }
+}
