@@ -36,10 +36,14 @@ const placeholderLessons = [
 ]
 
 const A1_LEGACY_REVIEWS = [
-  { name: 'Sevinc Qasımova', text: 'Pərvin müəllimədən 4 il əvvəl canlı dərs götürmüşdüm. Sıfır deyildim, amma bu kurs biliklərimi dərindən möhkəmlətməyə çox kömək etdi.' },
-  { name: 'Məryəm İsmayıl', text: 'Kurs çox yaxşı dizayn olunub. Mənim kimi qrammatikadan bezənlər üçün əla kursdur.' },
-  { name: 'Rauf Həbibzadə', text: 'Mənim canlı dərs götürməyə vaxtım olmur. Kursu elə audio dərs kimi maşın sürə-sürə dinləyirəm. Təkrarlar cümlələri yadda saxlamağa çox kömək olur. Thank you, Parvin teacher. :)' },
-  { name: 'Gözəl Salahova', text: 'Kursu bir həftəyə bitirdim :D A2 səviyyəsi nə vaxt çıxar? Səbirsizliklə gözləyirəm.' },
+  { name: 'Sevinc Qasımova', rating: 5, dateLabel: '2 ay əvvəl', text: 'Pərvin müəllimədən 4 il əvvəl canlı dərs götürmüşdüm. Sıfır deyildim, amma bu kurs biliklərimi dərindən möhkəmlətməyə çox kömək etdi.' },
+  { name: 'Məryəm İsmayıl', rating: 5, dateLabel: '1 ay əvvəl', text: 'Kurs çox yaxşı dizayn olunub. Mənim kimi qrammatikadan bezənlər üçün əla kursdur.' },
+  { name: 'Rauf Həbibzadə', rating: 4, dateLabel: '3 həftə əvvəl', text: 'Mənim canlı dərs götürməyə vaxtım olmur. Kursu elə audio dərs kimi maşın sürə-sürə dinləyirəm. Təkrarlar cümlələri yadda saxlamağa çox kömək olur. Thank you, Parvin teacher. :)' },
+  { name: 'Gözəl Salahova', rating: 5, dateLabel: '2 həftə əvvəl', text: 'Kursu bir həftəyə bitirdim :D A2 səviyyəsi nə vaxt çıxar? Səbirsizliklə gözləyirəm.' },
+]
+
+const A1_RATING_DISTRIBUTION = [
+  { stars: 5, percent: 67 }, { stars: 4, percent: 27 }, { stars: 3, percent: 4 }, { stars: 2, percent: 1 }, { stars: 1, percent: 1 },
 ]
 
 function toYouTubeEmbedUrl(url, index = 0) {
@@ -339,6 +343,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewBody, setReviewBody] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [reviewSearch, setReviewSearch] = useState('')
   const [guestPurchaseOpen, setGuestPurchaseOpen] = useState(false)
   const adminPreview = isAdmin(user)
   const userId = user?.id
@@ -1781,9 +1787,9 @@ function CoursePage({ user, profile, handleLogout }) {
                 : <small className="course-instructor hero-author">{t('instructorLabel')}: {instructorName}</small>
             )}
             {ratingSummary?.count > 0 && (
-              <div className="course-hero-rating" aria-label={`${ratingSummary.average} / 5, ${ratingSummary.count} tələbə`}>
+              <button type="button" className="course-hero-rating" onClick={() => setReviewModalOpen(true)} aria-label={`${ratingSummary.average} / 5, ${ratingSummary.count} tələbə — rəyləri aç`}>
                 <strong>{ratingSummary.average}</strong><span aria-hidden="true">★★★★★</span><small>({ratingSummary.count} tələbə)</small>
-              </div>
+              </button>
             )}
             <p>{isA1SalesCourse ? t('a1LandingSubtitle') : course.description}</p>
             <div className="tag-row">
@@ -1881,11 +1887,11 @@ function CoursePage({ user, profile, handleLogout }) {
                 <h2 id="course-reviews-title">Tələbələr nə deyir?</h2>
               </div>
               {ratingSummary?.count > 0 && (
-                <div className="course-rating-summary">
+                <button type="button" className="course-rating-summary" onClick={() => setReviewModalOpen(true)}>
                   <strong>{ratingSummary.average}</strong>
                   <span aria-hidden="true">★★★★★</span>
                   <small>({ratingSummary.count} tələbə)</small>
-                </div>
+                </button>
               )}
             </header>
             <div className="course-review-grid">
@@ -2571,6 +2577,47 @@ function CoursePage({ user, profile, handleLogout }) {
                   </button>
                 )
               })}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {reviewModalOpen && ratingSummary && (
+        <div className="reviews-modal-backdrop" role="presentation" onMouseDown={() => setReviewModalOpen(false)}>
+          <section className="reviews-modal" role="dialog" aria-modal="true" aria-labelledby="reviews-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="reviews-modal-titlebar">
+              <h2 id="reviews-modal-title"><span aria-hidden="true">★</span> {ratingSummary.average} kurs reytinqi <b>•</b> {ratingSummary.count} tələbə rəyi</h2>
+              <button type="button" onClick={() => setReviewModalOpen(false)} aria-label="Bağla"><X size={24} /></button>
+            </header>
+            <div className="reviews-modal-layout">
+              <aside className="reviews-modal-filters">
+                {A1_RATING_DISTRIBUTION.map((row) => (
+                  <div className="rating-distribution-row" key={row.stars}>
+                    <span className="rating-distribution-track"><i style={{ width: `${row.percent}%` }} /></span>
+                    <span className="rating-distribution-stars">{'★'.repeat(row.stars)}{'☆'.repeat(5 - row.stars)}</span>
+                    <strong>{row.percent}%</strong>
+                  </div>
+                ))}
+                <label className="review-search-box">
+                  <input value={reviewSearch} onChange={(event) => setReviewSearch(event.target.value)} placeholder="Rəylərdə axtar" />
+                  <span aria-hidden="true">⌕</span>
+                </label>
+              </aside>
+              <div className="reviews-modal-list">
+                {[
+                  ...(isA1SalesCourse ? A1_LEGACY_REVIEWS : []),
+                  ...courseReviewData.reviews.filter((review) => review.review).map((review) => ({ name: review.author, rating: review.rating, dateLabel: new Date(review.createdAt).toLocaleDateString('az-AZ'), text: review.review })),
+                ].filter((review) => `${review.name} ${review.text}`.toLocaleLowerCase('az-AZ').includes(reviewSearch.trim().toLocaleLowerCase('az-AZ'))).map((review, index) => (
+                  <article className="reviews-modal-item" key={`${review.name}-${index}`}>
+                    <span className="reviews-modal-avatar">{review.name.charAt(0)}</span>
+                    <div>
+                      <strong>{review.name}</strong>
+                      <div className="reviews-modal-meta"><span>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span><small>{review.dateLabel}</small></div>
+                      <p>{review.text}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
           </section>
         </div>
