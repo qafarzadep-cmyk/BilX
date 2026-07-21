@@ -26,6 +26,12 @@ import { supabase } from './supabase'
 
 const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
+const A1_COURSE_TITLE_PATTERN = /sıfırdan ingiliscə danışıq/iu
+
+function isA1Course(course) {
+  return String(course?.id) === '17' || A1_COURSE_TITLE_PATTERN.test(String(course?.title || ''))
+}
+
 function formatAzN(value) {
   return `${Number(value).toFixed(2)} AZN`
 }
@@ -544,7 +550,7 @@ function Home({ user, profile, handleLogout }) {
                               </button>
                             ) : (
                               <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
-                                <MessageCircle size={16} /> {t('courseAcquire')}
+                                <MessageCircle size={16} /> {isA1Course(course) ? t('courseStartNow') : t('courseAcquire')}
                               </button>
                             )}
                           </div>
@@ -609,7 +615,14 @@ function Home({ user, profile, handleLogout }) {
                       <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
                       <div className="course-card-body">
                         <h3><HighlightedText text={course.title} query={search} /></h3>
-                        {course.description && <p><HighlightedText text={course.description} query={search} /></p>}
+                        {(course.description || isA1Course(course)) && (
+                          <p>
+                            <HighlightedText
+                              text={isA1Course(course) ? t('a1LandingSubtitle') : course.description}
+                              query={search}
+                            />
+                          </p>
+                        )}
                         {instructorName && (
                           <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
                             {instructorName}
@@ -634,7 +647,7 @@ function Home({ user, profile, handleLogout }) {
                             </button>
                           ) : (
                             <button className="course-card-whatsapp-button" type="button" onClick={(event) => openCourseWhatsApp(event, course)}>
-                              <MessageCircle size={16} /> {t('courseAcquire')}
+                              <MessageCircle size={16} /> {isA1Course(course) ? t('courseStartNow') : t('courseAcquire')}
                             </button>
                           )}
                         </div>
