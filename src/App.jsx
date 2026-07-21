@@ -701,7 +701,6 @@ function Home({ user, profile, handleLogout }) {
               <h2>{t('purchaseAccountTitle')}</h2>
               <button className="modal-close-button" type="button" onClick={() => setGuestPurchaseCourse(null)} aria-label={t('close')}><X size={19} /></button>
             </div>
-            {t('purchaseAccountText') && <p>{t('purchaseAccountText')}</p>}
             <strong>{guestPurchaseCourse.title}</strong>
             <div className="purchase-guest-fields">
               <input value={guestPurchaseDetails.name} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, name: event.target.value }))} placeholder={t('fullName')} />
