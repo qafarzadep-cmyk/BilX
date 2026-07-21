@@ -1956,8 +1956,15 @@ body.quiz-fullscreen-open {
 }
 
 .quiz-answer-option.selected {
-  border-color: #315fba;
-  background: #eef4ff;
+  border-color: #1c1d1f;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #1c1d1f;
+}
+
+.quiz-answer-option.selected span {
+  border-color: #1c1d1f;
+  background: #1c1d1f;
+  color: #fff;
 }
 
 .quiz-answer-option.correct {

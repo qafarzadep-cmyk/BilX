@@ -717,7 +717,6 @@ function CoursePage({ user, profile, handleLogout }) {
     setActiveQuizId(quizId)
     setActiveQuizQuestionIndex(0)
     setCheckedQuizId(null)
-    setFinishedQuizIds((current) => ({ ...current, [quizId]: false }))
   }
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link }) => {
     try {
