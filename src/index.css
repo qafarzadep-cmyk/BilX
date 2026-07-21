@@ -1007,16 +1007,8 @@ button {
   font-weight: 600;
 }
 
-.course-card-offer-message span,
-.course-card-offer-message strong {
-  display: block;
+.course-card-offer-message {
   line-height: 1.35;
-}
-
-.course-card-offer-message strong {
-  color: #b32d0f;
-  font-size: 11px;
-  font-weight: 600;
 }
 
 .course-card-whatsapp-button {
