@@ -475,7 +475,10 @@ function CoursePage({ user, profile, handleLogout }) {
       })
       const sectionQuizzes = outlineQuizzes.filter((quiz) => String(quiz.section_id) === String(section.id))
       const sectionItems = getOrderedSectionItems(section.id, sectionLessons, sectionQuizzes)
-      const completed = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
+      const completedLessons = sectionLessons.filter((lesson) => watchedIds.has(String(lesson.id))).length
+      const completedQuizzes = sectionQuizzes.filter((quiz) => (
+        finishedQuizIds[quiz.id] || quizAttempts[String(quiz.id)]
+      )).length
       const duration = sectionLessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
       const questionCount = getQuizQuestionCount(sectionQuizzes)
       const numberedTitle = `${t('sectionLabel')} ${sectionNumber}`
@@ -490,12 +493,12 @@ function CoursePage({ user, profile, handleLogout }) {
         lessons: sectionLessons,
         quizzes: sectionQuizzes,
         items: sectionItems,
-        completed,
+        completed: completedLessons + completedQuizzes,
         duration: formatSectionDuration(duration, t),
         questionCount,
       }
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
-  }, [lessons, outlineQuizzes, sections, t, watchedIds])
+  }, [finishedQuizIds, lessons, outlineQuizzes, quizAttempts, sections, t, watchedIds])
   const curriculumSearchTerm = curriculumSearch.trim()
   const visibleCurriculumSections = useMemo(() => {
     const query = normalizeSearchText(curriculumSearchTerm)
@@ -1238,7 +1241,9 @@ function CoursePage({ user, profile, handleLogout }) {
     ? (quizAnswers[activeQuizAnswerKey] ?? quizAttempts[String(activeQuiz.id)]?.answers?.[safeActiveQuizQuestionIndex])
     : undefined
   const activeQuizChecked = activeQuiz ? String(checkedQuizId) === activeQuizAnswerKey : false
-  const activeQuizFinished = activeQuiz ? Boolean(finishedQuizIds[activeQuiz.id]) : false
+  const activeQuizFinished = activeQuiz
+    ? Boolean(finishedQuizIds[activeQuiz.id] || quizAttempts[String(activeQuiz.id)])
+    : false
   const activeQuizExpanded = Boolean(activeQuiz && quizExpanded)
   const activeQuizExplanation = activeQuizQuestion && activeQuizAnswer !== undefined
     ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
@@ -2086,13 +2091,14 @@ function CoursePage({ user, profile, handleLogout }) {
                               ? String(item.id) === String(activeLessonRowId)
                               : String(item.id) === String(activeQuiz?.id)
                             const isWatched = isVideo && watchedIds.has(String(item.id))
+                            const isQuizCompleted = !isVideo && Boolean(finishedQuizIds[item.id] || quizAttempts[String(item.id)])
                             const isLocked = isVideo ? item.locked : !(canViewFullCourse || item.is_free)
 
                             return (
                               <button
                                 key={`${contentItem.type}-${item.id}`}
                                 ref={isActive ? activeCurriculumItemRef : null}
-                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isWatched ? ' watched' : ''}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}`}
+                                className={`${isActive ? 'course-lesson-item active' : 'course-lesson-item'}${isWatched || isQuizCompleted ? ' watched' : ''}${isLocked ? ' locked' : ''}${isVideo ? '' : ' quiz-content-item'}${isQuizCompleted ? ' quiz-completed' : ''}`}
                                 onClick={() => {
                                   if (isLocked) handleWhatsApp()
                                   else if (isVideo) selectLesson(section.id, item.id)
@@ -2100,7 +2106,7 @@ function CoursePage({ user, profile, handleLogout }) {
                                 }}
                               >
                                 <span className="lesson-status">
-                                  {isLocked ? <Lock size={19} /> : !isVideo ? <ClipboardList size={20} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
+                                  {isLocked ? <Lock size={19} /> : isQuizCompleted ? <CheckCircle2 size={20} /> : !isVideo ? <ClipboardList size={20} /> : isWatched ? <CheckCircle2 size={20} /> : isActive ? <PlayCircle size={20} /> : <Circle size={20} />}
                                 </span>
                                 <span className="lesson-copy">
                                   <strong>{section.sectionNumber || sectionIndex + 1}.{contentIndex + 1} {item.displayTitle || item.title}</strong>

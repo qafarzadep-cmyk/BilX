@@ -1780,6 +1780,11 @@ button {
   color: #315fba;
 }
 
+.quiz-content-item.quiz-completed .lesson-status,
+.quiz-content-item.quiz-completed .lesson-copy strong {
+  color: #218739;
+}
+
 .quiz-player {
   height: 100%;
   min-height: 0;
@@ -1877,6 +1882,23 @@ body.quiz-fullscreen-open {
 
 .quiz-retake-button {
   width: fit-content;
+  border-color: #168332;
+  background: #218739;
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(33, 135, 57, 0.24);
+  animation: quiz-retake-attention 2.4s ease-in-out infinite;
+}
+
+.quiz-retake-button:hover {
+  border-color: #126d2a;
+  background: #18752f;
+  color: #fff;
+}
+
+@keyframes quiz-retake-attention {
+  0%, 72%, 100% { transform: scale(1); box-shadow: 0 5px 14px rgba(33, 135, 57, 0.24); }
+  82% { transform: scale(1.055); box-shadow: 0 0 0 5px rgba(33, 135, 57, 0.14); }
+  92% { transform: scale(1.02); }
 }
 
 .quiz-player-expanded .quiz-question-card {
