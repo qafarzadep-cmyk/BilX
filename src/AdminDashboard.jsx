@@ -79,6 +79,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [userModalLoading, setUserModalLoading] = useState(false)
   const [adminMessageBody, setAdminMessageBody] = useState('')
   const [approvingRequestId, setApprovingRequestId] = useState(null)
+  const [decliningRequestId, setDecliningRequestId] = useState(null)
   const canAdmin = isAdmin(user)
   const { t } = useLanguage()
 
@@ -285,6 +286,19 @@ function AdminDashboard({ user, profile, handleLogout }) {
     setApprovingRequestId(null)
   }
 
+  const declinePaymentRequest = async (request) => {
+    if (!request?.id || !window.confirm(t('confirmDeclinePaymentRequest'))) return
+    setDecliningRequestId(request.id)
+    const { error } = await supabase
+      .from('requests')
+      .update({ status: 'rejected' })
+      .eq('id', request.id)
+      .eq('status', 'pending')
+    setMessage(error ? `${t('errorOccurred')}${error.message}` : t('paymentRequestDeclined'))
+    if (!error) await loadData()
+    setDecliningRequestId(null)
+  }
+
   const removeAccess = async (id) => {
     const { error } = await supabase.from('enrollments').delete().eq('id', id)
     setMessage(error ? `${t('errorOccurred')}${error.message}` : t('adminAccessRevoked'))
@@ -484,6 +498,8 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const seenPendingRequestKeys = new Set()
   const pendingPurchaseRequests = requests.filter((request) => {
     if ((request.status || 'pending') !== 'pending') return false
+    // Requests whose account was deleted have user_id cleared by the database.
+    if (!request.user_id) return false
     const key = `${String(request.user_email || request.user_id || '').toLowerCase()}::${request.course_id}`
     if (seenPendingRequestKeys.has(key) || enrolledCourseKeys.has(key)) return false
     seenPendingRequestKeys.add(key)
@@ -738,7 +754,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const adminTabs = [
     ['pending', t('pendingReviewCourses'), reviewCourses.length],
     ['teacher-applications', t('pendingTeachers'), pendingTeacherApplications.length],
-    ['access', t('grantAccess'), enrollments.length],
+    ['access', t('grantAccess'), pendingPurchaseRequests.length],
     ['users', t('userCount'), visibleUsers.length],
     ['inbox', t('inbox'), inboxMessages.length],
     ['courses', t('approvedCoursesTitle'), approvedCourses.length],
@@ -836,7 +852,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
                   <div key={item.id} className="admin-row">
                     <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
-                    <div>
+                    <div className="payment-request-actions">
                       <small>{t('paymentPending')}</small>
                       <button
                         className="approve-button"
@@ -845,6 +861,14 @@ function AdminDashboard({ user, profile, handleLogout }) {
                         onClick={() => approvePaymentRequest(item)}
                       >
                         {String(approvingRequestId) === String(item.id) ? t('grantingAccess') : t('confirmPaymentGrantAccess')}
+                      </button>
+                      <button
+                        className="danger-button"
+                        type="button"
+                        disabled={String(decliningRequestId) === String(item.id)}
+                        onClick={() => declinePaymentRequest(item)}
+                      >
+                        {String(decliningRequestId) === String(item.id) ? t('decliningRequest') : t('reject')}
                       </button>
                     </div>
                   </div>

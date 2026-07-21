@@ -1581,14 +1581,24 @@ function CoursePage({ user, profile, handleLogout }) {
 
   const continueCourseWhatsApp = async () => {
     if (user) {
-      await supabase.from('requests').insert({
-        user_id: user.id,
-        user_email: user.email,
-        user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
-        course_id: course.id,
-        course_name: course.title,
-        status: 'pending',
-      })
+      const requestPayload = {
+        p_course_id: course.id,
+        p_course_name: course.title,
+        p_user_email: user.email,
+        p_user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
+      }
+      const { error: requestRpcError } = await supabase.rpc('create_purchase_request', requestPayload)
+      if (requestRpcError && ['PGRST202', '42883'].includes(requestRpcError.code)) {
+        // Backward-compatible fallback until the purchase workflow migration is installed.
+        await supabase.from('requests').insert({
+          user_id: user.id,
+          user_email: user.email,
+          user_name: requestPayload.p_user_name,
+          course_id: course.id,
+          course_name: course.title,
+          status: 'pending',
+        })
+      }
       setRequested(true)
     }
 

@@ -1,4 +1,15 @@
 -- Deduplicated purchase requests while preserving the existing WhatsApp flow.
+-- Remove orphaned requests left by previously deleted accounts, then make future
+-- account deletion remove its purchase requests automatically.
+delete from public.requests where user_id is null;
+
+alter table public.requests
+  drop constraint if exists requests_user_id_fkey;
+
+alter table public.requests
+  add constraint requests_user_id_fkey
+  foreign key (user_id) references auth.users(id) on delete cascade;
+
 create or replace function public.create_purchase_request(
   p_course_id bigint,
   p_course_name text,
