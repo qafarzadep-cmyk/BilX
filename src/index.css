@@ -7419,6 +7419,75 @@ td button + .outline-button {
   background: #eef2ff;
 }
 
+.verification-wait-card {
+  text-align: center;
+}
+
+.verification-mail-icon {
+  width: 72px;
+  height: 72px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #e8eeff, #f5f7ff);
+  color: #1435c3;
+  box-shadow: 0 14px 30px rgba(20, 53, 195, 0.14);
+}
+
+.verification-email-address {
+  display: block;
+  margin: 18px 0;
+  padding: 12px;
+  border: 1px solid #cdd8ff;
+  border-radius: 11px;
+  background: #f5f7ff;
+  color: #1435c3;
+  overflow-wrap: anywhere;
+}
+
+.verification-steps {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 9px 11px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.verification-steps span {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #1435c3;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.verification-steps p {
+  margin: 0;
+  color: #4f5c6d;
+  font-size: 14px;
+}
+
+.auth-text-button {
+  margin: 12px auto 0;
+  border: 0;
+  background: transparent;
+  color: #516078;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-text-button:hover {
+  color: #1435c3;
+}
+
 /* Modern approved-course management */
 .admin-layout:not(.instructor-layout) .admin-courses-panel {
   border: 1px solid #e4e8f1;

@@ -731,6 +731,16 @@ function App() {
   }, [location.pathname])
 
   useEffect(() => {
+    if (!user || location.pathname !== '/profile') return
+    const params = new URLSearchParams(location.search)
+    if (params.get('confirmed') !== '1') return
+    localStorage.removeItem('bilx-pending-verification-email')
+    const purchaseReturn = localStorage.getItem('bilx-purchase-return')
+    if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
+    navigate(purchaseReturn || '/profile', { replace: true })
+  }, [location.pathname, location.search, navigate, user])
+
+  useEffect(() => {
     let mounted = true
 
     async function loadSession() {

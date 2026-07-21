@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, MailCheck } from 'lucide-react'
 import Navbar from './Navbar'
 import { appUrl } from './appUrl'
 import { useLanguage } from './i18n'
@@ -16,11 +16,32 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [pendingEmail, setPendingEmail] = useState(() => localStorage.getItem('bilx-pending-verification-email') || '')
+  const [resending, setResending] = useState(false)
   const { t } = useLanguage()
 
   const showMessage = (text) => {
     setMessage(text)
   }
+
+  useEffect(() => {
+    const finishVerifiedRegistration = async (session) => {
+      if (!session?.user) return
+      localStorage.removeItem('bilx-pending-verification-email')
+      const purchaseReturn = localStorage.getItem('bilx-purchase-return')
+      if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
+      navigate(purchaseReturn || '/profile', { replace: true })
+    }
+
+    supabase.auth.getSession().then(({ data }) => finishVerifiedRegistration(data.session))
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => finishVerifiedRegistration(session))
+    const checkOnFocus = () => supabase.auth.getSession().then(({ data }) => finishVerifiedRegistration(data.session))
+    window.addEventListener('focus', checkOnFocus)
+    return () => {
+      window.removeEventListener('focus', checkOnFocus)
+      listener.subscription.unsubscribe()
+    }
+  }, [navigate])
 
   const handleRegister = async (event) => {
     event.preventDefault()
@@ -35,7 +56,7 @@ function Register() {
       email: email.trim(),
       password,
       options: {
-        emailRedirectTo: appUrl('/login'),
+        emailRedirectTo: appUrl('/profile?confirmed=1'),
         data: {
           name: trimmedName,
           surname: trimmedSurname,
@@ -76,8 +97,55 @@ function Register() {
       return
     }
 
-    toast.success(t('verifyEmailSent'))
+    const normalizedEmail = email.trim().toLowerCase()
+    localStorage.setItem('bilx-pending-verification-email', normalizedEmail)
+    setPendingEmail(normalizedEmail)
     setLoading(false)
+  }
+
+  const resendVerification = async () => {
+    if (!pendingEmail || resending) return
+    setResending(true)
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: pendingEmail,
+      options: { emailRedirectTo: appUrl('/profile?confirmed=1') },
+    })
+    if (error) showMessage(error.message)
+    else toast.success(t('verificationEmailResent'))
+    setResending(false)
+  }
+
+  if (pendingEmail) {
+    return (
+      <div className="page auth-page-soft">
+        <Navbar />
+        <main className="auth-shell">
+          <section className="auth-card-clean verification-wait-card" aria-live="polite">
+            <span className="verification-mail-icon"><MailCheck size={34} /></span>
+            <p className="auth-kicker">BilX</p>
+            <h1>{t('checkEmailTitle')}</h1>
+            <p className="auth-subtitle">{t('checkEmailPersistentText')}</p>
+            <strong className="verification-email-address">{pendingEmail}</strong>
+            <div className="verification-steps">
+              <span>1</span><p>{t('verificationStepOpen')}</p>
+              <span>2</span><p>{t('verificationStepClick')}</p>
+              <span>3</span><p>{t('verificationStepReturn')}</p>
+            </div>
+            {message && <div className="error-box">{message}</div>}
+            <button className="outline-button full" type="button" onClick={resendVerification} disabled={resending}>
+              {resending ? t('loading') : t('resendVerificationEmail')}
+            </button>
+            <button className="auth-text-button" type="button" onClick={() => {
+              localStorage.removeItem('bilx-pending-verification-email')
+              setPendingEmail('')
+            }}>
+              {t('useDifferentEmail')}
+            </button>
+          </section>
+        </main>
+      </div>
+    )
   }
 
   return (
