@@ -3874,6 +3874,16 @@ body.quiz-fullscreen-open {
   gap: 8px;
 }
 
+.payment-request-details {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.payment-request-details small {
+  color: #6a6f73;
+}
+
 .admin-row-main {
   min-width: 0;
   flex: 1;

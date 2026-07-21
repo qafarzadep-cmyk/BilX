@@ -851,7 +851,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 <h2>{t('paymentRequestsTitle')}</h2>
                 {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
                   <div key={item.id} className="admin-row">
-                    <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
+                    <div className="payment-request-details">
+                      <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
+                      <small>{t('requestDateLabel')}: {formatDateTime(item.created_at)}</small>
+                    </div>
                     <div className="payment-request-actions">
                       <small>{t('paymentPending')}</small>
                       <button
