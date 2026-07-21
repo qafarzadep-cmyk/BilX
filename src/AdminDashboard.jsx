@@ -934,11 +934,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
                     <div key={enrollment.id} className="admin-row granted-access-row">
                       <div className="payment-request-details">
                         <div className="granted-access-identity">
-                          <strong>
+                          <button className="granted-student-name" type="button" onClick={() => student?.userId && navigate(`/admin/student/${student.userId}`)}>
                             {student
                               ? `${student.name || ''}${student.surname && student.surname !== '-' ? ` ${student.surname}` : ''}`.trim()
                               : matchingRequest?.user_name || enrollment.user_id}
-                          </strong>
+                          </button>
                           <small>{student?.email || enrollment.user_id}</small>
                         </div>
                         <div className="granted-access-course">
@@ -955,7 +955,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       </div>
                       <div className="payment-request-actions access-record-actions">
                         {student?.userId && (
-                          <button className="outline-button" type="button" onClick={() => openUserProfile(student, enrollment)}>
+                          <button className="outline-button" type="button" onClick={() => navigate(`/admin/student/${student.userId}`)}>
                             {t('studentProfileLabel')}
                           </button>
                         )}

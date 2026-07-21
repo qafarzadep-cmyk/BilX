@@ -4237,6 +4237,226 @@ table {
   white-space: nowrap;
 }
 
+.granted-student-name {
+  width: fit-content;
+  max-width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #1b3fc6;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.granted-student-name:hover {
+  text-decoration: underline;
+}
+
+.admin-student-profile-page {
+  padding-top: 28px;
+  padding-bottom: 56px;
+}
+
+.student-profile-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  margin-bottom: 18px;
+  padding: 8px 0;
+  background: transparent;
+  color: #2445c7;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-student-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  border: 1px solid #dfe5f1;
+  border-radius: 18px;
+  padding: 26px;
+  background: linear-gradient(135deg, #fff 0%, #f3f6ff 100%);
+  box-shadow: 0 14px 36px rgba(27, 55, 145, 0.08);
+}
+
+.admin-student-avatar {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  border-radius: 22px;
+  background: #173bd0;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.admin-student-hero h1 {
+  margin: 5px 0 10px;
+  font-size: clamp(26px, 3vw, 38px);
+}
+
+.admin-student-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 18px;
+  color: #626b7a;
+}
+
+.admin-student-facts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-student-course-count {
+  display: grid;
+  min-width: 105px;
+  place-items: center;
+  border-radius: 16px;
+  padding: 16px;
+  background: #173bd0;
+  color: #fff;
+}
+
+.admin-student-course-count strong {
+  font-size: 28px;
+}
+
+.admin-student-courses {
+  margin-top: 30px;
+}
+
+.admin-student-course-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 24px;
+  border: 1px solid #e1e6ef;
+  border-radius: 14px;
+  margin-top: 12px;
+  padding: 20px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(25, 42, 91, 0.05);
+}
+
+.admin-student-course-main h3 {
+  margin: 10px 0;
+  font-size: 20px;
+}
+
+.student-progress-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #f0f2f5;
+  color: #626b78;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.student-progress-status.inProgress {
+  background: #fff5d9;
+  color: #8a5a00;
+}
+
+.student-progress-status.completed {
+  background: #e5f8eb;
+  color: #16723a;
+}
+
+.admin-student-course-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 18px;
+  color: #697282;
+  font-size: 14px;
+}
+
+.admin-student-course-meta b {
+  color: #29313f;
+}
+
+.admin-student-progress-box {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  border-left: 1px solid #e5e9f2;
+  padding-left: 24px;
+}
+
+.admin-student-progress-box > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-student-progress-box strong {
+  color: #173bd0;
+  font-size: 25px;
+}
+
+@media (max-width: 700px) {
+  .admin-student-profile-page {
+    padding: 18px 14px 40px;
+  }
+
+  .admin-student-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .admin-student-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    font-size: 23px;
+  }
+
+  .admin-student-facts {
+    display: grid;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-student-course-count {
+    grid-column: 1 / -1;
+    display: flex;
+    min-width: 0;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .admin-student-course-count strong {
+    font-size: 20px;
+  }
+
+  .admin-student-course-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .admin-student-progress-box {
+    border-top: 1px solid #e5e9f2;
+    border-left: 0;
+    padding-top: 16px;
+    padding-left: 0;
+  }
+
+  .admin-student-course-meta {
+    display: grid;
+  }
+}
+
 .granted-access-course span {
   overflow-wrap: anywhere;
   line-height: 1.35;

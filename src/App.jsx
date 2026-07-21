@@ -3,6 +3,7 @@ import { Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-
 import { MessageCircle, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
+import AdminStudentProfile from './AdminStudentProfile'
 import CertificatePage from './CertificatePage'
 import CoursePage from './CoursePage'
 import { UPCOMING_COURSES } from './courseCatalog'
@@ -937,6 +938,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/admin" element={<AdminDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/admin/student/:id" element={<AdminStudentProfile user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/profile" element={<StudentProfile user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
