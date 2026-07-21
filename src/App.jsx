@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { MessageCircle, X } from 'lucide-react'
+import { MessageCircle, Play, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import AdminStudentProfile from './AdminStudentProfile'
@@ -611,7 +611,14 @@ function Home({ user, profile, handleLogout }) {
                       onClick={() => openCourse(course)}
                       onKeyDown={(event) => onCourseKeyDown(event, course)}
                     >
-                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                      <div className="course-card-thumbnail">
+                        <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                        {isA1Course(course) && (
+                          <span className="course-card-play-icon" aria-hidden="true">
+                            <Play size={24} fill="currentColor" />
+                          </span>
+                        )}
+                      </div>
                       <div className="course-card-body">
                         <h3><HighlightedText text={course.title} query={search} /></h3>
                         {(course.description || isA1Course(course)) && (
