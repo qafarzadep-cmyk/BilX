@@ -4208,6 +4208,84 @@ table {
   white-space: nowrap;
 }
 
+.granted-access-row {
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.granted-access-row .payment-request-details {
+  flex: 1;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1fr) minmax(280px, 1.35fr);
+  align-items: center;
+  gap: 10px 18px;
+}
+
+.granted-access-identity,
+.granted-access-course {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.granted-access-identity strong,
+.granted-access-course span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.granted-access-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 14px;
+}
+
+.granted-access-meta small {
+  white-space: nowrap;
+}
+
+.granted-access-meta b {
+  color: #303743;
+  font-weight: 700;
+}
+
+.granted-access-row .access-record-actions {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 6px;
+}
+
+.granted-access-row .access-record-actions button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .granted-access-row .payment-request-details {
+    grid-template-columns: minmax(150px, 0.8fr) minmax(210px, 1fr);
+  }
+
+  .granted-access-meta {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .granted-access-row .payment-request-details {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .granted-access-meta {
+    grid-column: auto;
+  }
+
+  .granted-access-row .access-record-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .approved-course-actions {
   display: flex;
   flex-wrap: wrap;

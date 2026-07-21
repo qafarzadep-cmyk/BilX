@@ -937,19 +937,25 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 <div className="panel-card">
                   <h2>{t('acceptedStudentsTitle')}</h2>
                   {grantedAccessRows.length === 0 ? <p className="muted">{t('noAcceptedStudents')}</p> : grantedAccessRows.map(({ enrollment, matchingRequest, course, student, instructor }) => (
-                    <div key={enrollment.id} className="admin-row">
+                    <div key={enrollment.id} className="admin-row granted-access-row">
                       <div className="payment-request-details">
-                        <strong>
-                          {student
-                            ? `${student.name || ''}${student.surname && student.surname !== '-' ? ` ${student.surname}` : ''}`.trim()
-                            : matchingRequest?.user_name || enrollment.user_id}
-                        </strong>
-                        <small>{student?.email || enrollment.user_id}</small>
-                        <span>{course?.title || enrollment.course_id}</span>
-                        {instructor?.name && <small>{t('instructorLabel')}: {instructor.name}</small>}
-                        <small>{t('requestDateLabel')}: {formatDateTime(matchingRequest?.created_at)}</small>
-                        <small>{t('accessGrantedDateLabel')}: {formatDateTime(enrollment.enrolled_at || matchingRequest?.updated_at)}</small>
-                        {enrollment.price_paid != null && <small>{t('purchasePriceLabel')}: {formatCoursePrice(enrollment.price_paid)}</small>}
+                        <div className="granted-access-identity">
+                          <strong>
+                            {student
+                              ? `${student.name || ''}${student.surname && student.surname !== '-' ? ` ${student.surname}` : ''}`.trim()
+                              : matchingRequest?.user_name || enrollment.user_id}
+                          </strong>
+                          <small>{student?.email || enrollment.user_id}</small>
+                        </div>
+                        <div className="granted-access-course">
+                          <span>{course?.title || enrollment.course_id}</span>
+                          {instructor?.name && <small>{t('instructorLabel')}: {instructor.name}</small>}
+                        </div>
+                        <div className="granted-access-meta">
+                          <small>{t('requestDateLabel')}: <b>{formatDateTime(matchingRequest?.created_at)}</b></small>
+                          <small>{t('accessGrantedDateLabel')}: <b>{formatDateTime(enrollment.enrolled_at || enrollment.created_at || matchingRequest?.access_granted_at || matchingRequest?.updated_at || matchingRequest?.created_at)}</b></small>
+                          {enrollment.price_paid != null && <small>{t('purchasePriceLabel')}: <b>{formatCoursePrice(enrollment.price_paid)}</b></small>}
+                        </div>
                       </div>
                       <div className="payment-request-actions access-record-actions">
                         {student?.userId && (
