@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from './Navbar'
+import { normalizeSavedCourseText } from './courseIdentity'
 import { useLanguage } from './i18n'
 import { ADMIN_EMAIL, ADMIN_PUBLIC_NAME } from './profileApi'
 import { supabase } from './supabase'
@@ -562,7 +563,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
                       <small>{new Date(latest.created_at).toLocaleDateString('az-AZ')}</small>
                     </span>
                     {(profile.publicEmail ?? profile.email) && <small>{profile.publicEmail ?? profile.email}</small>}
-                    <span>{latest.body}</span>
+                    <span>{normalizeSavedCourseText(latest.body)}</span>
                   </span>
                 </button>
               )
@@ -608,7 +609,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
                         <strong>{displayName}</strong>
                         <small>{new Date(item.created_at).toLocaleString('az-AZ')}</small>
                       </div>
-                      <p>{item.body}</p>
+                      <p>{normalizeSavedCourseText(item.body)}</p>
                     </div>
                   </div>
                 )

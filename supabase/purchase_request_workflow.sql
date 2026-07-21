@@ -32,7 +32,7 @@ alter table public.enrollments
 update public."Courses"
 set price = 34.90,
     regular_price = 59.90
-where title = 'Sıfırdan İngiliscə Danışıq kursu (A1 Level)';
+where id = 17;
 
 update public.requests request
 set requested_price = course.price,

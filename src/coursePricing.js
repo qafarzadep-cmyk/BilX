@@ -1,12 +1,15 @@
+import { A1_COURSE_ID, A1_COURSE_TITLE } from './courseIdentity'
+
 const LAUNCH_OFFER = {
-  courseTitle: 'Sıfırdan İngiliscə Danışıq kursu (A1 Level)',
+  courseId: A1_COURSE_ID,
+  courseTitle: A1_COURSE_TITLE,
   price: 34.9,
   regularPrice: 59.9,
   endsOn: '20 avqustadək',
 }
 
 export function getCoursePricing(course) {
-  if (course?.title === LAUNCH_OFFER.courseTitle) {
+  if (String(course?.id) === LAUNCH_OFFER.courseId || course?.title === LAUNCH_OFFER.courseTitle) {
     return {
       currentPrice: LAUNCH_OFFER.price,
       regularPrice: LAUNCH_OFFER.regularPrice,

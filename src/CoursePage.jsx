@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl, isNumericCourseParam, slugifyCourseTitle } from './courseUrl'
+import { A1_COURSE_ID, A1_LEGACY_SLUG } from './courseIdentity'
 import { formatCoursePrice, getCoursePricing } from './coursePricing'
 import Navbar from './Navbar'
 import QuizResultSummary from './QuizResultSummary'
@@ -818,7 +819,10 @@ function CoursePage({ user, profile, handleLogout }) {
 
       if (!lookupCourseId && courseParam) {
         const { data: slugCourses } = await supabase.from('Courses').select('*')
-        currentCourse = (slugCourses || []).find((item) => slugifyCourseTitle(item.title) === courseParam) || null
+        currentCourse = (slugCourses || []).find((item) => (
+          slugifyCourseTitle(item.title) === courseParam
+          || (courseParam === A1_LEGACY_SLUG && String(item.id) === A1_COURSE_ID)
+        )) || null
         lookupCourseId = currentCourse?.id || null
       }
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
 import bilxLogo from './assets/bilx-logo.png'
+import { normalizeSavedCourseText } from './courseIdentity'
 import { useLanguage } from './i18n'
 import { ADMIN_EMAIL, ADMIN_PUBLIC_NAME, isAdmin } from './profileApi'
 import { supabase } from './supabase'
@@ -393,7 +394,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                       onClick={() => openNotification(item)}
                     >
                       <strong>{item.title}</strong>
-                      {item.body && <span>{item.body}</span>}
+                      {item.body && <span>{normalizeSavedCourseText(item.body)}</span>}
                     </button>
                   ))}
                 </div>
