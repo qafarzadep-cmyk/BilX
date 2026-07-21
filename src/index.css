@@ -6734,6 +6734,7 @@ td button + .outline-button {
 .course-review-stars { margin-top: 12px; }
 .course-review-form { display: grid; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
 .course-review-form h3 { margin: 0; }
+.course-review-form > p { margin: -4px 0 2px; color: #667085; }
 .course-review-form textarea { width: 100%; resize: vertical; }
 .course-review-form .primary-button { justify-self: start; }
 .course-review-star-picker { display: flex; gap: 2px; }

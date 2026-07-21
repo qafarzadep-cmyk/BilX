@@ -35,13 +35,6 @@ const placeholderLessons = [
   },
 ]
 
-const A1_LEGACY_REVIEWS = [
-  { name: 'Sevinc Qasımova', rating: 5, dateLabel: '2 ay əvvəl', text: 'Pərvin müəllimədən 4 il əvvəl canlı dərs götürmüşdüm. Sıfır deyildim, amma bu kurs biliklərimi dərindən möhkəmlətməyə çox kömək etdi.' },
-  { name: 'Məryəm İsmayıl', rating: 5, dateLabel: '1 ay əvvəl', text: 'Kurs çox yaxşı dizayn olunub. Mənim kimi qrammatikadan bezənlər üçün əla kursdur.' },
-  { name: 'Rauf Həbibzadə', rating: 4, dateLabel: '3 həftə əvvəl', text: 'Mənim canlı dərs götürməyə vaxtım olmur. Kursu elə audio dərs kimi maşın sürə-sürə dinləyirəm. Təkrarlar cümlələri yadda saxlamağa çox kömək olur. Thank you, Parvin teacher. :)' },
-  { name: 'Gözəl Salahova', rating: 5, dateLabel: '2 həftə əvvəl', text: 'Kursu bir həftəyə bitirdim :D A2 səviyyəsi nə vaxt çıxar? Səbirsizliklə gözləyirəm.' },
-]
-
 const A1_RATING_DISTRIBUTION = [
   { stars: 5, percent: 67 }, { stars: 4, percent: 27 }, { stars: 3, percent: 4 }, { stars: 2, percent: 1 }, { stars: 1, percent: 1 },
 ]
@@ -1768,7 +1761,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const showBuyerCourseActions = !canViewFullCourse || isTeacherBuyerPreview
   const isA1SalesCourse = String(course.id) === '17' || /sıfırdan ingiliscə danışıq/iu.test(course.title || '')
   const coursePricing = getCoursePricing(course)
-  const ratingSummary = courseReviewData.summary || (isA1SalesCourse ? { average: 4.7, count: 38 } : null)
+  const ratingSummary = courseReviewData.summary?.count > 0 ? courseReviewData.summary : null
 
   return (
     <div className="page">
@@ -1879,9 +1872,9 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
         )}
 
-        {!loading && (isA1SalesCourse || courseReviewData.summary?.count > 0 || isEnrolled) && (
+        {!loading && (courseReviewData.summary?.count > 0 || isEnrolled) && (
           <section className="course-reviews-panel" aria-labelledby="course-reviews-title">
-            <header className="course-reviews-header">
+            {ratingSummary && <header className="course-reviews-header">
               <div>
                 <p className="admin-section-eyebrow">TƏLƏBƏ RƏYLƏRİ</p>
                 <h2 id="course-reviews-title">Tələbələr nə deyir?</h2>
@@ -1893,14 +1886,8 @@ function CoursePage({ user, profile, handleLogout }) {
                   <small>({ratingSummary.count} tələbə)</small>
                 </button>
               )}
-            </header>
-            <div className="course-review-grid">
-              {isA1SalesCourse && A1_LEGACY_REVIEWS.map((review) => (
-                <article className="course-review-card" key={review.name}>
-                  <div className="course-review-author"><span>{review.name.charAt(0)}</span><div><strong>{review.name}</strong><small>Keçmiş tələbə rəyi</small></div></div>
-                  <p>{review.text}</p>
-                </article>
-              ))}
+            </header>}
+            {courseReviewData.reviews.some((review) => review.review) && <div className="course-review-grid">
               {courseReviewData.reviews.filter((review) => review.review).map((review) => (
                 <article className="course-review-card" key={review.id}>
                   <div className="course-review-author"><span>{review.author.charAt(0)}</span><div><strong>{review.author}</strong><small>{new Date(review.createdAt).toLocaleDateString('az-AZ')}</small></div></div>
@@ -1908,10 +1895,11 @@ function CoursePage({ user, profile, handleLogout }) {
                   <p>{review.review}</p>
                 </article>
               ))}
-            </div>
+            </div>}
             {isEnrolled && (
               <form className="course-review-form" onSubmit={submitCourseReview}>
-                <h3>Rəyini paylaş</h3>
+                <h3>Bu kurs haqqında nə düşünürsünüz?</h3>
+                <p>Qiymətləndirin və rəyinizi yazın.</p>
                 <div className="course-review-star-picker" aria-label="Qiymət seç">
                   {[1, 2, 3, 4, 5].map((value) => <button type="button" key={value} className={value <= reviewRating ? 'active' : ''} onClick={() => setReviewRating(value)} aria-label={`${value} ulduz`}>★</button>)}
                 </div>
@@ -2605,7 +2593,6 @@ function CoursePage({ user, profile, handleLogout }) {
               </aside>
               <div className="reviews-modal-list">
                 {[
-                  ...(isA1SalesCourse ? A1_LEGACY_REVIEWS : []),
                   ...courseReviewData.reviews.filter((review) => review.review).map((review) => ({ name: review.author, rating: review.rating, dateLabel: new Date(review.createdAt).toLocaleDateString('az-AZ'), text: review.review })),
                 ].filter((review) => `${review.name} ${review.text}`.toLocaleLowerCase('az-AZ').includes(reviewSearch.trim().toLocaleLowerCase('az-AZ'))).map((review, index) => (
                   <article className="reviews-modal-item" key={`${review.name}-${index}`}>

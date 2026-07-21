@@ -8,13 +8,10 @@ function getConfig() {
   return { url, serviceKey, anonKey }
 }
 
-const LEGACY_A1_SUMMARY = { ratingTotal: 178.6, ratingCount: 38 }
-
 function summarizeRatings(rows, courseId) {
   const ratings = (rows || []).filter((row) => String(row.course_id) === String(courseId))
-  const legacy = String(courseId) === '17' ? LEGACY_A1_SUMMARY : { ratingTotal: 0, ratingCount: 0 }
-  const total = ratings.reduce((sum, row) => sum + Number(row.rating || 0), legacy.ratingTotal)
-  const count = ratings.length + legacy.ratingCount
+  const total = ratings.reduce((sum, row) => sum + Number(row.rating || 0), 0)
+  const count = ratings.length
   return { average: count ? Math.round((total / count) * 10) / 10 : null, count }
 }
 
