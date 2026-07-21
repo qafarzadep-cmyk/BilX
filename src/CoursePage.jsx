@@ -299,6 +299,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [quizAnswers, setQuizAnswers] = useState({})
   const [checkedQuizId, setCheckedQuizId] = useState(null)
   const [finishedQuizIds, setFinishedQuizIds] = useState({})
+  const [quizAttempts, setQuizAttempts] = useState({})
   const [quizExpanded, setQuizExpanded] = useState(false)
   const [expandedSectionIds, setExpandedSectionIds] = useState(() => new Set())
   const [curriculumSearch, setCurriculumSearch] = useState('')
@@ -877,13 +878,14 @@ function CoursePage({ user, profile, handleLogout }) {
         access = enrolled
       }
       let progressData = []
+      let quizAttemptData = []
       if (access && sortedVideos.length > 0) {
-        const { data } = await supabase
-          .from('video_progress')
-          .select('*')
-          .eq('user_id', userId)
-          .in('video_id', sortedVideos.map((video) => video.id))
-        progressData = data || []
+        const [progressResponse, attemptsResponse] = await Promise.all([
+          supabase.from('video_progress').select('*').eq('user_id', userId).in('video_id', sortedVideos.map((video) => video.id)),
+          supabase.from('quiz_attempts').select('*').eq('user_id', userId).eq('course_id', lookupCourseId),
+        ])
+        progressData = progressResponse.data || []
+        quizAttemptData = attemptsResponse.data || []
       }
 
       if (mounted) {
@@ -910,6 +912,8 @@ function CoursePage({ user, profile, handleLogout }) {
         setHasAccess(access)
         setIsEnrolled(enrolled || access)
         setProgress(progressData)
+        setQuizAttempts(Object.fromEntries(quizAttemptData.map((attempt) => [String(attempt.quiz_id), attempt])))
+        setFinishedQuizIds(Object.fromEntries(quizAttemptData.map((attempt) => [String(attempt.quiz_id), true])))
         setLoading(false)
       }
     }
@@ -1221,7 +1225,9 @@ function CoursePage({ user, profile, handleLogout }) {
   const safeActiveQuizQuestionIndex = Math.min(activeQuizQuestionIndex, Math.max(activeQuizQuestions.length - 1, 0))
   const activeQuizQuestion = activeQuizQuestions[safeActiveQuizQuestionIndex] || null
   const activeQuizAnswerKey = activeQuiz ? `${activeQuiz.id}:${safeActiveQuizQuestionIndex}` : ''
-  const activeQuizAnswer = activeQuiz ? quizAnswers[activeQuizAnswerKey] : undefined
+  const activeQuizAnswer = activeQuiz
+    ? (quizAnswers[activeQuizAnswerKey] ?? quizAttempts[String(activeQuiz.id)]?.answers?.[safeActiveQuizQuestionIndex])
+    : undefined
   const activeQuizChecked = activeQuiz ? String(checkedQuizId) === activeQuizAnswerKey : false
   const activeQuizFinished = activeQuiz ? Boolean(finishedQuizIds[activeQuiz.id]) : false
   const activeQuizExpanded = Boolean(activeQuiz && quizExpanded)
@@ -1229,7 +1235,9 @@ function CoursePage({ user, profile, handleLogout }) {
     ? activeQuizQuestion.explanations?.[Number(activeQuizAnswer)] || ''
     : ''
   const activeQuizResults = activeQuizQuestions.map((question, index) => {
-    const answer = activeQuiz ? quizAnswers[`${activeQuiz.id}:${index}`] : undefined
+    const answer = activeQuiz
+      ? (quizAnswers[`${activeQuiz.id}:${index}`] ?? quizAttempts[String(activeQuiz.id)]?.answers?.[index])
+      : undefined
     const isCorrect = Number(answer) === Number(question.correctIndex)
     return {
       question,
@@ -1250,6 +1258,39 @@ function CoursePage({ user, profile, handleLogout }) {
   })
   const activeQuizCorrectCount = activeQuizResults.filter((result) => result.isCorrect).length
   const hasNextActiveQuizQuestion = safeActiveQuizQuestionIndex < activeQuizQuestions.length - 1
+
+  const finishActiveQuiz = async () => {
+    if (!activeQuiz || !userId || !courseId) return
+    const attempt = {
+      user_id: userId,
+      course_id: courseId,
+      quiz_id: activeQuiz.id,
+      answers: activeQuizQuestions.map((_, index) => quizAnswers[`${activeQuiz.id}:${index}`] ?? null),
+      correct_count: activeQuizCorrectCount,
+      total_count: activeQuizQuestions.length,
+      completed_at: new Date().toISOString(),
+    }
+    const { error } = await supabase.from('quiz_attempts').upsert(attempt, { onConflict: 'user_id,quiz_id' })
+    if (error) {
+      toast.error(t('quizResultSaveFailed'))
+      return
+    }
+    setQuizAttempts((current) => ({ ...current, [String(activeQuiz.id)]: attempt }))
+    setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))
+  }
+
+  const retakeActiveQuiz = () => {
+    if (!activeQuiz) return
+    setQuizAnswers((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith(`${activeQuiz.id}:`))))
+    setCheckedQuizId(null)
+    setActiveQuizQuestionIndex(0)
+    setQuizAttempts((current) => {
+      const next = { ...current }
+      delete next[String(activeQuiz.id)]
+      return next
+    })
+    setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: false }))
+  }
 
   useEffect(() => {
     if (!activeQuizExpanded) return undefined
@@ -1704,7 +1745,7 @@ function CoursePage({ user, profile, handleLogout }) {
           <section className={showInlineLessonPlayer ? 'course-player-layout' : 'course-player-layout curriculum-only'}>
             {showInlineLessonPlayer && (
             <div className="course-player-main">
-              <div className="youtube-player-shell">
+              <div className={activeQuiz && !previewModalOpen ? 'youtube-player-shell quiz-player-shell' : 'youtube-player-shell'}>
                 {previewModalOpen ? (
                   <div className="empty-player">{t('previewCourse')}</div>
                 ) : activeQuiz ? (
@@ -1726,6 +1767,9 @@ function CoursePage({ user, profile, handleLogout }) {
                         <span className="lesson-section-context">{t('quizResult')}</span>
                         <strong>{t('quizScore').replace('{correct}', activeQuizCorrectCount).replace('{total}', activeQuizQuestions.length)}</strong>
                         <QuizResultSummary correctCount={activeQuizCorrectCount} totalCount={activeQuizQuestions.length} t={t} />
+                        <button className="outline-button quiz-retake-button" type="button" onClick={retakeActiveQuiz}>
+                          {t('retakeQuiz')}
+                        </button>
                         <h3 className="quiz-review-heading">{t('quizCheckAnswers')}</h3>
                         <div className="quiz-result-list">
                           {activeQuizResults.map((result) => (
@@ -1797,7 +1841,7 @@ function CoursePage({ user, profile, handleLogout }) {
                               className="primary-button"
                               type="button"
                               disabled={activeQuizAnswer === undefined}
-                              onClick={() => setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))}
+                              onClick={finishActiveQuiz}
                             >
                               {t('seeAllResults')}
                             </button>
