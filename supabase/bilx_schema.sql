@@ -46,6 +46,8 @@ create table if not exists public.video_progress (
   user_id uuid not null references auth.users(id) on delete cascade,
   video_id bigint not null references public.videos(id) on delete cascade,
   watched boolean not null default false,
+  position_seconds numeric not null default 0,
+  last_opened_at timestamptz,
   updated_at timestamptz not null default now(),
   unique (user_id, video_id)
 );
