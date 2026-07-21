@@ -190,22 +190,14 @@ function getResumeVideoId({ requestedVideoId, userId, courseId, videos, progress
     return requestedVideoId
   }
 
-  const storedResume = getStoredResumeVideoId(userId, courseId, videos)
-  const activity = (progress || [])
-    .filter((item) => videos.some((video) => String(video.id) === String(item.video_id)))
-    .sort((a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0))[0]
-  const databaseUpdatedAt = Date.parse(activity?.updated_at) || 0
-  if (activity && databaseUpdatedAt >= (storedResume?.updatedAt || 0)) {
-    if (!activity.watched) return activity.video_id
-    const activityIndex = videos.findIndex((video) => String(video.id) === String(activity.video_id))
-    return videos[activityIndex + 1]?.id || activity.video_id
-  }
-  if (storedResume) return storedResume.videoId
-
   const watchedIds = new Set((progress || []).filter((item) => item.watched).map((item) => String(item.video_id)))
   const firstUnwatched = videos.find((video) => !watchedIds.has(String(video.id)))
-  if (watchedIds.size > 0) return firstUnwatched?.id || videos[videos.length - 1]?.id || null
-  return null
+  if (firstUnwatched) return firstUnwatched.id
+
+  // Every lesson is complete. A same-device value is useful only for revisiting;
+  // it must never override the first unfinished lesson above.
+  const storedResume = getStoredResumeVideoId(userId, courseId, videos)
+  return storedResume?.videoId || videos[videos.length - 1]?.id || null
 }
 
 function getTrailerDisplayTitle(title, fallback) {
