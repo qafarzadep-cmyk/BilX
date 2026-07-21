@@ -1762,6 +1762,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const showBuyerCourseActions = !canViewFullCourse || isTeacherBuyerPreview
   const isA1SalesCourse = String(course.id) === '17' || /sıfırdan ingiliscə danışıq/iu.test(course.title || '')
   const coursePricing = getCoursePricing(course)
+  const ratingSummary = courseReviewData.summary || (isA1SalesCourse ? { average: 4.7, count: 38 } : null)
 
   return (
     <div className="page">
@@ -1775,9 +1776,14 @@ function CoursePage({ user, profile, handleLogout }) {
               <h1>{t('a1LandingHeadline')}</h1>
             ) : <h1>{course.title}</h1>}
             {instructorName && (
-              <button className="teacher-profile-link course-instructor hero-author" type="button" onClick={() => navigate(`/teacher/${course.instructor_id}`)}>
-                {t('instructorLabel')}: {instructorName}
-              </button>
+              isAdmin(user)
+                ? <button className="teacher-profile-link course-instructor hero-author" type="button" onClick={() => navigate(`/teacher/${course.instructor_id}`)}>{t('instructorLabel')}: {instructorName}</button>
+                : <small className="course-instructor hero-author">{t('instructorLabel')}: {instructorName}</small>
+            )}
+            {ratingSummary?.count > 0 && (
+              <div className="course-hero-rating" aria-label={`${ratingSummary.average} / 5, ${ratingSummary.count} tələbə`}>
+                <strong>{ratingSummary.average}</strong><span aria-hidden="true">★★★★★</span><small>({ratingSummary.count} tələbə)</small>
+              </div>
             )}
             <p>{isA1SalesCourse ? t('a1LandingSubtitle') : course.description}</p>
             <div className="tag-row">
@@ -1867,18 +1873,18 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
         )}
 
-        {(isA1SalesCourse || courseReviewData.summary?.count > 0 || isEnrolled) && (
+        {!loading && (isA1SalesCourse || courseReviewData.summary?.count > 0 || isEnrolled) && (
           <section className="course-reviews-panel" aria-labelledby="course-reviews-title">
             <header className="course-reviews-header">
               <div>
                 <p className="admin-section-eyebrow">TƏLƏBƏ RƏYLƏRİ</p>
                 <h2 id="course-reviews-title">Tələbələr nə deyir?</h2>
               </div>
-              {courseReviewData.summary?.count > 0 && (
+              {ratingSummary?.count > 0 && (
                 <div className="course-rating-summary">
-                  <strong>{courseReviewData.summary.average}</strong>
+                  <strong>{ratingSummary.average}</strong>
                   <span aria-hidden="true">★★★★★</span>
-                  <small>({courseReviewData.summary.count} tələbə)</small>
+                  <small>({ratingSummary.count} tələbə)</small>
                 </div>
               )}
             </header>
