@@ -285,6 +285,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
     setDecliningRequestId(null)
   }
 
+  const removeAccess = async (enrollment) => {
+    if (!enrollment?.id || !window.confirm(t('confirmRevokeCourseAccess'))) return
+    const { error } = await supabase.from('enrollments').delete().eq('id', enrollment.id)
+    setMessage(error ? `${t('errorOccurred')}${error.message}` : t('adminAccessRevoked'))
+    if (!error) await loadData()
+  }
+
   const sendAdminMessage = async () => {
     if (!selectedUser?.userId || !adminMessageBody.trim()) return
     const body = adminMessageBody.trim()
@@ -487,6 +494,17 @@ function AdminDashboard({ user, profile, handleLogout }) {
     seenPendingRequestKeys.add(key)
     return true
   })
+  const grantedAccessRows = enrollments
+    .filter((enrollment) => (enrollment.status || 'active') === 'active')
+    .map((enrollment) => {
+      const studentEmail = String(enrollment.user_id || '').trim().toLowerCase()
+      const matchingRequest = requests.find((request) => (
+        String(request.user_email || '').trim().toLowerCase() === studentEmail
+        && String(request.course_id) === String(enrollment.course_id)
+        && request.status === 'access_granted'
+      ))
+      return { enrollment, matchingRequest }
+    })
   const courseLabel = (course) => {
     if (!course) return ''
     const instructorName = getCourseAuthorName(course)
@@ -803,36 +821,54 @@ function AdminDashboard({ user, profile, handleLogout }) {
           )}
 
           {activeTab === 'access' && (
-              <div className="panel-card payment-requests-panel">
-                <h2>{t('paymentRequestsTitle')}</h2>
-                {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
-                  <div key={item.id} className="admin-row">
-                    <div className="payment-request-details">
-                      <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
-                      <small>{t('requestDateLabel')}: {formatDateTime(item.created_at)}</small>
+            <>
+                <div className="panel-card payment-requests-panel">
+                  <h2>{t('paymentRequestsTitle')}</h2>
+                  {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
+                    <div key={item.id} className="admin-row">
+                      <div className="payment-request-details">
+                        <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
+                        <small>{t('requestDateLabel')}: {formatDateTime(item.created_at)}</small>
+                      </div>
+                      <div className="payment-request-actions">
+                        <small>{t('paymentPending')}</small>
+                        <button
+                          className="approve-button"
+                          type="button"
+                          disabled={String(approvingRequestId) === String(item.id)}
+                          onClick={() => approvePaymentRequest(item)}
+                        >
+                          {String(approvingRequestId) === String(item.id) ? t('grantingAccess') : t('confirmPaymentGrantAccess')}
+                        </button>
+                        <button
+                          className="danger-button"
+                          type="button"
+                          disabled={String(decliningRequestId) === String(item.id)}
+                          onClick={() => declinePaymentRequest(item)}
+                        >
+                          {String(decliningRequestId) === String(item.id) ? t('decliningRequest') : t('reject')}
+                        </button>
+                      </div>
                     </div>
-                    <div className="payment-request-actions">
-                      <small>{t('paymentPending')}</small>
-                      <button
-                        className="approve-button"
-                        type="button"
-                        disabled={String(approvingRequestId) === String(item.id)}
-                        onClick={() => approvePaymentRequest(item)}
-                      >
-                        {String(approvingRequestId) === String(item.id) ? t('grantingAccess') : t('confirmPaymentGrantAccess')}
-                      </button>
-                      <button
-                        className="danger-button"
-                        type="button"
-                        disabled={String(decliningRequestId) === String(item.id)}
-                        onClick={() => declinePaymentRequest(item)}
-                      >
-                        {String(decliningRequestId) === String(item.id) ? t('decliningRequest') : t('reject')}
-                      </button>
+                  ))}
+                </div>
+                <div className="panel-card">
+                  <h2>{t('acceptedStudentsTitle')}</h2>
+                  {grantedAccessRows.length === 0 ? <p className="muted">{t('noAcceptedStudents')}</p> : grantedAccessRows.map(({ enrollment, matchingRequest }) => (
+                    <div key={enrollment.id} className="admin-row">
+                      <div className="payment-request-details">
+                        <strong>{enrollment.user_id}</strong>
+                        <span>{courseLabel(courses.find((course) => String(course.id) === String(enrollment.course_id))) || enrollment.course_id}</span>
+                        <small>{t('requestDateLabel')}: {formatDateTime(matchingRequest?.created_at)}</small>
+                        <small>{t('accessGrantedDateLabel')}: {formatDateTime(enrollment.enrolled_at)}</small>
+                      </div>
+                      <div>
+                        <button className="danger-button" type="button" onClick={() => removeAccess(enrollment)}>{t('revokeAccess')}</button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+            </>
           )}
 
           {activeTab === 'teacher-applications' && (
