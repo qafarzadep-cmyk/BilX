@@ -529,7 +529,7 @@ function Home({ user, profile, handleLogout }) {
                           <div className="home-course-thumb home-course-thumb-empty" aria-hidden="true">📚</div>
                         )}
                         <div className="home-course-card-body">
-                          <h3>{course.title}</h3>
+                          <h3>{isA1Course(course) ? t('a1LandingHeadline') : course.title}</h3>
                           {instructorName && (
                             <button className="teacher-profile-link home-course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
                               {instructorName}
@@ -625,11 +625,16 @@ function Home({ user, profile, handleLogout }) {
                         )}
                       </div>
                       <div className="course-card-body">
-                        <h3><HighlightedText text={course.title} query={search} /></h3>
+                        <h3>
+                          <HighlightedText
+                            text={isA1Course(course) ? t('a1LandingHeadline') : course.title}
+                            query={search}
+                          />
+                        </h3>
                         {(course.description || isA1Course(course)) && (
                           <p>
                             <HighlightedText
-                              text={isA1Course(course) ? t('a1LandingHeadline') : course.description}
+                              text={isA1Course(course) ? t('a1LandingSubtitle') : course.description}
                               query={search}
                             />
                           </p>
