@@ -4403,7 +4403,39 @@ table {
   font-size: 25px;
 }
 
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #e8ebf1;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.admin-pagination span {
+  min-width: 58px;
+  color: #596273;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.admin-pagination button {
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 13px;
+}
+
 @media (max-width: 700px) {
+  .admin-pagination {
+    justify-content: center;
+  }
+
+  .admin-pagination button {
+    flex: 1;
+  }
+
   .admin-student-profile-page {
     padding: 18px 14px 40px;
   }

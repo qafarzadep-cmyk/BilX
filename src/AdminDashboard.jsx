@@ -52,6 +52,7 @@ function getCourseStatusLabel(status) {
 }
 
 const ADMIN_TAB_IDS = ['pending', 'teacher-applications', 'access', 'users', 'inbox', 'courses', 'stats']
+const ADMIN_PAGE_SIZE = 20
 
 function AdminDashboard({ user, profile, handleLogout }) {
   const navigate = useNavigate()
@@ -74,6 +75,8 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [adminMessageBody, setAdminMessageBody] = useState('')
   const [approvingRequestId, setApprovingRequestId] = useState(null)
   const [decliningRequestId, setDecliningRequestId] = useState(null)
+  const [listPages, setListPages] = useState({})
+  const [recordCounts, setRecordCounts] = useState({})
   const canAdmin = isAdmin(user)
   const { t, language } = useLanguage()
 
@@ -109,6 +112,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
   }
 
   const loadData = useCallback(async () => {
+    const needsCourses = ['pending', 'access', 'users', 'courses', 'stats'].includes(activeTab)
+    const needsProfiles = ['access', 'users', 'stats'].includes(activeTab)
+    const needsTeachers = ['teacher-applications', 'users', 'stats'].includes(activeTab)
+    const needsEnrollments = ['access', 'users', 'courses', 'stats'].includes(activeTab)
+    const needsRequests = ['access', 'users', 'stats'].includes(activeTab)
+    const needsUserDirectory = ['access', 'users', 'stats'].includes(activeTab)
+    const emptyResult = () => Promise.resolve({ data: null, error: null })
     const [
       { data: courseData, error: courseError },
       { data: profileData },
@@ -117,14 +127,26 @@ function AdminDashboard({ user, profile, handleLogout }) {
       { data: requestData, error: requestError },
       { data: inboxMessageData },
       { data: adminUserData },
+      pendingCourseCount,
+      pendingTeacherCount,
+      pendingRequestCount,
+      userCount,
+      approvedCourseCount,
+      enrollmentCount,
     ] = await Promise.all([
-      supabase.from('Courses').select('*').order('id', { ascending: false }),
-      supabase.from('profiles').select('*'),
-      supabase.from('teacher_applications').select('*').order('id', { ascending: false }),
-      supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
-      supabase.from('requests').select('*').order('created_at', { ascending: false }),
+      needsCourses ? supabase.from('Courses').select('*').order('id', { ascending: false }) : emptyResult(),
+      needsProfiles ? supabase.from('profiles').select('*') : emptyResult(),
+      needsTeachers ? supabase.from('teacher_applications').select('*').order('id', { ascending: false }) : emptyResult(),
+      needsEnrollments ? supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }) : emptyResult(),
+      needsRequests ? supabase.from('requests').select('*').order('created_at', { ascending: false }) : emptyResult(),
       supabase.from('inbox_messages').select('id, sender_id, sender_email, recipient_id, recipient_email').order('created_at', { ascending: false }),
-      supabase.rpc('admin_list_users'),
+      needsUserDirectory ? supabase.rpc('admin_list_users') : emptyResult(),
+      supabase.from('Courses').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('teacher_applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('profiles').select('user_id', { count: 'exact', head: true }),
+      supabase.from('Courses').select('id', { count: 'exact', head: true }).or('status.eq.approved,is_published.eq.true'),
+      supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     ])
 
     const loadError = courseError || enrollmentError || requestError
@@ -132,7 +154,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
       setMessage(`${t('adminLoadFailed')}${loadError.message}`)
     }
 
-    const coursesWithProfileAuthors = await attachCourseAuthorNames(courseData || [])
+    const coursesWithProfileAuthors = courseData ? await attachCourseAuthorNames(courseData) : []
     const applicationNamesByUserId = new Map((teacherApplicationData || []).map((application) => [
       application.user_id,
       `${application.name || ''} ${application.surname || ''}`.trim(),
@@ -142,14 +164,22 @@ function AdminDashboard({ user, profile, handleLogout }) {
       instructor_name: course.instructor_name || applicationNamesByUserId.get(course.instructor_id) || '',
     }))
 
-    setCourses(coursesWithAuthors)
-    setProfiles(profileData || [])
-    setAdminUsers(adminUserData || [])
-    setTeacherApplications(teacherApplicationError ? [] : teacherApplicationData || [])
-    setEnrollments(enrollmentData || [])
-    setRequests(requestData || [])
+    if (courseData) setCourses(coursesWithAuthors)
+    if (profileData) setProfiles(profileData)
+    if (adminUserData) setAdminUsers(adminUserData)
+    if (teacherApplicationData) setTeacherApplications(teacherApplicationError ? [] : teacherApplicationData)
+    if (enrollmentData) setEnrollments(enrollmentData)
+    if (requestData) setRequests(requestData)
     setInboxMessages(inboxMessageData || [])
-  }, [t])
+    setRecordCounts({
+      pending: pendingCourseCount.count || 0,
+      teachers: pendingTeacherCount.count || 0,
+      requests: pendingRequestCount.count || 0,
+      users: userCount.count || 0,
+      courses: approvedCourseCount.count || 0,
+      enrollments: enrollmentCount.count || 0,
+    })
+  }, [activeTab, t])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -158,6 +188,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
   const changeAdminTab = (id) => {
     setMessage('')
+    setListPages({})
     const nextParams = new URLSearchParams(searchParams)
     if (id === 'pending') nextParams.delete('tab')
     else nextParams.set('tab', id)
@@ -762,6 +793,27 @@ function AdminDashboard({ user, profile, handleLogout }) {
       }))
     : []
   const pendingTeacherApplications = teacherApplications.filter((application) => application.status === 'pending')
+  const pageFor = (key) => Math.max(1, Number(listPages[key]) || 1)
+  const pagedItems = (key, items) => {
+    const start = (pageFor(key) - 1) * ADMIN_PAGE_SIZE
+    return items.slice(start, start + ADMIN_PAGE_SIZE)
+  }
+  const renderPagination = (key, total) => {
+    const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
+    if (totalPages <= 1) return null
+    const currentPage = Math.min(pageFor(key), totalPages)
+    return (
+      <nav className="admin-pagination" aria-label={t('paginationLabel')}>
+        <button type="button" className="outline-button" disabled={currentPage <= 1} onClick={() => setListPages((current) => ({ ...current, [key]: currentPage - 1 }))}>
+          {t('previousPage')}
+        </button>
+        <span>{currentPage} / {totalPages}</span>
+        <button type="button" className="outline-button" disabled={currentPage >= totalPages} onClick={() => setListPages((current) => ({ ...current, [key]: currentPage + 1 }))}>
+          {t('nextPage')}
+        </button>
+      </nav>
+    )
+  }
 
   // Monthly report (4.6): bucket events by year-month from already-loaded data.
   const monthKeyOf = (value) => {
@@ -829,12 +881,12 @@ function AdminDashboard({ user, profile, handleLogout }) {
   }).filter(Boolean)).size
 
   const adminTabs = [
-    ['pending', t('pendingReviewCourses'), reviewCourses.length],
-    ['teacher-applications', t('pendingTeachers'), pendingTeacherApplications.length],
-    ['access', t('grantAccess'), pendingPurchaseRequests.length],
-    ['users', t('userCount'), visibleUsers.length],
+    ['pending', t('pendingReviewCourses'), recordCounts.pending ?? reviewCourses.length],
+    ['teacher-applications', t('pendingTeachers'), recordCounts.teachers ?? pendingTeacherApplications.length],
+    ['access', t('grantAccess'), recordCounts.requests ?? pendingPurchaseRequests.length],
+    ['users', t('userCount'), recordCounts.users ?? visibleUsers.length],
     ['inbox', t('inbox'), inboxConversationCount],
-    ['courses', t('approvedCoursesTitle'), approvedCourses.length],
+    ['courses', t('approvedCoursesTitle'), recordCounts.courses ?? approvedCourses.length],
     ['stats', t('statsTab'), monthlyStats.length],
   ]
 
@@ -877,13 +929,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
           {activeTab === 'pending' && (
             <div className="panel-card">
               <h2>{t('pendingReviewCourses')}</h2>
-              {reviewCourses.length === 0 ? <p className="muted">{t('pendingReviewEmpty')}</p> : reviewCourses.map((course, index) => {
+              {reviewCourses.length === 0 ? <p className="muted">{t('pendingReviewEmpty')}</p> : pagedItems('pending', reviewCourses).map((course, index) => {
                 const instructorName = getCourseAuthorName(course)
 
                 return (
                   <div key={course.id} className="admin-row">
                     <button className="admin-row-main" type="button" onClick={() => navigate(getCourseUrl(course), { state: { course } })}>
-                      <strong>{index + 1}. {course.title}</strong>
+                      <strong>{(pageFor('pending') - 1) * ADMIN_PAGE_SIZE + index + 1}. {course.title}</strong>
                       {instructorName && <p>{t('instructorLabel')}: {instructorName}</p>}
                       <p>{course.price} AZN · {t(getCourseStatusLabel(getCourseStatus(course)))}</p>
                     </button>
@@ -896,6 +948,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   </div>
                 )
               })}
+              {renderPagination('pending', reviewCourses.length)}
             </div>
           )}
 
@@ -903,7 +956,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
             <>
                 <div className="panel-card payment-requests-panel">
                   <h2>{t('paymentRequestsTitle')}</h2>
-                  {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
+                  {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pagedItems('payment-requests', pendingPurchaseRequests).map((item) => (
                     <div key={item.id} className="admin-row">
                       <div className="payment-request-details">
                         <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
@@ -931,10 +984,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       </div>
                     </div>
                   ))}
+                  {renderPagination('payment-requests', pendingPurchaseRequests.length)}
                 </div>
                 <div className="panel-card">
                   <h2>{t('acceptedStudentsTitle')}</h2>
-                  {grantedAccessRows.length === 0 ? <p className="muted">{t('noAcceptedStudents')}</p> : grantedAccessRows.map(({ enrollment, matchingRequest, course, student, instructor }) => (
+                  {grantedAccessRows.length === 0 ? <p className="muted">{t('noAcceptedStudents')}</p> : pagedItems('granted-access', grantedAccessRows).map(({ enrollment, matchingRequest, course, student, instructor }) => (
                     <div key={enrollment.id} className="admin-row granted-access-row">
                       <div className="payment-request-details">
                         <div className="granted-access-identity">
@@ -972,6 +1026,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       </div>
                     </div>
                   ))}
+                  {renderPagination('granted-access', grantedAccessRows.length)}
                 </div>
             </>
           )}
@@ -979,10 +1034,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
           {activeTab === 'teacher-applications' && (
             <div className="panel-card">
               <h2>{t('pendingTeachers')}</h2>
-              {pendingTeacherApplications.length === 0 ? <p className="muted">{t('noPendingTeacherApplications')}</p> : pendingTeacherApplications.map((application, index) => (
+              {pendingTeacherApplications.length === 0 ? <p className="muted">{t('noPendingTeacherApplications')}</p> : pagedItems('teacher-applications', pendingTeacherApplications).map((application, index) => (
                 <div key={application.id} className="admin-row">
                   <div>
-                    <strong>{index + 1}. {application.name} {application.surname}</strong>
+                  <strong>{(pageFor('teacher-applications') - 1) * ADMIN_PAGE_SIZE + index + 1}. {application.name} {application.surname}</strong>
                     <p>{application.email} · {application.phone}</p>
                   </div>
                   <div>
@@ -991,6 +1046,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   </div>
                 </div>
               ))}
+              {renderPagination('teacher-applications', pendingTeacherApplications.length)}
             </div>
           )}
 
@@ -1009,7 +1065,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
                     type="button"
                     key={item.key}
                     className={userFilter === item.key ? 'admin-user-stat-card active' : 'admin-user-stat-card'}
-                    onClick={() => setUserFilter(item.key)}
+                    onClick={() => {
+                      setUserFilter(item.key)
+                      setListPages((current) => ({ ...current, users: 1 }))
+                    }}
                   >
                     <span>{item.label}</span>
                     <strong>{item.count}</strong>
@@ -1040,9 +1099,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredVisibleUsers.map((item, index) => (
+                  {pagedItems('users', filteredVisibleUsers).map((item, index) => (
                     <tr key={item.key || item.email || index}>
-                      <td>{index + 1}</td>
+                      <td>{(pageFor('users') - 1) * ADMIN_PAGE_SIZE + index + 1}</td>
                       <td><span className={`admin-role-badge role-${item.role}`}>{getRoleLabel(item.role)}</span></td>
                       <td>
                         {canOpenPublicTeacherProfile(item) ? (
@@ -1076,6 +1135,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 </tbody>
               </table>
               </div>
+              {renderPagination('users', filteredVisibleUsers.length)}
             </div>
           )}
 
@@ -1094,13 +1154,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 <span className="admin-users-total">{approvedCourses.length}</span>
               </div>
               <div className="admin-course-grid">
-                {approvedCourses.map((course, index) => {
+                {pagedItems('courses', approvedCourses).map((course, index) => {
                   const accessRows = getCourseAccessEnrollments(course.id)
                   const pricing = getCoursePricing(course)
                   return (
                     <article className="admin-course-card" key={course.id}>
                       <div className="admin-course-card-top">
-                        <span className="admin-course-number">{String(index + 1).padStart(2, '0')}</span>
+                        <span className="admin-course-number">{String((pageFor('courses') - 1) * ADMIN_PAGE_SIZE + index + 1).padStart(2, '0')}</span>
                         <span className="admin-course-status">{t(getCourseStatusLabel(getCourseStatus(course)))}</span>
                       </div>
                       <div className="admin-course-card-body">
@@ -1140,6 +1200,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   )
                 })}
               </div>
+              {renderPagination('courses', approvedCourses.length)}
             </div>
           )}
 
