@@ -78,6 +78,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [userComments, setUserComments] = useState([])
   const [userModalLoading, setUserModalLoading] = useState(false)
   const [adminMessageBody, setAdminMessageBody] = useState('')
+  const [approvingRequestId, setApprovingRequestId] = useState(null)
   const canAdmin = isAdmin(user)
   const { t } = useLanguage()
 
@@ -206,15 +207,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
     loadData()
   }
 
-  const giveAccess = async () => {
-    if (!studentEmail || !selectedCourse) {
-      setMessage(t('adminStudentCourseRequired'))
-      return
-    }
-
-    const studentKey = studentEmail.trim().toLowerCase()
-    const courseIdNum = Number(selectedCourse)
-
+  const grantCourseAccess = async ({ email, courseId, requestId = null }) => {
+    const studentKey = String(email || '').trim().toLowerCase()
+    const courseIdNum = Number(courseId)
+    if (!studentKey || !courseIdNum) return false
     const { error } = await supabase.from('enrollments').upsert({
       user_id: studentKey,
       course_id: courseIdNum,
@@ -222,9 +218,14 @@ function AdminDashboard({ user, profile, handleLogout }) {
     }, { onConflict: 'user_id,course_id' })
     setMessage(error ? `${t('errorOccurred')}${error.message}` : t('adminAccessGranted'))
     if (!error) {
-      setStudentEmail('')
-      setSelectedCourse('')
-      loadData()
+      if (requestId) {
+        await supabase
+          .from('requests')
+          .update({ status: 'access_granted' })
+          .eq('course_id', courseIdNum)
+          .eq('user_email', studentKey)
+          .eq('status', 'pending')
+      }
       const course = courses.find((item) => String(item.id) === String(courseIdNum))
       if (course) {
         const coursePath = getCourseUrl(course)
@@ -254,7 +255,34 @@ function AdminDashboard({ user, profile, handleLogout }) {
           link: courseLink,
         })
       }
+      await loadData()
+      return true
     }
+    return false
+  }
+
+  const giveAccess = async () => {
+    if (!studentEmail || !selectedCourse) {
+      setMessage(t('adminStudentCourseRequired'))
+      return
+    }
+    const granted = await grantCourseAccess({ email: studentEmail, courseId: selectedCourse })
+    if (granted) {
+      setStudentEmail('')
+      setSelectedCourse('')
+    }
+  }
+
+  const approvePaymentRequest = async (request) => {
+    if (!request?.user_email || !request?.course_id) return
+    if (!window.confirm(t('confirmPaymentAndGrant'))) return
+    setApprovingRequestId(request.id)
+    await grantCourseAccess({
+      email: request.user_email,
+      courseId: request.course_id,
+      requestId: request.id,
+    })
+    setApprovingRequestId(null)
   }
 
   const removeAccess = async (id) => {
@@ -450,6 +478,17 @@ function AdminDashboard({ user, profile, handleLogout }) {
 
   const reviewCourses = courses.filter((course) => getCourseStatus(course) === 'pending')
   const approvedCourses = courses.filter((course) => getCourseStatus(course) === 'approved' || course.is_published)
+  const enrolledCourseKeys = new Set(enrollments
+    .filter((item) => (item.status || 'active') === 'active')
+    .map((item) => `${String(item.user_id || '').toLowerCase()}::${item.course_id}`))
+  const seenPendingRequestKeys = new Set()
+  const pendingPurchaseRequests = requests.filter((request) => {
+    if ((request.status || 'pending') !== 'pending') return false
+    const key = `${String(request.user_email || request.user_id || '').toLowerCase()}::${request.course_id}`
+    if (seenPendingRequestKeys.has(key) || enrolledCourseKeys.has(key)) return false
+    seenPendingRequestKeys.add(key)
+    return true
+  })
   const courseLabel = (course) => {
     if (!course) return ''
     const instructorName = getCourseAuthorName(course)
@@ -793,11 +832,21 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 ))}
               </div>
               <div className="panel-card">
-                <h2>{t('whatsappRequestsTitle')}</h2>
-                {requests.length === 0 ? <p className="muted">{t('noRequests')}</p> : requests.map((item) => (
+                <h2>{t('paymentRequestsTitle')}</h2>
+                {pendingPurchaseRequests.length === 0 ? <p className="muted">{t('noRequests')}</p> : pendingPurchaseRequests.map((item) => (
                   <div key={item.id} className="admin-row">
                     <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
-                    <small>{item.status}</small>
+                    <div>
+                      <small>{t('paymentPending')}</small>
+                      <button
+                        className="approve-button"
+                        type="button"
+                        disabled={String(approvingRequestId) === String(item.id)}
+                        onClick={() => approvePaymentRequest(item)}
+                      >
+                        {String(approvingRequestId) === String(item.id) ? t('grantingAccess') : t('confirmPaymentGrantAccess')}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
