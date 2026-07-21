@@ -587,6 +587,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return
     }
     setActiveQuizId(null)
+    setShowAccessWelcome(false)
     setActiveQuizQuestionIndex(0)
     setCheckedQuizId(null)
     const sectionKey = String(sectionId)
@@ -612,6 +613,7 @@ function CoursePage({ user, profile, handleLogout }) {
       return
     }
     const sectionKey = String(sectionId)
+    setShowAccessWelcome(false)
     setExpandedSectionIds((current) => {
       if (current.has(sectionKey)) return current
       const next = new Set(current)
@@ -830,7 +832,9 @@ function CoursePage({ user, profile, handleLogout }) {
 
     const storageKey = `bilx-course-access-welcome-${userId || 'student'}-${course.id}`
     try {
-      if (window.localStorage.getItem(storageKey)) {
+      const hasSavedProgress = progress.some((item) => item.watched)
+      const hasResumeLesson = Boolean(window.localStorage.getItem(getCourseResumeStorageKey(userId, course.id)))
+      if (window.localStorage.getItem(storageKey) || hasSavedProgress || hasResumeLesson) {
         setShowAccessWelcome(false)
         return
       }
@@ -839,7 +843,7 @@ function CoursePage({ user, profile, handleLogout }) {
     } catch {
       setShowAccessWelcome(true)
     }
-  }, [course?.id, isEnrolled, loading, userId])
+  }, [course?.id, isEnrolled, loading, progress, userId])
 
   useEffect(() => {
     if (!canViewFullCourse || !userId || !courseId || !activeVideo?.id || activeVideo.locked) return
@@ -1310,7 +1314,12 @@ function CoursePage({ user, profile, handleLogout }) {
       }
       else if (data.event === 'timeupdate') {
         const seconds = data.value?.seconds ?? data.value?.currentTime ?? data.value
-        if (Number.isFinite(Number(seconds))) playbackSecondsRef.current = Number(seconds)
+        if (Number.isFinite(Number(seconds))) {
+          playbackSecondsRef.current = Number(seconds)
+          if (Number(seconds) > 0 && !playerVideo?.is_trailer && canViewFullCourse) {
+            setShowAccessWelcome(false)
+          }
+        }
       }
     }
 
@@ -1344,6 +1353,9 @@ function CoursePage({ user, profile, handleLogout }) {
       playerRef.current = new window.YT.Player(playerFrameRef.current, {
         events: {
           onStateChange: (event) => {
+            if (event.data === window.YT.PlayerState.PLAYING && !playerVideo?.is_trailer && canViewFullCourse) {
+              setShowAccessWelcome(false)
+            }
             if (event.data === window.YT.PlayerState.ENDED) {
               if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
               else if (playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse) playNextPreview(getPreviewChoiceId(playerVideo))
@@ -1712,6 +1724,9 @@ function CoursePage({ user, profile, handleLogout }) {
                     muted={muteAutoplay}
                     playsInline
                     src={playerVideo.video_url}
+                    onPlay={() => {
+                      if (!playerVideo?.is_trailer && canViewFullCourse) setShowAccessWelcome(false)
+                    }}
                     onTimeUpdate={(event) => { playbackSecondsRef.current = event.currentTarget.currentTime }}
                     onEnded={() => {
                       if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
