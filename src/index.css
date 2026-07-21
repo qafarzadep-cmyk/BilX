@@ -272,6 +272,11 @@ button {
   padding: 22px;
 }
 
+.admin-view-select {
+  cursor: pointer;
+  padding-right: 28px;
+}
+
 .wide-modal-panel {
   width: min(100%, 680px);
 }

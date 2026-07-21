@@ -37,9 +37,18 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const isTeacherMode = location.pathname.startsWith('/instructor')
     || location.pathname.startsWith('/edit-course')
     || (isInstructor && inboxTeacherMode)
+  const adminView = location.pathname.startsWith('/admin')
+    ? 'admin'
+    : isTeacherMode
+      ? 'teacher'
+      : 'student'
 
   const roleLabel = isAdmin(user)
-    ? t('roleAdmin')
+    ? adminView === 'teacher'
+      ? t('adminTeacherView')
+      : adminView === 'student'
+        ? t('adminStudentView')
+        : t('roleAdmin')
     : isTeacherMode
       ? t('roleInstructor')
       : t('roleStudent')
@@ -416,9 +425,21 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                   {isTeacherMode ? t('switchToStudentPanel') : t('switchToTeacherPanel')}
                 </button>
               ) : isAdmin(user) ? (
-                <button type="button" className="nav-switch-button" onClick={handleLogoutClick}>
-                  {t('logout')}
-                </button>
+                <select
+                  className="nav-switch-button admin-view-select"
+                  value={adminView}
+                  aria-label={t('adminViewSelector')}
+                  onChange={(event) => {
+                    const nextView = event.target.value
+                    if (nextView === 'admin') navigate('/admin')
+                    else if (nextView === 'teacher') navigate('/instructor')
+                    else navigate('/profile')
+                  }}
+                >
+                  <option value="admin">{t('adminViewOption')}</option>
+                  <option value="teacher">{t('teacherViewOption')}</option>
+                  <option value="student">{t('studentViewOption')}</option>
+                </select>
               ) : null}
             </div>
             <div ref={menuRef} className="avatar-menu">

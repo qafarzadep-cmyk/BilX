@@ -19,7 +19,7 @@ import TeacherProfile from './TeacherProfile'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { useLanguage } from './i18n'
-import { ensureProfile, fallbackProfile } from './profileApi'
+import { ensureProfile, fallbackProfile, isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 const COURSE_PAGE_SIZE = 8
@@ -918,6 +918,8 @@ function App() {
     setTimeout(() => setLoggingOut(false), 300)
   }
 
+  const adminTeacherProfile = isAdmin(user) && profile ? { ...profile, role: 'instructor' } : profile
+
   return (
     <Routes>
       <Route path="/" element={<Home user={user} profile={profile} handleLogout={handleLogout} />} />
@@ -930,10 +932,10 @@ function App() {
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/certificate/:code" element={<CertificatePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/teacher/:id" element={<TeacherProfile user={user} profile={profile} handleLogout={handleLogout} />} />
-      <Route path="/instructor" element={<InstructorDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/instructor" element={<InstructorDashboard user={user} profile={adminTeacherProfile} handleLogout={handleLogout} />} />
       <Route path="/inbox" element={<Inbox user={user} profile={profile} handleLogout={handleLogout} />} />
-      <Route path="/edit-course" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
-      <Route path="/edit-course/:id" element={<EditCourse user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/edit-course" element={<EditCourse user={user} profile={adminTeacherProfile} handleLogout={handleLogout} />} />
+      <Route path="/edit-course/:id" element={<EditCourse user={user} profile={adminTeacherProfile} handleLogout={handleLogout} />} />
     </Routes>
   )
 }
