@@ -159,7 +159,6 @@ function Home({ user, profile, handleLogout }) {
   const [startedCourseIds, setStartedCourseIds] = useState(() => new Set())
   const [courseProgressPercents, setCourseProgressPercents] = useState(() => new Map())
   const [guestPurchaseCourse, setGuestPurchaseCourse] = useState(null)
-  const [guestPurchaseDetails, setGuestPurchaseDetails] = useState({ name: '', email: '' })
 
   useEffect(() => {
     let mounted = true
@@ -383,7 +382,9 @@ function Home({ user, profile, handleLogout }) {
         })
       }
     }
-    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user?.user_metadata?.full_name || guestPurchaseDetails.name}\n${t('whatsappEmail')}: ${user?.email || guestPurchaseDetails.email}`
+    const message = user
+      ? `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user.email || ''}`
+      : `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}`
     window.open(getWhatsAppUrl(message), '_blank')
   }
   const openCourseWhatsApp = async (event, course) => {
@@ -701,15 +702,12 @@ function Home({ user, profile, handleLogout }) {
               <h2>{t('purchaseAccountTitle')}</h2>
               <button className="modal-close-button" type="button" onClick={() => setGuestPurchaseCourse(null)} aria-label={t('close')}><X size={19} /></button>
             </div>
+            <p>{t('purchaseNoAccountText')}</p>
             <strong>{guestPurchaseCourse.title}</strong>
-            <div className="purchase-guest-fields">
-              <input value={guestPurchaseDetails.name} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, name: event.target.value }))} placeholder={t('fullName')} />
-              <input type="email" value={guestPurchaseDetails.email} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, email: event.target.value }))} placeholder={t('email')} />
-            </div>
             <div className="purchase-auth-actions">
-              <button className="primary-button" type="button" onClick={() => goToPurchaseAuth('/login')}>{t('login')}</button>
-              <button className="outline-button" type="button" onClick={() => goToPurchaseAuth('/register')}>{t('register')}</button>
-              <button className="purchase-whatsapp-fallback" type="button" disabled={!guestPurchaseDetails.name.trim() || !guestPurchaseDetails.email.trim()} onClick={() => continueCourseWhatsApp(guestPurchaseCourse)}>
+              <button className="primary-button" type="button" onClick={() => goToPurchaseAuth('/register')}>{t('register')}</button>
+              <button className="outline-button" type="button" onClick={() => goToPurchaseAuth('/login')}>{t('login')}</button>
+              <button className="purchase-whatsapp-fallback" type="button" onClick={() => continueCourseWhatsApp(guestPurchaseCourse)}>
                 <MessageCircle size={17} /> {t('continueWithWhatsApp')}
               </button>
             </div>
