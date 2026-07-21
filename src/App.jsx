@@ -830,6 +830,16 @@ function App() {
         setUser(data.user)
         ensureProfile(data.user).then((nextProfile) => {
           if (!mounted) return
+          if (!nextProfile) {
+            localStorage.removeItem('bilx-session-token')
+            localStorage.removeItem('bilx-session-at')
+            localStorage.removeItem(PROFILE_CACHE_KEY)
+            supabase.auth.signOut({ scope: 'local' })
+            setUser(null)
+            setProfile(null)
+            navigate('/login', { replace: true })
+            return
+          }
           const resolvedProfile = nextProfile || fallbackProfile(data.user)
           writeCachedProfile(resolvedProfile)
           setProfile(resolvedProfile)
@@ -838,8 +848,12 @@ function App() {
       return currentUser
     }
 
+    const validateVisibleSession = () => {
+      if (document.visibilityState === 'visible') refreshProfile()
+    }
     window.addEventListener('focus', refreshProfile)
-    const authValidationTimer = window.setInterval(refreshProfile, 60000)
+    document.addEventListener('visibilitychange', validateVisibleSession)
+    const authValidationTimer = window.setInterval(refreshProfile, 15000)
     const handleProfileUpdated = (event) => {
       if (!mounted || !event.detail) return
       setProfile((current) => {
@@ -853,6 +867,7 @@ function App() {
     return () => {
       mounted = false
       window.removeEventListener('focus', refreshProfile)
+      document.removeEventListener('visibilitychange', validateVisibleSession)
       window.clearInterval(authValidationTimer)
       window.removeEventListener('bilx-profile-updated', handleProfileUpdated)
       listener.subscription.unsubscribe()
@@ -871,6 +886,16 @@ function App() {
       try {
         const nextProfile = await ensureProfile(user)
         if (mounted) {
+          if (!nextProfile) {
+            localStorage.removeItem('bilx-session-token')
+            localStorage.removeItem('bilx-session-at')
+            localStorage.removeItem(PROFILE_CACHE_KEY)
+            await supabase.auth.signOut({ scope: 'local' })
+            setUser(null)
+            setProfile(null)
+            navigate('/login', { replace: true })
+            return
+          }
           const resolvedProfile = nextProfile || fallbackProfile(user)
           writeCachedProfile(resolvedProfile)
           setProfile(resolvedProfile)
@@ -913,22 +938,26 @@ function App() {
       })
     }
 
-    const enforce = (dbToken) => {
+    const enforce = (dbToken, sessionRowExists = true) => {
       // Don't kick during the post-login grace window — the token is still
       // settling, and the device that just logged in must not kick itself.
       const setAt = Number(localStorage.getItem('bilx-session-at') || 0)
       if (Date.now() - setAt < 8000) return
       const myToken = localStorage.getItem('bilx-session-token')
+      if (myToken && !sessionRowExists) {
+        kick()
+        return
+      }
       if (dbToken && myToken && dbToken !== myToken) kick()
     }
 
     const check = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_sessions')
         .select('session_token')
         .eq('user_id', user.id)
         .maybeSingle()
-      if (active) enforce(data?.session_token)
+      if (active && !error) enforce(data?.session_token, Boolean(data))
     }
 
     // Heartbeat: keep last_active fresh, scoped to this device's token so a
@@ -957,7 +986,13 @@ function App() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_sessions', filter: `user_id=eq.${user.id}` },
-        (payload) => enforce(payload.new?.session_token)
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            enforce(null, false)
+            return
+          }
+          enforce(payload.new?.session_token, Boolean(payload.new))
+        }
       )
       .subscribe()
 

@@ -42,6 +42,11 @@ export async function ensureProfile(user) {
 
   if (data) return withApprovedTeacherRole(user, data)
 
+  // Never recreate a profile from a stale JWT after an administrator has
+  // deleted the underlying Auth account.
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || authData.user?.id !== user.id) return null
+
   const profile = fallbackProfile(user)
   const { data: inserted } = await supabase
     .from('profiles')
