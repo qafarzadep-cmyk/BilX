@@ -24,8 +24,7 @@ async function handleReviews(req, res, config) {
     const courseIds = String(req.query?.courseIds || req.query?.courseId || '').split(',').map(Number).filter((value) => Number.isInteger(value) && value > 0)
     if (!courseIds.length) return res.status(400).json({ error: 'Invalid course id.' })
     const { data, error } = await service.from('course_ratings').select('id,user_id,course_id,rating,review,created_at').in('course_id', courseIds).order('created_at', { ascending: false })
-    if (error) return res.status(500).json({ error: error.message })
-    const rows = data || []
+    const rows = error ? [] : (data || [])
     const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))]
     const { data: profiles } = userIds.length ? await service.from('profiles').select('user_id,full_name').in('user_id', userIds) : { data: [] }
     const names = new Map((profiles || []).map((item) => [String(item.user_id), item.full_name]))
