@@ -886,6 +886,16 @@ function CoursePage({ user, profile, handleLogout }) {
         ])
         progressData = progressResponse.data || []
         quizAttemptData = attemptsResponse.data || []
+        const savedQuizIds = new Set(quizAttemptData.map((attempt) => String(attempt.quiz_id)))
+        for (const quiz of quizData || []) {
+          if (savedQuizIds.has(String(quiz.id))) continue
+          try {
+            const localAttempt = JSON.parse(window.localStorage.getItem(`bilx-quiz-attempt-${userId}-${quiz.id}`) || 'null')
+            if (localAttempt?.quiz_id) quizAttemptData.push(localAttempt)
+          } catch {
+            // Ignore malformed or unavailable device-local fallback data.
+          }
+        }
       }
 
       if (mounted) {
@@ -1270,17 +1280,29 @@ function CoursePage({ user, profile, handleLogout }) {
       total_count: activeQuizQuestions.length,
       completed_at: new Date().toISOString(),
     }
+    // Results must be visible immediately. Database persistence is a separate
+    // concern and must never strand the student on the final question.
+    setQuizAttempts((current) => ({ ...current, [String(activeQuiz.id)]: attempt }))
+    setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))
+    try {
+      window.localStorage.setItem(`bilx-quiz-attempt-${userId}-${activeQuiz.id}`, JSON.stringify(attempt))
+    } catch {
+      // Supabase remains the cross-device source of truth.
+    }
     const { error } = await supabase.from('quiz_attempts').upsert(attempt, { onConflict: 'user_id,quiz_id' })
     if (error) {
       toast.error(t('quizResultSaveFailed'))
       return
     }
-    setQuizAttempts((current) => ({ ...current, [String(activeQuiz.id)]: attempt }))
-    setFinishedQuizIds((current) => ({ ...current, [activeQuiz.id]: true }))
   }
 
   const retakeActiveQuiz = () => {
     if (!activeQuiz) return
+    try {
+      window.localStorage.removeItem(`bilx-quiz-attempt-${userId}-${activeQuiz.id}`)
+    } catch {
+      // Retake still works in memory when storage is unavailable.
+    }
     setQuizAnswers((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith(`${activeQuiz.id}:`))))
     setCheckedQuizId(null)
     setActiveQuizQuestionIndex(0)
