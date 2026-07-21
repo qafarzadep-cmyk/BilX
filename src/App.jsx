@@ -43,6 +43,7 @@ function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
   if (!pricing.isOffer) return <strong className="course-card-price">{formatCoursePrice(pricing.currentPrice)}</strong>
 
   const discountPercent = Math.round((1 - pricing.currentPrice / pricing.regularPrice) * 100)
+  const savingsAmount = pricing.regularPrice - pricing.currentPrice
 
   return (
     <div className="course-card-offer" aria-label={`${formatAzN(pricing.currentPrice)}, ${discountPercent}% endirim`}>
@@ -51,7 +52,7 @@ function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
         <del>{formatAzN(pricing.regularPrice)}</del>
         <span className="course-card-discount">{discountPercent}% endirim</span>
       </div>
-      <small>{pricing.endsOn}</small>
+      <small>{pricing.endsOn} yay endirimi — indi al və {formatAzN(savingsAmount)} qənaət et</small>
     </div>
   )
 }
