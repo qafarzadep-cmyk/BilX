@@ -817,7 +817,16 @@ function App() {
 
     const refreshProfile = () => {
       const currentUser = supabase.auth.getUser().then(({ data }) => {
-        if (!mounted || loggingOut || !data.user) return
+        if (!mounted || loggingOut) return
+        if (!data.user) {
+          localStorage.removeItem('bilx-session-token')
+          localStorage.removeItem('bilx-session-at')
+          localStorage.removeItem(PROFILE_CACHE_KEY)
+          setUser(null)
+          setProfile(null)
+          navigate('/', { replace: true })
+          return
+        }
         setUser(data.user)
         ensureProfile(data.user).then((nextProfile) => {
           if (!mounted) return
@@ -830,6 +839,7 @@ function App() {
     }
 
     window.addEventListener('focus', refreshProfile)
+    const authValidationTimer = window.setInterval(refreshProfile, 60000)
     const handleProfileUpdated = (event) => {
       if (!mounted || !event.detail) return
       setProfile((current) => {
@@ -843,6 +853,7 @@ function App() {
     return () => {
       mounted = false
       window.removeEventListener('focus', refreshProfile)
+      window.clearInterval(authValidationTimer)
       window.removeEventListener('bilx-profile-updated', handleProfileUpdated)
       listener.subscription.unsubscribe()
     }

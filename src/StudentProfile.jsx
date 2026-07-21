@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { MessageCircle, Play } from 'lucide-react'
 import { UPCOMING_COURSES } from './courseCatalog'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl } from './courseUrl'
+import { formatCoursePrice, getCoursePricing } from './coursePricing'
+import { getWhatsAppUrl } from './contact'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
 import { supabase } from './supabase'
@@ -21,6 +24,7 @@ function StudentProfile({ user, profile, handleLogout }) {
   const [progress, setProgress] = useState([])
   const [discoverCourses, setDiscoverCourses] = useState([])
   const [discoverLoading, setDiscoverLoading] = useState(false)
+  const [courseRatings, setCourseRatings] = useState({})
   const [loading, setLoading] = useState(true)
   const { t } = useLanguage()
 
@@ -122,8 +126,12 @@ function StudentProfile({ user, profile, handleLogout }) {
       const coursesWithAuthors = await attachCourseAuthorNames(
         (data || []).filter((course) => !enrolledCourseIds.has(String(course.id)))
       )
+      const ratingResult = coursesWithAuthors.length > 0
+        ? await fetch(`/api/course-access?reviews=1&courseIds=${encodeURIComponent(coursesWithAuthors.map((course) => course.id).join(','))}`).then((response) => response.ok ? response.json() : null).catch(() => null)
+        : null
       if (mounted) {
         setDiscoverCourses(coursesWithAuthors)
+        setCourseRatings(ratingResult?.summaries || {})
         setDiscoverLoading(false)
       }
     }
@@ -133,6 +141,21 @@ function StudentProfile({ user, profile, handleLogout }) {
       mounted = false
     }
   }, [courses.length, enrollments, loading, user])
+
+  const requestCourse = async (event, course) => {
+    event.stopPropagation()
+    const pricing = getCoursePricing(course)
+    const requestPayload = {
+      p_course_id: course.id,
+      p_course_name: course.title,
+      p_user_email: user.email,
+      p_user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
+      p_requested_price: pricing.currentPrice,
+    }
+    await supabase.rpc('create_purchase_request', requestPayload)
+    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${requestPayload.p_user_name}\n${t('whatsappEmail')}: ${user.email || ''}`
+    window.open(getWhatsAppUrl(message), '_blank')
+  }
 
   if (!user) {
     return (
@@ -240,6 +263,15 @@ function StudentProfile({ user, profile, handleLogout }) {
                 }
 
                 const instructorName = getCourseAuthorName(course)
+                const isA1Course = String(course.id) === '17'
+                const pricing = getCoursePricing(course)
+                const rating = courseRatings[String(course.id)]
+                const discountPercent = pricing.regularPrice > pricing.currentPrice
+                  ? Math.round((1 - pricing.currentPrice / pricing.regularPrice) * 100)
+                  : 0
+                const savings = pricing.regularPrice > pricing.currentPrice
+                  ? Math.round((pricing.regularPrice - pricing.currentPrice) * 100) / 100
+                  : 0
 
                 return (
                   <article
@@ -255,12 +287,28 @@ function StudentProfile({ user, profile, handleLogout }) {
                       }
                     }}
                   >
-                    <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                    <div className="course-card-thumbnail">
+                      <img src={course.thumbnail_url || '/course-placeholder.svg'} alt={course.title} />
+                      {isA1Course && <span className="course-card-play-icon" aria-hidden="true"><Play size={24} fill="currentColor" /></span>}
+                    </div>
                     <div className="course-card-body">
-                      <h3>{course.title}</h3>
-                      {course.description && <p>{course.description}</p>}
+                      <h3>{isA1Course ? t('a1LandingHeadline') : course.title}</h3>
+                      {(course.description || isA1Course) && <p>{isA1Course ? t('a1LandingSubtitle') : course.description}</p>}
                       {instructorName && <small className="course-instructor">{instructorName}</small>}
-                      <strong>{Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel')}</strong>
+                      {rating?.count > 0 && (
+                        <button className="course-card-rating" type="button" onClick={(event) => { event.stopPropagation(); navigate(`/course/${course.id}/reviews`) }}>
+                          <strong>{rating.average}</strong><span aria-hidden="true">★★★★★</span><small>({rating.count} tələbə)</small>
+                        </button>
+                      )}
+                      <div className="course-card-footer">
+                        {pricing.isOffer ? (
+                          <div className="course-card-offer">
+                            <div className="course-card-price-row"><strong className="course-card-price">{formatCoursePrice(pricing.currentPrice)}</strong><del>{formatCoursePrice(pricing.regularPrice)}</del><span className="course-card-discount">{discountPercent}% endirim</span></div>
+                            <small className="course-card-offer-message">{pricing.endsOn} yay endirimi — indi al və {Number.isInteger(savings) ? savings : savings.toFixed(2)} AZN qənaət et</small>
+                          </div>
+                        ) : <strong className="course-card-price">{pricing.currentPrice > 0 ? formatCoursePrice(pricing.currentPrice) : t('freeLabel')}</strong>}
+                        <button className="course-card-whatsapp-button" type="button" onClick={(event) => requestCourse(event, course)}><MessageCircle size={16} /> {isA1Course ? t('courseStartNow') : t('courseAcquire')}</button>
+                      </div>
                     </div>
                   </article>
                 )
