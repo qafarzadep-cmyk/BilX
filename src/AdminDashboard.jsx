@@ -14,14 +14,8 @@ function formatDateTime(value) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-
-  return date.toLocaleString('az-AZ', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const twoDigits = (part) => String(part).padStart(2, '0')
+  return `${twoDigits(date.getDate())}.${twoDigits(date.getMonth() + 1)}.${date.getFullYear()}, ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`
 }
 
 function splitFullName(fullName = '') {
@@ -954,7 +948,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
                         <div className="granted-access-meta">
                           <small>{t('requestDateLabel')}: <b>{formatDateTime(matchingRequest?.created_at)}</b></small>
                           <small>{t('accessGrantedDateLabel')}: <b>{formatDateTime(enrollment.enrolled_at || enrollment.created_at || matchingRequest?.access_granted_at || matchingRequest?.updated_at || matchingRequest?.created_at)}</b></small>
-                          {enrollment.price_paid != null && <small>{t('purchasePriceLabel')}: <b>{formatCoursePrice(enrollment.price_paid)}</b></small>}
+                          <small>
+                            {t('purchasePriceLabel')}: <b>{formatCoursePrice(enrollment.price_paid ?? matchingRequest?.requested_price ?? getCoursePricing(course).currentPrice)}</b>
+                          </small>
                         </div>
                       </div>
                       <div className="payment-request-actions access-record-actions">

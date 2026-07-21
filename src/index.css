@@ -4209,15 +4209,19 @@ table {
 }
 
 .granted-access-row {
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 14px;
   padding: 10px 0;
 }
 
 .granted-access-row .payment-request-details {
-  flex: 1;
-  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1fr) minmax(280px, 1.35fr);
+  width: 100%;
+  grid-template-columns: minmax(145px, 0.65fr) minmax(210px, 1fr) minmax(310px, 1.35fr);
   align-items: center;
-  gap: 10px 18px;
+  gap: 8px 16px;
+  overflow: hidden;
 }
 
 .granted-access-identity,
@@ -4241,7 +4245,7 @@ table {
 }
 
 .granted-access-meta small {
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 .granted-access-meta b {
@@ -4251,7 +4255,8 @@ table {
 
 .granted-access-row .access-record-actions {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  width: 150px;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
@@ -4262,6 +4267,10 @@ table {
 }
 
 @media (max-width: 1100px) {
+  .granted-access-row {
+    grid-template-columns: minmax(0, 1fr) 135px;
+  }
+
   .granted-access-row .payment-request-details {
     grid-template-columns: minmax(150px, 0.8fr) minmax(210px, 1fr);
   }
@@ -4269,12 +4278,24 @@ table {
   .granted-access-meta {
     grid-column: 1 / -1;
   }
+
+  .granted-access-row .access-record-actions {
+    width: 135px;
+  }
 }
 
 @media (max-width: 700px) {
+  .granted-access-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px 0;
+  }
+
   .granted-access-row .payment-request-details {
     display: grid;
     grid-template-columns: 1fr;
+    gap: 9px;
+    overflow: visible;
   }
 
   .granted-access-meta {
@@ -4282,7 +4303,18 @@ table {
   }
 
   .granted-access-row .access-record-actions {
-    grid-template-columns: 1fr;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .granted-access-row .access-record-actions .danger-button {
+    grid-column: 1 / -1;
+  }
+
+  .granted-access-row .access-record-actions button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
   }
 }
 
