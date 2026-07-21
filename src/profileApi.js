@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 
 export const ADMIN_EMAIL = 'qafarzadep@gmail.com'
+export const ADMIN_PUBLIC_NAME = 'BilX Admin'
 
 export function fallbackProfile(user) {
   if (!user) return null

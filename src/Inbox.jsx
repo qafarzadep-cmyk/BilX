@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
-import { ADMIN_EMAIL } from './profileApi'
+import { ADMIN_EMAIL, ADMIN_PUBLIC_NAME } from './profileApi'
 import { supabase } from './supabase'
 
 const INBOX_CACHE_PREFIX = 'bilx-inbox-cache'
@@ -77,16 +77,19 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
   const getPersonProfile = useCallback((person) => {
     if (!person) return null
     const profile = person.id ? profilesById.get(person.id) : null
+    const isAdminPerson = String(person.email || '').toLowerCase() === ADMIN_EMAIL
     return {
       id: person.id || profile?.user_id || null,
       email: person.email || '',
-      name: profile?.full_name || person.email || '',
-      role: profile?.role || '',
+      publicEmail: isAdminPerson ? '' : person.email || '',
+      name: isAdminPerson ? ADMIN_PUBLIC_NAME : profile?.full_name || person.email || '',
+      role: isAdminPerson ? 'admin' : profile?.role || '',
     }
   }, [profilesById])
 
   const getPersonName = (person) => {
     if (!person) return ''
+    if (String(person.email || '').toLowerCase() === ADMIN_EMAIL) return ADMIN_PUBLIC_NAME
     return profilesById.get(person.id)?.full_name || person.email || ''
   }
 
@@ -558,7 +561,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
                       <strong>{name}</strong>
                       <small>{new Date(latest.created_at).toLocaleDateString('az-AZ')}</small>
                     </span>
-                    {profile.email && <small>{profile.email}</small>}
+                    {(profile.publicEmail ?? profile.email) && <small>{profile.publicEmail ?? profile.email}</small>}
                     <span>{latest.body}</span>
                   </span>
                 </button>
@@ -580,7 +583,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
               </span>
               <span>
                 <strong>{activeName}</strong>
-                {activeProfile?.email && <small>{activeProfile.email}</small>}
+                {(activeProfile?.publicEmail ?? activeProfile?.email) && <small>{activeProfile.publicEmail ?? activeProfile.email}</small>}
               </span>
             </button>
           </div>
@@ -645,7 +648,7 @@ export function InboxPanel({ user, profile, compact = false, adminMode = false, 
             </div>
             <div className="form-panel">
               {profilePreview.role && <p className="muted">{profilePreview.role}</p>}
-              {profilePreview.email && <p className="muted">{profilePreview.email}</p>}
+              {(profilePreview.publicEmail ?? profilePreview.email) && <p className="muted">{profilePreview.publicEmail ?? profilePreview.email}</p>}
               {profilePreview.id && profilePreview.role === 'instructor' && (
                 <button
                   className="outline-button"

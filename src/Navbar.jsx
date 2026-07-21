@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
 import bilxLogo from './assets/bilx-logo.png'
 import { useLanguage } from './i18n'
-import { ADMIN_EMAIL, isAdmin } from './profileApi'
+import { ADMIN_EMAIL, ADMIN_PUBLIC_NAME, isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
@@ -28,7 +28,9 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
   const notificationRef = useRef(null)
   const { t } = useLanguage()
   const role = profile?.role || 'student'
-  const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'BilX'
+  const name = isAdmin(user)
+    ? ADMIN_PUBLIC_NAME
+    : profile?.full_name || user?.user_metadata?.full_name || user?.email || 'BilX'
   const firstLetter = name.charAt(0).toUpperCase()
   const profileReady = !user || Boolean(profile) || isAdmin(user)
   const isInstructor = role === 'instructor'
@@ -450,7 +452,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                 <div className="dropdown-menu">
                   <div className="dropdown-header">
                     <strong>{name}</strong>
-                    <span>{user.email}</span>
+                    {!isAdmin(user) && <span>{user.email}</span>}
                   </div>
                   {!isAdmin(user) && (
                     <>
@@ -469,7 +471,7 @@ function Navbar({ user, profile, search = '', onSearchChange, onLogout }) {
                       <button type="button" onClick={() => go('/admin')}><Shield size={16} /> {t('adminPanel')}</button>
                     </>
                   )}
-                  <button type="button" onClick={openNameEditor}><Pencil size={16} /> {t('changeName')}</button>
+                  {!isAdmin(user) && <button type="button" onClick={openNameEditor}><Pencil size={16} /> {t('changeName')}</button>}
                   <button type="button" className="danger-menu-item" onClick={handleLogoutClick}><LogOut size={16} /> {t('logout')}</button>
                 </div>
               )}
