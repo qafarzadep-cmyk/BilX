@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { getWhatsAppUrl, WHATSAPP_PHONE_DISPLAY } from './contact'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl, isNumericCourseParam, slugifyCourseTitle } from './courseUrl'
+import { formatCoursePrice, getCoursePricing } from './coursePricing'
 import Navbar from './Navbar'
 import QuizResultSummary from './QuizResultSummary'
 import { useLanguage } from './i18n'
@@ -1586,18 +1587,25 @@ function CoursePage({ user, profile, handleLogout }) {
         p_course_name: course.title,
         p_user_email: user.email,
         p_user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
+        p_requested_price: getCoursePricing(course).currentPrice,
       }
       const { error: requestRpcError } = await supabase.rpc('create_purchase_request', requestPayload)
       if (requestRpcError && ['PGRST202', '42883'].includes(requestRpcError.code)) {
         // Backward-compatible fallback until the purchase workflow migration is installed.
-        await supabase.from('requests').insert({
+        const requestRow = {
           user_id: user.id,
           user_email: user.email,
           user_name: requestPayload.p_user_name,
           course_id: course.id,
           course_name: course.title,
           status: 'pending',
+        }
+        const { error: pricedInsertError } = await supabase.from('requests').insert({
+          ...requestRow,
+          requested_price: requestPayload.p_requested_price,
+          currency: 'AZN',
         })
+        if (pricedInsertError) await supabase.from('requests').insert(requestRow)
       }
       setRequested(true)
     }
@@ -2282,7 +2290,7 @@ function CoursePage({ user, profile, handleLogout }) {
             </div>
             <aside className="panel-card sticky-panel">
               <p className="muted">{t('coursePrice')}</p>
-              <h2 className="price">{course.price} AZN</h2>
+              <h2 className="price">{formatCoursePrice(getCoursePricing(course).currentPrice)}</h2>
               {loading ? (
                 <p className="muted">{t('loading')}</p>
               ) : requested ? (

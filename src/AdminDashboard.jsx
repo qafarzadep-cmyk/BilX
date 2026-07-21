@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut, Shield } from 'lucide-react'
 import { attachCourseAuthorNames, getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl } from './courseUrl'
+import { formatCoursePrice, getCoursePricing } from './coursePricing'
 import { InboxPanel } from './Inbox'
 import Navbar from './Navbar'
 import { useLanguage } from './i18n'
@@ -211,11 +212,22 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const studentKey = String(email || '').trim().toLowerCase()
     const courseIdNum = Number(courseId)
     if (!studentKey || !courseIdNum) return false
-    const { error } = await supabase.from('enrollments').upsert({
+    const purchaseRequest = requestId ? requests.find((item) => String(item.id) === String(requestId)) : null
+    const currentCourse = courses.find((item) => String(item.id) === String(courseIdNum))
+    const enrollmentRow = {
       user_id: studentKey,
       course_id: courseIdNum,
       status: 'active',
+    }
+    let { error } = await supabase.from('enrollments').upsert({
+      ...enrollmentRow,
+      price_paid: purchaseRequest?.requested_price ?? getCoursePricing(currentCourse).currentPrice,
+      currency: 'AZN',
     }, { onConflict: 'user_id,course_id' })
+    if (error && ['PGRST204', '42703'].includes(error.code)) {
+      const fallbackResult = await supabase.from('enrollments').upsert(enrollmentRow, { onConflict: 'user_id,course_id' })
+      error = fallbackResult.error
+    }
     setMessage(error ? `${t('errorOccurred')}${error.message}` : t('adminAccessGranted'))
     if (!error) {
       if (requestId) {
@@ -776,7 +788,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
         })
         .map((item) => {
           const course = courses.find((entry) => String(entry.id) === String(item.course_id))
-          return course ? { course, enrolledAt: item.enrolled_at } : null
+          return course ? { course, enrolledAt: item.enrolled_at, pricePaid: item.price_paid } : null
         })
         .filter(Boolean)
     : []
@@ -870,6 +882,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       <div className="payment-request-details">
                         <span>{item.user_email} · {courseLabel(courses.find((course) => course.id === item.course_id)) || item.course_name}</span>
                         <small>{t('requestDateLabel')}: {formatDateTime(item.created_at)}</small>
+                        {item.requested_price != null && <small>{t('requestedPriceLabel')}: {formatCoursePrice(item.requested_price)}</small>}
                       </div>
                       <div className="payment-request-actions">
                         <small>{t('paymentPending')}</small>
@@ -902,6 +915,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                         <span>{courseLabel(courses.find((course) => String(course.id) === String(enrollment.course_id))) || enrollment.course_id}</span>
                         <small>{t('requestDateLabel')}: {formatDateTime(matchingRequest?.created_at)}</small>
                         <small>{t('accessGrantedDateLabel')}: {formatDateTime(enrollment.enrolled_at)}</small>
+                        {enrollment.price_paid != null && <small>{t('purchasePriceLabel')}: {formatCoursePrice(enrollment.price_paid)}</small>}
                       </div>
                       <div>
                         <button className="danger-button" type="button" onClick={() => removeAccess(enrollment)}>{t('revokeAccess')}</button>
@@ -1032,6 +1046,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
               <div className="admin-course-grid">
                 {approvedCourses.map((course, index) => {
                   const accessRows = getCourseAccessEnrollments(course.id)
+                  const pricing = getCoursePricing(course)
                   return (
                     <article className="admin-course-card" key={course.id}>
                       <div className="admin-course-card-top">
@@ -1045,7 +1060,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       <div className="admin-course-metrics">
                         <div>
                           <span>{t('priceAzN')}</span>
-                          <strong>{course.price} AZN</strong>
+                          <strong>{formatCoursePrice(pricing.currentPrice)}</strong>
+                          {pricing.regularPrice && pricing.regularPrice > pricing.currentPrice && (
+                            <del className="admin-course-regular-price">{formatCoursePrice(pricing.regularPrice)}</del>
+                          )}
                         </div>
                         <div>
                           <span>{t('courseStudentCountLabel')}</span>
@@ -1170,6 +1188,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                     <strong>{item.course.title}</strong>
                     <br />
                     <small>{t('purchaseDateLabel')}: {formatDateTime(item.enrolledAt)}</small>
+                    {item.pricePaid != null && <><br /><small>{t('purchasePriceLabel')}: {formatCoursePrice(item.pricePaid)}</small></>}
                   </span>
                 </div>
               ))}

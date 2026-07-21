@@ -7,6 +7,7 @@ import CertificatePage from './CertificatePage'
 import CoursePage from './CoursePage'
 import { UPCOMING_COURSES } from './courseCatalog'
 import { getCourseUrl } from './courseUrl'
+import { formatCoursePrice, getCoursePricing } from './coursePricing'
 import EditCourse from './EditCourse'
 import InstructorDashboard from './InstructorDashboard'
 import Inbox from './Inbox'
@@ -24,35 +25,27 @@ import { supabase } from './supabase'
 
 const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
-const LAUNCH_OFFER = {
-  courseTitle: 'Sıfırdan İngiliscə Danışıq kursu (A1 Level)',
-  price: 34.9,
-  regularPrice: 59.9,
-  endsOn: '20 avqustadək',
-}
-
 function formatAzN(value) {
   return `${Number(value).toFixed(2)} AZN`
 }
 
 function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
   if (enrolled) return <strong className="course-card-price">{enrolledLabel}</strong>
-  if (Number(course.price) <= 0) return <strong className="course-card-price">{freeLabel}</strong>
+  const pricing = getCoursePricing(course)
+  if (pricing.currentPrice <= 0) return <strong className="course-card-price">{freeLabel}</strong>
+  if (!pricing.isOffer) return <strong className="course-card-price">{formatCoursePrice(pricing.currentPrice)}</strong>
 
-  const isLaunchOffer = course.title === LAUNCH_OFFER.courseTitle
-  if (!isLaunchOffer) return <strong className="course-card-price">{course.price} AZN</strong>
-
-  const discountPercent = Math.round((1 - LAUNCH_OFFER.price / LAUNCH_OFFER.regularPrice) * 100)
+  const discountPercent = Math.round((1 - pricing.currentPrice / pricing.regularPrice) * 100)
 
   return (
-    <div className="course-card-offer" aria-label={`${formatAzN(LAUNCH_OFFER.price)}, ${discountPercent}% endirim`}>
+    <div className="course-card-offer" aria-label={`${formatAzN(pricing.currentPrice)}, ${discountPercent}% endirim`}>
       <span className="course-card-offer-label">Yeni kurs üçün xüsusi qiymət</span>
       <div className="course-card-price-row">
-        <strong className="course-card-price">{formatAzN(LAUNCH_OFFER.price)}</strong>
-        <del>{formatAzN(LAUNCH_OFFER.regularPrice)}</del>
+        <strong className="course-card-price">{formatAzN(pricing.currentPrice)}</strong>
+        <del>{formatAzN(pricing.regularPrice)}</del>
         <span className="course-card-discount">{discountPercent}% endirim</span>
       </div>
-      <small>{LAUNCH_OFFER.endsOn}</small>
+      <small>{pricing.endsOn}</small>
     </div>
   )
 }
@@ -368,18 +361,25 @@ function Home({ user, profile, handleLogout }) {
         p_course_name: course.title,
         p_user_email: user.email,
         p_user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
+        p_requested_price: getCoursePricing(course).currentPrice,
       }
       const { error: requestRpcError } = await supabase.rpc('create_purchase_request', requestPayload)
       if (requestRpcError && ['PGRST202', '42883'].includes(requestRpcError.code)) {
         // Backward-compatible fallback until the purchase workflow migration is installed.
-        await supabase.from('requests').insert({
+        const requestRow = {
           user_id: user.id,
           user_email: user.email,
           user_name: requestPayload.p_user_name,
           course_id: course.id,
           course_name: course.title,
           status: 'pending',
+        }
+        const { error: pricedInsertError } = await supabase.from('requests').insert({
+          ...requestRow,
+          requested_price: requestPayload.p_requested_price,
+          currency: 'AZN',
         })
+        if (pricedInsertError) await supabase.from('requests').insert(requestRow)
       }
     }
     const message = user

@@ -7563,6 +7563,12 @@ td button + .outline-button {
   font-weight: 900;
 }
 
+.admin-course-regular-price {
+  color: #9aa3b2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .admin-course-metrics .admin-count-button {
   min-width: 42px;
   min-height: 32px;
