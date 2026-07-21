@@ -595,7 +595,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
       surname: nameParts.surname,
       email: item.email || application?.email || '-',
       phone: application?.phone || '-',
-      role: item.role === 'instructor' || application ? 'instructor' : (item.role || 'student'),
+      role: String(item.email || '').toLowerCase() === ADMIN_EMAIL
+        ? 'admin'
+        : item.role === 'instructor' || application ? 'instructor' : (item.role || 'student'),
       signedUpAt: item.created_at || null,
       teacherApprovedAt: application?.reviewed_at || application?.created_at || null,
       banned: Boolean(item.banned),
@@ -617,7 +619,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
       surname: nameParts.surname,
       email: application?.email || item.user_id,
       phone: application?.phone || '-',
-      role: item.role === 'instructor' || application ? 'instructor' : 'student',
+      role: String(application?.email || '').toLowerCase() === ADMIN_EMAIL
+        ? 'admin'
+        : item.role === 'instructor' || application ? 'instructor' : 'student',
       signedUpAt: null,
       teacherApprovedAt: application?.reviewed_at || application?.created_at || null,
     })
@@ -688,6 +692,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
     : visibleUsers.filter((item) => item.role === userFilter)
   const activeUserFilterLabel = userStats.find((item) => item.key === userFilter)?.label || t('totalUsersLabel')
   const roleLabels = {
+    admin: t('adminLabel'),
     instructor: t('instructor'),
     student: t('student'),
   }
