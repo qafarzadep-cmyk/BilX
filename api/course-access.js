@@ -8,17 +8,60 @@ function getConfig() {
   return { url, serviceKey, anonKey }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' })
-    return
-  }
+const LEGACY_A1_SUMMARY = { ratingTotal: 178.6, ratingCount: 38 }
 
+function summarizeRatings(rows, courseId) {
+  const ratings = (rows || []).filter((row) => String(row.course_id) === String(courseId))
+  const legacy = String(courseId) === '17' ? LEGACY_A1_SUMMARY : { ratingTotal: 0, ratingCount: 0 }
+  const total = ratings.reduce((sum, row) => sum + Number(row.rating || 0), legacy.ratingTotal)
+  const count = ratings.length + legacy.ratingCount
+  return { average: count ? Math.round((total / count) * 10) / 10 : null, count }
+}
+
+async function handleReviews(req, res, config) {
+  const service = createClient(config.url, config.serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  if (req.method === 'GET') {
+    const courseIds = String(req.query?.courseIds || req.query?.courseId || '').split(',').map(Number).filter((value) => Number.isInteger(value) && value > 0)
+    if (!courseIds.length) return res.status(400).json({ error: 'Invalid course id.' })
+    const { data, error } = await service.from('course_ratings').select('id,user_id,course_id,rating,review,created_at').in('course_id', courseIds).order('created_at', { ascending: false })
+    if (error) return res.status(500).json({ error: error.message })
+    const rows = data || []
+    const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))]
+    const { data: profiles } = userIds.length ? await service.from('profiles').select('user_id,full_name').in('user_id', userIds) : { data: [] }
+    const names = new Map((profiles || []).map((item) => [String(item.user_id), item.full_name]))
+    return res.status(200).json({
+      summaries: Object.fromEntries(courseIds.map((id) => [String(id), summarizeRatings(rows, id)])),
+      reviews: rows.map((row) => ({ id: row.id, courseId: row.course_id, rating: row.rating, review: row.review, createdAt: row.created_at, author: names.get(String(row.user_id)) || 'BilX tələbəsi' })),
+    })
+  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Unauthorized' })
+  const authClient = createClient(config.url, config.anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { data: userData } = await authClient.auth.getUser(token)
+  const user = userData?.user
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+  const courseId = Number(req.body?.courseId)
+  const rating = Number(req.body?.rating)
+  const review = String(req.body?.review || '').trim().slice(0, 2000)
+  if (!Number.isInteger(courseId) || courseId <= 0 || !Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Invalid review.' })
+  const keys = [user.id, user.email, user.email?.toLowerCase()].filter(Boolean)
+  const { data: enrollment } = await service.from('enrollments').select('id').eq('course_id', courseId).in('user_id', keys).eq('status', 'active').limit(1).maybeSingle()
+  if (!enrollment) return res.status(403).json({ error: 'Only enrolled students can review this course.' })
+  const { error } = await service.from('course_ratings').upsert({ user_id: user.id, course_id: courseId, rating, review }, { onConflict: 'user_id,course_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ ok: true })
+}
+
+export default async function handler(req, res) {
   const config = getConfig()
   if (!config) {
     res.status(500).json({ error: 'Course access check is not configured.' })
     return
   }
+
+  if (String(req.query?.reviews || '') === '1') return handleReviews(req, res, config)
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const authHeader = req.headers.authorization || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''

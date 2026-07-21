@@ -193,7 +193,7 @@ function Home({ user, profile, handleLogout }) {
         setLoadingCourses(false)
       }
       if (list.length) {
-        fetch(`/api/course-reviews?courseIds=${encodeURIComponent(list.map((course) => course.id).join(','))}`)
+        fetch(`/api/course-access?reviews=1&courseIds=${encodeURIComponent(list.map((course) => course.id).join(','))}`)
           .then((response) => response.ok ? response.json() : { summaries: {} })
           .then((result) => { if (mounted) setCourseRatings(result.summaries || {}) })
           .catch(() => {})

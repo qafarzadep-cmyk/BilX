@@ -363,7 +363,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const loadCourseReviews = useCallback(async (targetCourseId = courseId) => {
     if (!targetCourseId) return
     try {
-      const response = await fetch(`/api/course-reviews?courseId=${encodeURIComponent(targetCourseId)}`)
+      const response = await fetch(`/api/course-access?reviews=1&courseId=${encodeURIComponent(targetCourseId)}`)
       const result = await response.json()
       if (!response.ok) return
       setCourseReviewData({
@@ -383,7 +383,7 @@ function CoursePage({ user, profile, handleLogout }) {
     setReviewSubmitting(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch('/api/course-reviews', {
+      const response = await fetch('/api/course-access?reviews=1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
         body: JSON.stringify({ courseId, rating: reviewRating, review: reviewBody }),
