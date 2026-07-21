@@ -32,7 +32,7 @@ function AdminStudentProfile({ user, profile, handleLogout }) {
         return
       }
       const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(`/api/admin-student-profile?id=${encodeURIComponent(id)}`, {
+      const response = await fetch(`/api/course-access?studentId=${encodeURIComponent(id)}`, {
         headers: { Authorization: `Bearer ${session?.access_token || ''}` },
       })
       const result = await response.json().catch(() => ({}))

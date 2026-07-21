@@ -14,12 +14,6 @@ export default async function handler(req, res) {
     return
   }
 
-  const courseId = Number(req.query?.courseId)
-  if (!Number.isInteger(courseId) || courseId <= 0) {
-    res.status(400).json({ error: 'Invalid course id.' })
-    return
-  }
-
   const config = getConfig()
   if (!config) {
     res.status(500).json({ error: 'Course access check is not configured.' })
@@ -47,6 +41,65 @@ export default async function handler(req, res) {
   const service = createClient(config.url, config.serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
+
+  const studentId = String(req.query?.studentId || '').trim()
+  if (studentId) {
+    const adminEmail = String(process.env.ADMIN_EMAIL || 'qafarzadep@gmail.com').toLowerCase()
+    if (user.email?.toLowerCase() !== adminEmail) {
+      res.status(403).json({ error: 'Admin access required.' })
+      return
+    }
+
+    const { data: studentData, error: studentError } = await service.auth.admin.getUserById(studentId)
+    const student = studentData?.user
+    if (studentError || !student) {
+      res.status(404).json({ error: 'Student not found.' })
+      return
+    }
+
+    const studentEmail = String(student.email || '').toLowerCase()
+    const studentKeys = [student.id, student.email, studentEmail].filter(Boolean)
+    const [{ data: profile }, { data: enrollmentData }, { data: requestData }] = await Promise.all([
+      service.from('profiles').select('user_id, full_name, role').eq('user_id', student.id).maybeSingle(),
+      service.from('enrollments').select('*').in('user_id', studentKeys).eq('status', 'active').order('enrolled_at', { ascending: false }),
+      service.from('requests').select('*').or(`user_id.eq.${student.id},user_email.ilike.${studentEmail}`).order('created_at', { ascending: false }),
+    ])
+
+    const enrollments = enrollmentData || []
+    const courseIds = [...new Set(enrollments.map((item) => item.course_id).filter(Boolean))]
+    const [{ data: courses }, { data: videos }] = courseIds.length
+      ? await Promise.all([
+          service.from('Courses').select('id, title, slug, instructor_id, instructor_name').in('id', courseIds),
+          service.from('videos').select('id, course_id, title').in('course_id', courseIds).order('order_index'),
+        ])
+      : [{ data: [] }, { data: [] }]
+    const videoIds = (videos || []).map((item) => item.id)
+    const { data: progress } = videoIds.length
+      ? await service.from('video_progress').select('video_id, watched, position_seconds, last_opened_at, updated_at').eq('user_id', student.id).in('video_id', videoIds)
+      : { data: [] }
+
+    res.status(200).json({
+      student: {
+        id: student.id,
+        email: student.email,
+        fullName: profile?.full_name || student.user_metadata?.full_name || student.email,
+        registeredAt: student.created_at,
+        lastSignInAt: student.last_sign_in_at,
+      },
+      enrollments,
+      requests: requestData || [],
+      courses: courses || [],
+      videos: videos || [],
+      progress: progress || [],
+    })
+    return
+  }
+
+  const courseId = Number(req.query?.courseId)
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    res.status(400).json({ error: 'Invalid course id.' })
+    return
+  }
 
   const { data: course } = await service
     .from('Courses')
