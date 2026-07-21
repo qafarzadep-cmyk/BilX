@@ -200,6 +200,20 @@ function getResumeVideoId({ requestedVideoId, userId, courseId, videos, progress
   return storedResume?.videoId || videos[videos.length - 1]?.id || null
 }
 
+function sortVideosByCurriculum(videos, sections) {
+  const orderedSections = [...(sections || [])]
+    .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0) || String(a.id).localeCompare(String(b.id)))
+  const sectionRank = new Map(orderedSections.map((section, index) => [String(section.id), index]))
+
+  return [...(videos || [])].sort((a, b) => {
+    const aSection = a.section_id == null ? -1 : (sectionRank.get(String(a.section_id)) ?? Number.MAX_SAFE_INTEGER)
+    const bSection = b.section_id == null ? -1 : (sectionRank.get(String(b.section_id)) ?? Number.MAX_SAFE_INTEGER)
+    return aSection - bSection
+      || Number(a.order_index || 0) - Number(b.order_index || 0)
+      || String(a.id).localeCompare(String(b.id))
+  })
+}
+
 function getTrailerDisplayTitle(title, fallback) {
   const value = String(title || '').trim()
   if (!value) return fallback
@@ -737,7 +751,7 @@ function CoursePage({ user, profile, handleLogout }) {
         supabase.from('course_trailers').select('*').eq('course_id', lookupCourseId).maybeSingle(),
       ])
 
-      const sortedVideos = videoData || []
+      const sortedVideos = sortVideosByCurriculum(videoData, sectionData)
       const shouldInitializeVideo = String(initializedCourseIdRef.current) !== String(lookupCourseId)
       if (mounted) {
         setVideos(sortedVideos)
