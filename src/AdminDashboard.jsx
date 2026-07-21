@@ -80,7 +80,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [approvingRequestId, setApprovingRequestId] = useState(null)
   const [decliningRequestId, setDecliningRequestId] = useState(null)
   const canAdmin = isAdmin(user)
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   const sendEmailNotification = async ({ type, courseId, courseTitle, instructorId, link, email }) => {
     try {
@@ -744,9 +744,18 @@ function AdminDashboard({ user, profile, handleLogout }) {
     ...monthlyStats.flatMap((row) => [row.newUsers, row.newTeachers, row.coursesShared, row.coursesBought])
   )
   const monthLabel = (key) => {
-    const date = new Date(`${key}-01T00:00:00`)
-    if (Number.isNaN(date.getTime())) return key
-    return date.toLocaleDateString('az-AZ', { year: 'numeric', month: 'long' })
+    const [year, monthValue] = String(key || '').split('-')
+    const monthIndex = Number(monthValue) - 1
+    const monthNames = {
+      az: ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun', 'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr'],
+      ru: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+      en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    }
+    const monthName = monthNames[language]?.[monthIndex]
+    if (!year || !monthName) return key
+    if (language === 'az') return `${year}, ${monthName} ayı statistikası`
+    if (language === 'ru') return `${year}, ${monthName} — статистика`
+    return `${year} ${monthName} statistics`
   }
 
   // Drill-down data for the selected user (4.5).
