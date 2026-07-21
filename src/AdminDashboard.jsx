@@ -495,11 +495,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const enrolledCourseKeys = new Set(enrollments
     .filter((item) => (item.status || 'active') === 'active')
     .map((item) => `${String(item.user_id || '').toLowerCase()}::${item.course_id}`))
+  const authDirectoryReady = adminUsers.length > 0
+  const authUserIds = new Set(adminUsers.map((item) => item.user_id).filter(Boolean))
   const seenPendingRequestKeys = new Set()
   const pendingPurchaseRequests = requests.filter((request) => {
     if ((request.status || 'pending') !== 'pending') return false
-    // Requests whose account was deleted have user_id cleared by the database.
-    if (!request.user_id) return false
+    // Hide requests whose account was deleted, including legacy orphaned UUIDs.
+    if (!request.user_id || (authDirectoryReady && !authUserIds.has(request.user_id))) return false
     const key = `${String(request.user_email || request.user_id || '').toLowerCase()}::${request.course_id}`
     if (seenPendingRequestKeys.has(key) || enrolledCourseKeys.has(key)) return false
     seenPendingRequestKeys.add(key)
@@ -560,8 +562,6 @@ function AdminDashboard({ user, profile, handleLogout }) {
   })
   const approvedTeacherApplications = teacherApplications.filter((application) => application.status === 'approved')
   const approvedTeacherByUserId = new Map(approvedTeacherApplications.map((application) => [application.user_id, application]))
-  const authDirectoryReady = adminUsers.length > 0
-  const authUserIds = new Set(adminUsers.map((item) => item.user_id).filter(Boolean))
   const userRowsByKey = new Map()
 
   const upsertUserRow = (key, next) => {
