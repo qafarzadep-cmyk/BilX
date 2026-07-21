@@ -220,6 +220,21 @@ function sortVideosByCurriculum(videos, sections) {
   })
 }
 
+const A1_SECTION_BENEFIT_TITLES = {
+  'Özünü və başqalarını təqdim etmək': 'İlk tanışlıq — özünü təqdim et',
+  'Sifət / Təsvir etmək': 'İnsanları və əşyaları təsvir et',
+  'Rənglər': 'Rəngləri gündəlik danışıqda istifadə et',
+  'Say': 'Say və miqdarı ifadə et',
+  'Saat və həftə': 'Vaxtı soruş və cavab ver',
+  'Aylar və illər': 'Tarixlərdən və illərdən danış',
+  'İndiki sadə zaman': 'Gündəlik vərdişlərindən danış',
+  'Fəsillər və bayramlar': 'Fəsillər və bayramlar haqqında danış',
+  'İşarə əvəzlikləri (o,bu)': 'Bu və o — əşyaları göstər',
+  'Mənsubiyyət əvəzlikləri (mənim, sənin…)': 'Mənim, sənin, onun — aidiyyəti bildir',
+  'Var, varlar (there is/there are, has/have)': 'Nəyin harada olduğunu de',
+  'Kursun sınaq imtahanı (50 test)': 'A1 biliklərini sına',
+}
+
 function getTrailerDisplayTitle(title, fallback) {
   const value = String(title || '').trim()
   if (!value) return fallback
@@ -262,7 +277,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const playerFrameRef = useRef(null)
   const playerRef = useRef(null)
   const bunnyFrameRef = useRef(null)
@@ -485,12 +500,15 @@ function CoursePage({ user, profile, handleLogout }) {
       const questionCount = getQuizQuestionCount(sectionQuizzes)
       const numberedTitle = `${t('sectionLabel')} ${sectionNumber}`
       const defaultTitle = `Section ${sectionNumber}`
+      const publicSectionTitle = language === 'az'
+        ? A1_SECTION_BENEFIT_TITLES[section.title] || section.title
+        : section.title
 
       return {
         ...section,
         sectionNumber,
-        displayTitle: section.title && section.title !== defaultTitle
-          ? `${numberedTitle}: ${section.title}`
+        displayTitle: publicSectionTitle && publicSectionTitle !== defaultTitle
+          ? `${numberedTitle}: ${publicSectionTitle}`
           : numberedTitle,
         lessons: sectionLessons,
         quizzes: sectionQuizzes,
@@ -500,7 +518,7 @@ function CoursePage({ user, profile, handleLogout }) {
         questionCount,
       }
     }).filter((section) => section.lessons.length > 0 || section.quizzes.length > 0 || sections.length > 0)
-  }, [finishedQuizIds, lessons, outlineQuizzes, quizAttempts, sections, t, watchedIds])
+  }, [finishedQuizIds, language, lessons, outlineQuizzes, quizAttempts, sections, t, watchedIds])
   const curriculumSearchTerm = curriculumSearch.trim()
   const visibleCurriculumSections = useMemo(() => {
     const query = normalizeSearchText(curriculumSearchTerm)
@@ -1692,6 +1710,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const isCourseContentLoading = loading
   const showCourseHero = (!loading && !isEnrolled) || isCourseOwner || adminPreview
   const showBuyerCourseActions = !canViewFullCourse || isTeacherBuyerPreview
+  const isA1SalesCourse = String(course.id) === '17' || /sıfırdan ingiliscə danışıq/iu.test(course.title || '')
+  const coursePricing = getCoursePricing(course)
 
   return (
     <div className="page">
@@ -1701,27 +1721,35 @@ function CoursePage({ user, profile, handleLogout }) {
         <section className="course-hero course-hero-public">
           <div className="course-hero-copy">
             <p className="role-pill course-brand-pill">BilX</p>
-            <h1>{course.title}</h1>
+            {isA1SalesCourse ? (
+              <>
+                <h1>{t('a1LandingHeadline')}</h1>
+                <p className="course-landing-course-name">{course.title}</p>
+              </>
+            ) : <h1>{course.title}</h1>}
             {instructorName && (
               <button className="teacher-profile-link course-instructor hero-author" type="button" onClick={() => navigate(`/teacher/${course.instructor_id}`)}>
                 {t('instructorLabel')}: {instructorName}
               </button>
             )}
-            <p>{course.description}</p>
+            <p>{isA1SalesCourse ? t('a1LandingSubtitle') : course.description}</p>
             <div className="tag-row">
               {!isCourseContentLoading && (
-                <>
-                  <span>{lessons.length} {t('courseLessons')}{fullCourseDuration ? ` / ${fullCourseDuration}` : ''}</span>
-                  <span>{outlineQuizzes.length} {t('quizLabel')} / {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
-                </>
+                <span>{lessons.length} {t('courseLessons')} • {fullCourseDuration || '-'} • {outlineQuizzes.length} {t('quizLabel')} • {outlineQuizQuestionCount} {t('questionCountLabel')}</span>
               )}
               <span>{t('lifetimeAccess')}</span>
-              {showBuyerCourseActions && (
-              <button className="hero-whatsapp-button" type="button" onClick={handleWhatsApp}>
-                <MessageCircle size={16} /> {t('courseAcquire')}
-              </button>
-              )}
             </div>
+            {showBuyerCourseActions && (
+              <div className="course-hero-offer">
+                <div>
+                  <strong>{formatCoursePrice(coursePricing.currentPrice)}</strong>
+                  {coursePricing.regularPrice > coursePricing.currentPrice && <del>{formatCoursePrice(coursePricing.regularPrice)}</del>}
+                </div>
+                <button className="hero-whatsapp-button" type="button" onClick={handleWhatsApp}>
+                  <MessageCircle size={18} /> {t('courseStartNow')}
+                </button>
+              </div>
+            )}
             <button type="button" className="outline-button share-button" onClick={handleShare}>
               <Share2 size={16} /> {t('shareCourse')}
             </button>
@@ -1775,6 +1803,21 @@ function CoursePage({ user, profile, handleLogout }) {
           </button>
           )}
         </section>
+        )}
+
+        {showCourseHero && showBuyerCourseActions && isA1SalesCourse && (
+          <section className="course-outcomes" aria-labelledby="course-outcomes-title">
+            <div>
+              <p className="admin-section-eyebrow">{t('a1OutcomeEyebrow')}</p>
+              <h2 id="course-outcomes-title">{t('a1OutcomeTitle')}</h2>
+            </div>
+            <ul>
+              <li>{t('a1OutcomeIntroduce')}</li>
+              <li>{t('a1OutcomeConversation')}</li>
+              <li>{t('a1OutcomeQuestions')}</li>
+              <li>{t('a1OutcomeSentences')}</li>
+            </ul>
+          </section>
         )}
 
         {showAccessWelcome && !isCourseContentLoading && (
@@ -2297,7 +2340,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 <div className="success-box">{t('requestSent')}</div>
               ) : (
                 <>
-                  <button className="whatsapp-button" onClick={handleWhatsApp} title={`WhatsApp: ${WHATSAPP_PHONE_DISPLAY}`}>{t('contactWhatsapp')}</button>
+                  <button className="whatsapp-button" onClick={handleWhatsApp} title={`WhatsApp: ${WHATSAPP_PHONE_DISPLAY}`}>{t('courseStartNow')}</button>
                   {!user && (
                     <>
                       <button className="primary-button full" onClick={() => navigate('/login')}>{t('loginToContinue')}</button>
@@ -2310,6 +2353,13 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
         )}
       </main>
+
+      {showCourseHero && showBuyerCourseActions && (
+        <div className="mobile-course-cta" aria-label={t('courseStartNow')}>
+          <strong>{formatCoursePrice(coursePricing.currentPrice)}</strong>
+          <button type="button" onClick={handleWhatsApp}>{t('courseStartNow')}</button>
+        </div>
+      )}
 
       {previewModalOpen && publicPreviewVideo && (
         <div className="course-preview-backdrop" role="presentation" onMouseDown={() => setPreviewModalOpen(false)}>
