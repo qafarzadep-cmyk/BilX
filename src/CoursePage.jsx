@@ -231,7 +231,7 @@ const A1_SECTION_BENEFIT_TITLES = {
   'Fəsillər və bayramlar': 'Fəsillər və bayramlar haqqında danış',
   'İşarə əvəzlikləri (o,bu)': 'Bu və o — əşyaları göstər',
   'Mənsubiyyət əvəzlikləri (mənim, sənin…)': 'Mənim, sənin, onun — aidiyyəti bildir',
-  'Var, varlar (there is/there are, has/have)': 'Nəyin harada olduğunu de',
+  'Var, varlar (there is/there are, has/have)': 'Mövcudluq və sahiblik haqqında danış',
   'Kursun sınaq imtahanı (50 test)': 'A1 biliklərini sına',
 }
 
