@@ -6712,10 +6712,11 @@ td button + .outline-button {
 }
 
 .course-card-rating { display: flex; align-items: center; gap: 5px; color: #9b4d00; font-size: 14px; }
+.course-card-rating > strong { color: #a65300; }
 .course-card-rating span, .course-review-stars, .course-rating-summary span { color: #c66a00; letter-spacing: 1px; }
 .course-card-rating small { color: #6b7280; }
 .course-hero-rating { display: flex; align-items: center; gap: 7px; width: fit-content; padding: 0; border: 0; background: transparent; color: #fff; cursor: pointer; }
-.course-hero-rating strong { font-size: 18px; }
+.course-hero-rating strong { color: #f4a11a; font-size: 18px; }
 .course-hero-rating span { color: #f4a11a; letter-spacing: 1px; }
 .course-hero-rating small { color: #d4d7e1; }
 .course-reviews-panel { margin: 0 0 30px; padding: 28px 30px; border: 1px solid #e3e7f0; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgba(24,38,82,.06); }
