@@ -333,6 +333,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
   }
 
   const openUserProfile = async (userRow, enrollment = null) => {
+    if (userRow?.role === 'student' && userRow?.userId) {
+      navigate(`/admin/student/${userRow.userId}`)
+      return
+    }
     setSelectedUser(userRow)
     setSelectedUserEnrollment(enrollment)
     setUserComments([])
