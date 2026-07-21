@@ -547,7 +547,7 @@ const translations = {
     courseAcquire: 'Kursu əldə et',
     courseStartNow: 'İndi başla',
     a1LandingHeadline: 'İngilis dilini sadəcə öyrənmə. Danışmağa başla.',
-    a1LandingSubtitle: 'Sıfırdan başlayanlar üçün addım-addım praktik danışıq kursu.',
+    a1LandingSubtitle: 'Biliklərini möhkəmlətmək istəyənlər və ya sıfırdan başlayanlar üçün addım-addım praktik danışıq kursu.',
     a1OutcomeEyebrow: 'Praktik nəticələr',
     a1OutcomeTitle: 'Bu kursun sonunda sən:',
     a1OutcomeIntroduce: 'Özünü və başqalarını təqdim edə biləcəksən.',
