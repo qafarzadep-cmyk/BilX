@@ -553,7 +553,7 @@ const translations = {
     a1OutcomeIntroduce: 'Özünü və başqalarını təqdim edə biləcəksən.',
     a1OutcomeConversation: 'Gündəlik mövzularda sadə söhbətlər edə biləcəksən.',
     a1OutcomeQuestions: 'Saat, tarix və qiymət soruşub cavab verə biləcəksən.',
-    a1OutcomeSentences: 'İngiliscə sadə cümlələri sərbəst şəkildə danışa biləcəksən.',
+    a1OutcomeSentences: 'İngiliscə sərbəst şəkildə təsdiq, inkar və sual cümlələri qura biləcəksən.',
     lessonListTitle: 'Dərs siyahısı',
     lessonsSoon: 'Dərslər tezliklə əlavə olunacaq.',
     requestSent: 'Sorğunuz göndərildi. Tezliklə sizinlə əlaqə saxlanılacaq.',
