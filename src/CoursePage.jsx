@@ -1291,7 +1291,7 @@ function CoursePage({ user, profile, handleLogout }) {
     }
     const { error } = await supabase.from('quiz_attempts').upsert(attempt, { onConflict: 'user_id,quiz_id' })
     if (error) {
-      toast.error(t('quizResultSaveFailed'))
+      console.warn('Quiz result could not be synced to Supabase:', error.message)
       return
     }
   }
