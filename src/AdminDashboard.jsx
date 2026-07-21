@@ -128,7 +128,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
       supabase.from('teacher_applications').select('*').order('id', { ascending: false }),
       supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
       supabase.from('requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('inbox_messages').select('id').order('created_at', { ascending: false }),
+      supabase.from('inbox_messages').select('id, sender_id, sender_email, recipient_id, recipient_email').order('created_at', { ascending: false }),
       supabase.rpc('admin_list_users'),
     ])
 
@@ -762,12 +762,21 @@ function AdminDashboard({ user, profile, handleLogout }) {
         .filter(Boolean)
     : []
 
+  const adminEmailKey = String(user?.email || '').toLowerCase()
+  const inboxConversationCount = new Set(inboxMessages.map((item) => {
+    const sentByAdmin = item.sender_id === user?.id
+      || String(item.sender_email || '').toLowerCase() === adminEmailKey
+    const personId = sentByAdmin ? item.recipient_id : item.sender_id
+    const personEmail = sentByAdmin ? item.recipient_email : item.sender_email
+    return personId || String(personEmail || '').toLowerCase()
+  }).filter(Boolean)).size
+
   const adminTabs = [
     ['pending', t('pendingReviewCourses'), reviewCourses.length],
     ['teacher-applications', t('pendingTeachers'), pendingTeacherApplications.length],
     ['access', t('grantAccess'), pendingPurchaseRequests.length],
     ['users', t('userCount'), visibleUsers.length],
-    ['inbox', t('inbox'), inboxMessages.length],
+    ['inbox', t('inbox'), inboxConversationCount],
     ['courses', t('approvedCoursesTitle'), approvedCourses.length],
     ['stats', t('statsTab'), monthlyStats.length],
   ]
