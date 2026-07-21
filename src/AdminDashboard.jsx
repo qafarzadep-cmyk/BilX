@@ -1006,20 +1006,35 @@ function AdminDashboard({ user, profile, handleLogout }) {
           )}
 
           {activeTab === 'courses' && (
-            <div className="panel-card table-wrap">
-              <h2>{t('approvedCoursesTitle')}</h2>
-              <table>
-                <thead><tr><th>{t('rowLabel')}</th><th>{t('courseLabel')}</th><th>{t('instructorLabel')}</th><th>{t('priceAzN')}</th><th>{t('statusLabel')}</th><th>{t('courseStudentCountLabel')}</th><th>{t('actionLabel')}</th></tr></thead>
-                <tbody>{approvedCourses.map((course, index) => {
+            <div className="panel-card admin-courses-panel">
+              <div className="admin-courses-heading">
+                <div>
+                  <span className="admin-section-eyebrow">BilX</span>
+                  <h2>{t('approvedCoursesTitle')}</h2>
+                  <p>{t('adminCoursesOverview')}</p>
+                </div>
+                <span className="admin-users-total">{approvedCourses.length}</span>
+              </div>
+              <div className="admin-course-grid">
+                {approvedCourses.map((course, index) => {
                   const accessRows = getCourseAccessEnrollments(course.id)
                   return (
-                    <tr key={course.id}>
-                      <td>{index + 1}</td>
-                      <td>{course.title}</td>
-                      <td>{getCourseAuthorName(course) || '-'}</td>
-                      <td>{course.price} AZN</td>
-                      <td>{t(getCourseStatusLabel(getCourseStatus(course)))}</td>
-                      <td>
+                    <article className="admin-course-card" key={course.id}>
+                      <div className="admin-course-card-top">
+                        <span className="admin-course-number">{String(index + 1).padStart(2, '0')}</span>
+                        <span className="admin-course-status">{t(getCourseStatusLabel(getCourseStatus(course)))}</span>
+                      </div>
+                      <div className="admin-course-card-body">
+                        <h3>{course.title}</h3>
+                        <p>{t('instructorLabel')}: <strong>{getCourseAuthorName(course) || '-'}</strong></p>
+                      </div>
+                      <div className="admin-course-metrics">
+                        <div>
+                          <span>{t('priceAzN')}</span>
+                          <strong>{course.price} AZN</strong>
+                        </div>
+                        <div>
+                          <span>{t('courseStudentCountLabel')}</span>
                         <button
                           type="button"
                           className="admin-count-button"
@@ -1028,9 +1043,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
                         >
                           {accessRows.length}
                         </button>
-                      </td>
-                      <td>
-                        <div className="approved-course-actions">
+                        </div>
+                      </div>
+                      <div className="approved-course-actions admin-course-card-actions">
                           {getCourseStatus(course) === 'approved' || course.is_published ? (
                             <button className="danger-button" onClick={() => rejectCourse(course.id)}>{t('reject')}</button>
                           ) : (
@@ -1038,12 +1053,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
                           )}
                           <button className="outline-button" onClick={() => navigate(`/edit-course/${course.id}`, { state: { course } })}>{t('edit')}</button>
                           <button className="danger-button" onClick={() => deleteCourse(course.id)}>{t('delete')}</button>
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </article>
                   )
-                })}</tbody>
-              </table>
+                })}
+              </div>
             </div>
           )}
 
