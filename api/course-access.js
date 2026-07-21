@@ -59,18 +59,22 @@ export default async function handler(req, res) {
 
     const studentEmail = String(student.email || '').toLowerCase()
     const studentKeys = [student.id, student.email, studentEmail].filter(Boolean)
-    const [{ data: profile }, { data: enrollmentData }, { data: requestData }] = await Promise.all([
+    const [{ data: profile }, { data: enrollmentData }, { data: allRequestData }] = await Promise.all([
       service.from('profiles').select('user_id, full_name, role').eq('user_id', student.id).maybeSingle(),
       service.from('enrollments').select('*').in('user_id', studentKeys).eq('status', 'active').order('enrolled_at', { ascending: false }),
-      service.from('requests').select('*').or(`user_id.eq.${student.id},user_email.ilike.${studentEmail}`).order('created_at', { ascending: false }),
+      service.from('requests').select('*').order('created_at', { ascending: false }),
     ])
 
     const enrollments = enrollmentData || []
+    const requests = (allRequestData || []).filter((item) => (
+      String(item.user_id || '') === student.id
+      || String(item.user_email || '').toLowerCase() === studentEmail
+    ))
     const courseIds = [...new Set(enrollments.map((item) => item.course_id).filter(Boolean))]
     const [{ data: courses }, { data: videos }] = courseIds.length
       ? await Promise.all([
-          service.from('Courses').select('id, title, slug, instructor_id, instructor_name').in('id', courseIds),
-          service.from('videos').select('id, course_id, title').in('course_id', courseIds).order('order_index'),
+          service.from('Courses').select('*').in('id', courseIds),
+          service.from('videos').select('*').in('course_id', courseIds).order('order_index'),
         ])
       : [{ data: [] }, { data: [] }]
     const videoIds = (videos || []).map((item) => item.id)
@@ -87,7 +91,7 @@ export default async function handler(req, res) {
         lastSignInAt: student.last_sign_in_at,
       },
       enrollments,
-      requests: requestData || [],
+      requests,
       courses: courses || [],
       videos: videos || [],
       progress: progress || [],

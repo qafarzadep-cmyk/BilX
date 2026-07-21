@@ -82,8 +82,8 @@ function AdminStudentProfile({ user, profile, handleLogout }) {
                 <h1>{data.student.fullName}</h1>
                 <div className="admin-student-facts">
                   <span><Mail size={16} /> {data.student.email}</span>
-                  <span><Clock3 size={16} /> {t('registrationDate')}: {formatDateTime(data.student.registeredAt)}</span>
-                  <span><Clock3 size={16} /> {t('lastActivity')}: {formatDateTime(data.student.lastSignInAt)}</span>
+                  <span><Clock3 size={16} /> {t('signupDateLabel')}: {formatDateTime(data.student.registeredAt)}</span>
+                  <span><Clock3 size={16} /> {t('lastActiveLabel')}: {formatDateTime(data.student.lastSignInAt)}</span>
                 </div>
               </div>
               <div className="admin-student-course-count"><strong>{courseRows.length}</strong><span>{t('coursesTitle')}</span></div>
@@ -102,9 +102,9 @@ function AdminStudentProfile({ user, profile, handleLogout }) {
                       <h3>{row.course?.title || row.enrollment.course_id}</h3>
                       <div className="admin-student-course-meta">
                         <span>{t('requestDateLabel')}: <b>{formatDateTime(row.request?.created_at)}</b></span>
-                        <span>{t('accessGrantedDateLabel')}: <b>{formatDateTime(row.enrollment.enrolled_at || row.request?.created_at)}</b></span>
+                        <span>{t('accessGrantedDateLabel')}: <b>{formatDateTime(row.enrollment.enrolled_at || row.enrollment.created_at || row.request?.access_granted_at || row.request?.updated_at || row.request?.created_at)}</b></span>
                         <span>{t('purchasePriceLabel')}: <b>{formatCoursePrice(purchasePrice)}</b></span>
-                        <span>{t('lastActivity')}: <b>{formatDateTime(row.latestActivity)}</b></span>
+                        <span>{t('lastActiveLabel')}: <b>{formatDateTime(row.latestActivity)}</b></span>
                       </div>
                     </div>
                     <div className="admin-student-progress-box">
