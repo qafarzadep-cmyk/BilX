@@ -1007,6 +1007,16 @@ button {
   font-weight: 600;
 }
 
+.course-card-offer-message span,
+.course-card-offer-message strong {
+  display: block;
+  line-height: 1.35;
+}
+
+.course-card-offer-message strong {
+  font-size: 11px;
+}
+
 .course-card-whatsapp-button {
   position: relative;
   overflow: hidden;
