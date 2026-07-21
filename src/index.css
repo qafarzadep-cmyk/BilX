@@ -690,6 +690,44 @@ button {
   margin-top: 0;
 }
 
+.course-card-offer {
+  width: 100%;
+  display: grid;
+  gap: 3px;
+}
+
+.course-card-offer-label {
+  color: #6a6f73;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.course-card-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.course-card-price-row del {
+  color: #6a6f73;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.course-card-discount {
+  color: #1c1d1f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.course-card-offer small {
+  color: #b32d0f;
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .course-card-whatsapp-button {
   position: relative;
   overflow: hidden;

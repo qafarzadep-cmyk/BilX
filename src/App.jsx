@@ -24,6 +24,38 @@ import { supabase } from './supabase'
 
 const COURSE_PAGE_SIZE = 8
 const PROFILE_CACHE_KEY = 'bilx-profile-cache'
+const LAUNCH_OFFER = {
+  courseTitle: 'Sıfırdan İngiliscə Danışıq kursu (A1 Level)',
+  price: 34.9,
+  regularPrice: 59.9,
+  endsOn: '20 avqustadək',
+}
+
+function formatAzN(value) {
+  return `${Number(value).toFixed(2)} AZN`
+}
+
+function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
+  if (enrolled) return <strong className="course-card-price">{enrolledLabel}</strong>
+  if (Number(course.price) <= 0) return <strong className="course-card-price">{freeLabel}</strong>
+
+  const isLaunchOffer = course.title === LAUNCH_OFFER.courseTitle
+  if (!isLaunchOffer) return <strong className="course-card-price">{course.price} AZN</strong>
+
+  const discountPercent = Math.round((1 - LAUNCH_OFFER.price / LAUNCH_OFFER.regularPrice) * 100)
+
+  return (
+    <div className="course-card-offer" aria-label={`${formatAzN(LAUNCH_OFFER.price)}, ${discountPercent}% endirim`}>
+      <span className="course-card-offer-label">Yeni kurs üçün xüsusi qiymət</span>
+      <div className="course-card-price-row">
+        <strong className="course-card-price">{formatAzN(LAUNCH_OFFER.price)}</strong>
+        <del>{formatAzN(LAUNCH_OFFER.regularPrice)}</del>
+        <span className="course-card-discount">{discountPercent}% endirim</span>
+      </div>
+      <small>{LAUNCH_OFFER.endsOn}</small>
+    </div>
+  )
+}
 
 function getStudentKeys(user) {
   return Array.from(new Set([
@@ -474,9 +506,12 @@ function Home({ user, profile, handleLogout }) {
                             </div>
                           )}
                           <div className="course-card-footer">
-                            <strong className="home-course-price course-card-price">
-                              {isCourseEnrolled(course) ? t('myCourseBadge') : (Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel'))}
-                            </strong>
+                            <CourseCardPrice
+                              course={course}
+                              enrolled={isCourseEnrolled(course)}
+                              enrolledLabel={t('myCourseBadge')}
+                              freeLabel={t('freeLabel')}
+                            />
                             {isCourseEnrolled(course) ? (
                               <button className="primary-button" type="button" onClick={(event) => openOwnedCourse(event, course)}>
                                 {getCourseLearnLabel(course)}
@@ -561,9 +596,12 @@ function Home({ user, profile, handleLogout }) {
                           </div>
                         )}
                         <div className="course-card-footer">
-                          <strong className="course-card-price">
-                            {isCourseEnrolled(course) ? t('myCourseBadge') : (Number(course.price) > 0 ? `${course.price} AZN` : t('freeLabel'))}
-                          </strong>
+                          <CourseCardPrice
+                            course={course}
+                            enrolled={isCourseEnrolled(course)}
+                            enrolledLabel={t('myCourseBadge')}
+                            freeLabel={t('freeLabel')}
+                          />
                           {isCourseEnrolled(course) ? (
                             <button className="primary-button" type="button" onClick={(event) => openOwnedCourse(event, course)}>
                               {getCourseLearnLabel(course)}
