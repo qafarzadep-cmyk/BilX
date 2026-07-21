@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import AdminDashboard from './AdminDashboard'
 import CertificatePage from './CertificatePage'
@@ -158,6 +158,8 @@ function Home({ user, profile, handleLogout }) {
   const [enrolledCourseIds, setEnrolledCourseIds] = useState(() => new Set())
   const [startedCourseIds, setStartedCourseIds] = useState(() => new Set())
   const [courseProgressPercents, setCourseProgressPercents] = useState(() => new Map())
+  const [guestPurchaseCourse, setGuestPurchaseCourse] = useState(null)
+  const [guestPurchaseDetails, setGuestPurchaseDetails] = useState({ name: '', email: '' })
 
   useEffect(() => {
     let mounted = true
@@ -360,8 +362,7 @@ function Home({ user, profile, handleLogout }) {
     event.stopPropagation()
     if (teacherId) navigate(`/teacher/${teacherId}`)
   }
-  const openCourseWhatsApp = async (event, course) => {
-    event.stopPropagation()
+  const continueCourseWhatsApp = async (course) => {
     if (user) {
       const requestPayload = {
         p_course_id: course.id,
@@ -382,8 +383,21 @@ function Home({ user, profile, handleLogout }) {
         })
       }
     }
-    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user?.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user?.email || ''}`
+    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user?.user_metadata?.full_name || guestPurchaseDetails.name}\n${t('whatsappEmail')}: ${user?.email || guestPurchaseDetails.email}`
     window.open(getWhatsAppUrl(message), '_blank')
+  }
+  const openCourseWhatsApp = async (event, course) => {
+    event.stopPropagation()
+    if (!user) {
+      setGuestPurchaseCourse(course)
+      return
+    }
+    await continueCourseWhatsApp(course)
+  }
+  const goToPurchaseAuth = (path) => {
+    if (!guestPurchaseCourse) return
+    localStorage.setItem('bilx-purchase-return', getCourseUrl(guestPurchaseCourse))
+    navigate(path)
   }
   const onCourseKeyDown = (event, course) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -680,6 +694,29 @@ function Home({ user, profile, handleLogout }) {
         </div>
         <div className="home-footer-bottom">{t('footerRights')}</div>
       </footer>
+      {guestPurchaseCourse && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setGuestPurchaseCourse(null)}>
+          <section className="modal-panel purchase-auth-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{t('purchaseAccountTitle')}</h2>
+              <button className="modal-close-button" type="button" onClick={() => setGuestPurchaseCourse(null)} aria-label={t('close')}><X size={19} /></button>
+            </div>
+            <p>{t('purchaseAccountText')}</p>
+            <strong>{guestPurchaseCourse.title}</strong>
+            <div className="purchase-guest-fields">
+              <input value={guestPurchaseDetails.name} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, name: event.target.value }))} placeholder={t('fullName')} />
+              <input type="email" value={guestPurchaseDetails.email} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, email: event.target.value }))} placeholder={t('email')} />
+            </div>
+            <div className="purchase-auth-actions">
+              <button className="primary-button" type="button" onClick={() => goToPurchaseAuth('/login')}>{t('login')}</button>
+              <button className="outline-button" type="button" onClick={() => goToPurchaseAuth('/register')}>{t('register')}</button>
+              <button className="purchase-whatsapp-fallback" type="button" disabled={!guestPurchaseDetails.name.trim() || !guestPurchaseDetails.email.trim()} onClick={() => continueCourseWhatsApp(guestPurchaseCourse)}>
+                <MessageCircle size={17} /> {t('continueWithWhatsApp')}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

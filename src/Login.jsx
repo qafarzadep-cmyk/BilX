@@ -80,7 +80,9 @@ function Login() {
       }
 
       showMessage(t('loginSuccessRedirect'), 'success')
-      setTimeout(() => navigate(isAdmin(data.user) ? '/admin' : '/profile', { replace: true }), 450)
+      const purchaseReturn = localStorage.getItem('bilx-purchase-return')
+      if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
+      setTimeout(() => navigate(isAdmin(data.user) ? '/admin' : purchaseReturn || '/profile', { replace: true }), 450)
     } catch (error) {
       showMessage(`${t('loginFailed')}: ${error.message}`)
     } finally {

@@ -312,6 +312,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [guestPurchaseOpen, setGuestPurchaseOpen] = useState(false)
+  const [guestPurchaseDetails, setGuestPurchaseDetails] = useState({ name: '', email: '' })
   const adminPreview = isAdmin(user)
   const userId = user?.id
   const userEmail = user?.email
@@ -1578,7 +1580,7 @@ function CoursePage({ user, profile, handleLogout }) {
     }
   }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playFirstLessonAfterTrailer, playNext, playNextPreview, saveResumeLesson])
 
-  const handleWhatsApp = async () => {
+  const continueCourseWhatsApp = async () => {
     if (user) {
       await supabase.from('requests').insert({
         user_id: user.id,
@@ -1591,8 +1593,21 @@ function CoursePage({ user, profile, handleLogout }) {
       setRequested(true)
     }
 
-    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user?.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user?.email || ''}`
+    const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user?.user_metadata?.full_name || guestPurchaseDetails.name}\n${t('whatsappEmail')}: ${user?.email || guestPurchaseDetails.email}`
     window.open(getWhatsAppUrl(message), '_blank')
+  }
+
+  const handleWhatsApp = async () => {
+    if (!user) {
+      setGuestPurchaseOpen(true)
+      return
+    }
+    await continueCourseWhatsApp()
+  }
+
+  const goToPurchaseAuth = (path) => {
+    localStorage.setItem('bilx-purchase-return', getCourseUrl(course))
+    navigate(path)
   }
 
   const handleShare = async () => {
@@ -2391,6 +2406,29 @@ function CoursePage({ user, profile, handleLogout }) {
                   </button>
                 )
               })}
+            </div>
+          </section>
+        </div>
+      )}
+      {guestPurchaseOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setGuestPurchaseOpen(false)}>
+          <section className="modal-panel purchase-auth-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{t('purchaseAccountTitle')}</h2>
+              <button className="modal-close-button" type="button" onClick={() => setGuestPurchaseOpen(false)} aria-label={t('close')}><X size={19} /></button>
+            </div>
+            <p>{t('purchaseAccountText')}</p>
+            <strong>{course.title}</strong>
+            <div className="purchase-guest-fields">
+              <input value={guestPurchaseDetails.name} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, name: event.target.value }))} placeholder={t('fullName')} />
+              <input type="email" value={guestPurchaseDetails.email} onChange={(event) => setGuestPurchaseDetails((current) => ({ ...current, email: event.target.value }))} placeholder={t('email')} />
+            </div>
+            <div className="purchase-auth-actions">
+              <button className="primary-button" type="button" onClick={() => goToPurchaseAuth('/login')}>{t('login')}</button>
+              <button className="outline-button" type="button" onClick={() => goToPurchaseAuth('/register')}>{t('register')}</button>
+              <button className="purchase-whatsapp-fallback" type="button" disabled={!guestPurchaseDetails.name.trim() || !guestPurchaseDetails.email.trim()} onClick={continueCourseWhatsApp}>
+                <MessageCircle size={17} /> {t('continueWithWhatsApp')}
+              </button>
             </div>
           </section>
         </div>
