@@ -917,26 +917,35 @@ function AdminDashboard({ user, profile, handleLogout }) {
           )}
 
           {activeTab === 'users' && (
-            <div className="panel-card table-wrap">
-              <h2>{t('userCount')}</h2>
-              <table>
-                <thead><tr><th>{t('userTypeLabel')}</th><th>{t('countLabel')}</th></tr></thead>
-                <tbody>{userStats.map((item) => (
-                  <tr key={item.key} className={userFilter === item.key ? 'admin-user-filter-row active' : 'admin-user-filter-row'}>
-                    <td>
-                      <button type="button" onClick={() => setUserFilter(item.key)}>
-                        {item.label}
-                      </button>
-                    </td>
-                    <td>
-                      <button type="button" onClick={() => setUserFilter(item.key)}>
-                        {item.count}
-                      </button>
-                    </td>
-                  </tr>
-                ))}</tbody>
-              </table>
-              <div className="admin-user-filter-title">{activeUserFilterLabel}</div>
+            <div className="panel-card table-wrap admin-users-panel">
+              <div className="admin-users-heading">
+                <div>
+                  <span className="admin-section-eyebrow">BilX</span>
+                  <h2>{t('userCount')}</h2>
+                </div>
+                <span className="admin-users-total">{visibleUsers.length}</span>
+              </div>
+              <div className="admin-user-stat-grid">
+                {userStats.map((item) => (
+                  <button
+                    type="button"
+                    key={item.key}
+                    className={userFilter === item.key ? 'admin-user-stat-card active' : 'admin-user-stat-card'}
+                    onClick={() => setUserFilter(item.key)}
+                  >
+                    <span>{item.label}</span>
+                    <strong>{item.count}</strong>
+                  </button>
+                ))}
+              </div>
+              <div className="admin-user-list-heading">
+                <div>
+                  <span>{t('userTypeLabel')}</span>
+                  <h3>{activeUserFilterLabel}</h3>
+                </div>
+                <span>{filteredVisibleUsers.length}</span>
+              </div>
+              <div className="admin-user-table-shell">
               <table className="user-detail-table">
                 <thead>
                   <tr>
@@ -956,7 +965,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   {filteredVisibleUsers.map((item, index) => (
                     <tr key={item.key || item.email || index}>
                       <td>{index + 1}</td>
-                      <td>{getRoleLabel(item.role)}</td>
+                      <td><span className={`admin-role-badge role-${item.role}`}>{getRoleLabel(item.role)}</span></td>
                       <td>
                         {canOpenPublicTeacherProfile(item) ? (
                           <button className="teacher-profile-link admin-user-link" type="button" onClick={(event) => openPublicTeacherProfile(event, item)}>
@@ -975,7 +984,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                       <td>{item.phone}</td>
                       <td>{formatDateTime(item.signedUpAt)}</td>
                       <td>{formatDateTime(item.teacherApprovedAt)}</td>
-                      <td>{item.banned ? t('userBanned') : t('userActive')}</td>
+                      <td><span className={item.banned ? 'admin-status-badge banned' : 'admin-status-badge active'}>{item.banned ? t('userBanned') : t('userActive')}</span></td>
                       <td>
                         <div className="admin-user-actions">
                           <button className="outline-button" onClick={() => openUserProfile(item)}>{t('viewProfile')}</button>
@@ -988,6 +997,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
