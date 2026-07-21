@@ -72,6 +72,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const [selectedAccessCourse, setSelectedAccessCourse] = useState(null)
   const [message, setMessage] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
+  const [selectedUserEnrollment, setSelectedUserEnrollment] = useState(null)
   const [userFilter, setUserFilter] = useState('all')
   const [userComments, setUserComments] = useState([])
   const [userModalLoading, setUserModalLoading] = useState(false)
@@ -324,8 +325,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
     setMessage(t('messageSent'))
   }
 
-  const openUserProfile = async (userRow) => {
+  const openUserProfile = async (userRow, enrollment = null) => {
     setSelectedUser(userRow)
+    setSelectedUserEnrollment(enrollment)
     setUserComments([])
     setAdminMessageBody('')
     if (!userRow?.userId) return
@@ -378,6 +380,17 @@ function AdminDashboard({ user, profile, handleLogout }) {
   const deleteSelectedUser = async () => {
     if (!selectedUser?.userId) return
     await deleteUserAccount(selectedUser)
+  }
+
+  const closeSelectedUser = () => {
+    setSelectedUser(null)
+    setSelectedUserEnrollment(null)
+  }
+
+  const removeSelectedUserFromCourse = async () => {
+    if (!selectedUserEnrollment) return
+    await removeAccess(selectedUserEnrollment)
+    closeSelectedUser()
   }
 
   const reviewTeacherApplication = async (applicationId, decision) => {
@@ -1063,11 +1076,11 @@ function AdminDashboard({ user, profile, handleLogout }) {
       </main>
 
       {selectedUser && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setSelectedUser(null)}>
+        <div className="modal-backdrop" role="presentation" onMouseDown={closeSelectedUser}>
           <div className="modal-panel" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>{selectedUser.name}{selectedUser.surname && selectedUser.surname !== '-' ? ` ${selectedUser.surname}` : ''}</h2>
-              <button type="button" className="modal-close-button" onClick={() => setSelectedUser(null)}>x</button>
+              <button type="button" className="modal-close-button" onClick={closeSelectedUser}>x</button>
             </div>
             <div className="form-panel">
               <p className="muted">{getRoleLabel(selectedUser.role)} · {selectedUser.email}</p>
@@ -1131,11 +1144,17 @@ function AdminDashboard({ user, profile, handleLogout }) {
                   </button>
 
                   <div className="player-actions">
-                    <button className="outline-button" onClick={() => banSelectedUser(!selectedUser.banned)}>
-                      {selectedUser.banned ? t('unbanUser') : t('banUser')}
-                    </button>
-                    {canDeleteUser(selectedUser) && (
-                      <button className="danger-button" onClick={deleteSelectedUser}>{t('deleteUser')}</button>
+                    {selectedUserEnrollment ? (
+                      <button className="danger-button" onClick={removeSelectedUserFromCourse}>{t('removeFromCourse')}</button>
+                    ) : (
+                      <>
+                        <button className="outline-button" onClick={() => banSelectedUser(!selectedUser.banned)}>
+                          {selectedUser.banned ? t('unbanUser') : t('banUser')}
+                        </button>
+                        {canDeleteUser(selectedUser) && (
+                          <button className="danger-button" onClick={deleteSelectedUser}>{t('deleteUser')}</button>
+                        )}
+                      </>
                     )}
                   </div>
                 </>
@@ -1175,7 +1194,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
                         className="outline-button"
                         onClick={() => {
                           setSelectedAccessCourse(null)
-                          openUserProfile(student)
+                          openUserProfile(student, enrollment)
                         }}
                       >
                         {t('viewProfile')}
