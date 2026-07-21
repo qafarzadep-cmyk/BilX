@@ -654,6 +654,11 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [activeSectionId])
 
   useEffect(() => {
+    // The public/buyer curriculum is part of the normal document. Centering a
+    // free-preview item here scrolls the entire page and fights the user's
+    // wheel/touch scrolling. Auto-follow is only useful in the enrolled
+    // curriculum panel, which has its own scroll container.
+    if (!canViewFullCourse) return undefined
     if (!activeLessonRowId && !activeQuiz?.id) return undefined
 
     const frameId = window.requestAnimationFrame(() => {
@@ -673,7 +678,7 @@ function CoursePage({ user, profile, handleLogout }) {
     })
 
     return () => window.cancelAnimationFrame(frameId)
-  }, [activeLessonRowId, activeQuiz?.id, activeSectionId, expandedSectionIds, visibleCurriculumSections])
+  }, [activeLessonRowId, activeQuiz?.id, activeSectionId, canViewFullCourse, expandedSectionIds, visibleCurriculumSections])
 
   const toggleCurriculumSection = (sectionId) => {
     const sectionKey = String(sectionId)
