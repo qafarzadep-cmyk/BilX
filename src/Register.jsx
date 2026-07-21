@@ -92,7 +92,10 @@ function Register() {
 
     if (data.session) {
       await supabase.auth.signOut()
-      toast.error(t('emailConfirmDisabled'))
+      const normalizedEmail = email.trim().toLowerCase()
+      localStorage.setItem('bilx-pending-verification-email', normalizedEmail)
+      setPendingEmail(normalizedEmail)
+      showMessage(t('emailConfirmDisabled'))
       setLoading(false)
       return
     }
