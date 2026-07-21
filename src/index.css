@@ -4231,11 +4231,16 @@ table {
   min-width: 0;
 }
 
-.granted-access-identity strong,
-.granted-access-course span {
+.granted-access-identity strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.granted-access-course span {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .granted-access-meta {
