@@ -625,7 +625,7 @@ function Home({ user, profile, handleLogout }) {
                         {(course.description || isA1Course(course)) && (
                           <p>
                             <HighlightedText
-                              text={isA1Course(course) ? t('a1LandingSubtitle') : course.description}
+                              text={isA1Course(course) ? t('a1LandingHeadline') : course.description}
                               query={search}
                             />
                           </p>
