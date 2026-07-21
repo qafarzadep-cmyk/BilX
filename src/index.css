@@ -6616,13 +6616,6 @@ td button + .outline-button {
   font-size: 18px;
 }
 
-.course-hero-public .course-landing-course-name {
-  margin: 8px 0 0;
-  color: #aebcff;
-  font-size: 14px !important;
-  font-weight: 800;
-}
-
 .course-hero-offer {
   display: flex;
   align-items: center;

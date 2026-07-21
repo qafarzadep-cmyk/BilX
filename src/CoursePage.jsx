@@ -1722,10 +1722,7 @@ function CoursePage({ user, profile, handleLogout }) {
           <div className="course-hero-copy">
             <p className="role-pill course-brand-pill">BilX</p>
             {isA1SalesCourse ? (
-              <>
-                <h1>{t('a1LandingHeadline')}</h1>
-                <p className="course-landing-course-name">{course.title}</p>
-              </>
+              <h1>{t('a1LandingHeadline')}</h1>
             ) : <h1>{course.title}</h1>}
             {instructorName && (
               <button className="teacher-profile-link course-instructor hero-author" type="button" onClick={() => navigate(`/teacher/${course.instructor_id}`)}>
