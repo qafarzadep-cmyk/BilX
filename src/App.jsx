@@ -36,6 +36,17 @@ function formatAzN(value) {
   return `${Number(value).toFixed(2)} AZN`
 }
 
+function CourseRating({ summary }) {
+  if (!summary?.count || !summary?.average) return null
+  return (
+    <div className="course-card-rating" aria-label={`${summary.average} / 5, ${summary.count} tələbə`}>
+      <strong>{summary.average}</strong>
+      <span aria-hidden="true">★★★★★</span>
+      <small>({summary.count} tələbə)</small>
+    </div>
+  )
+}
+
 function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
   if (enrolled) return <strong className="course-card-price">{enrolledLabel}</strong>
   const pricing = getCoursePricing(course)
@@ -156,6 +167,7 @@ function Home({ user, profile, handleLogout }) {
   const [searchParams] = useSearchParams()
   const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [courses, setCourses] = useState([])
+  const [courseRatings, setCourseRatings] = useState({})
   const [loadingCourses, setLoadingCourses] = useState(true)
   const [coursePage, setCoursePage] = useState(1)
   const [enrolledCourseIds, setEnrolledCourseIds] = useState(() => new Set())
@@ -179,6 +191,12 @@ function Home({ user, profile, handleLogout }) {
       if (mounted) {
         setCourses(list)
         setLoadingCourses(false)
+      }
+      if (list.length) {
+        fetch(`/api/course-reviews?courseIds=${encodeURIComponent(list.map((course) => course.id).join(','))}`)
+          .then((response) => response.ok ? response.json() : { summaries: {} })
+          .then((result) => { if (mounted) setCourseRatings(result.summaries || {}) })
+          .catch(() => {})
       }
       if (list.some((course) => !getCourseAuthorName(course))) {
         const enriched = await attachCourseAuthorNames(list)
@@ -530,10 +548,9 @@ function Home({ user, profile, handleLogout }) {
                         <div className="home-course-card-body">
                           <h3>{isA1Course(course) ? t('a1LandingHeadline') : course.title}</h3>
                           {instructorName && (
-                            <button className="teacher-profile-link home-course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
-                              {instructorName}
-                            </button>
+                            isAdmin(user) ? <button className="teacher-profile-link home-course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>{instructorName}</button> : <small className="home-course-instructor">{instructorName}</small>
                           )}
+                          <CourseRating summary={courseRatings[String(course.id)]} />
                           {isCourseEnrolled(course) && (
                             <div className="course-card-progress">
                               <div className="progress-bar"><span style={{ width: `${progressPercent}%` }} /></div>
@@ -639,10 +656,9 @@ function Home({ user, profile, handleLogout }) {
                           </p>
                         )}
                         {instructorName && (
-                          <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>
-                            {instructorName}
-                          </button>
+                          isAdmin(user) ? <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>{instructorName}</button> : <small className="course-instructor">{instructorName}</small>
                         )}
+                        <CourseRating summary={courseRatings[String(course.id)]} />
                         {isCourseEnrolled(course) && (
                           <div className="course-card-progress">
                             <div className="progress-bar"><span style={{ width: `${progressPercent}%` }} /></div>

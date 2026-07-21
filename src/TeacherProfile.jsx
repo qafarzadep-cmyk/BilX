@@ -4,6 +4,7 @@ import Navbar from './Navbar'
 import { getCourseAuthorName } from './courseAuthors'
 import { getCourseUrl } from './courseUrl'
 import { useLanguage } from './i18n'
+import { isAdmin } from './profileApi'
 import { supabase } from './supabase'
 
 function TeacherProfile({ user, profile, handleLogout }) {
@@ -18,6 +19,10 @@ function TeacherProfile({ user, profile, handleLogout }) {
     let mounted = true
 
     async function loadTeacher() {
+      if (!isAdmin(user)) {
+        setLoading(false)
+        return
+      }
       setLoading(true)
 
       const [{ data: profileData }, { data: courseData, error: courseError }] = await Promise.all([
@@ -42,9 +47,11 @@ function TeacherProfile({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [id, t])
+  }, [id, t, user])
 
   const teacherName = teacher?.full_name || t('instructorLabel')
+
+  if (!isAdmin(user)) return <div className="page centered-page"><div className="empty-box compact">Bu profil yalnız BilX admini üçün görünür.</div></div>
 
   return (
     <div className="page">

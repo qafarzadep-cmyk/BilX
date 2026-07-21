@@ -35,6 +35,13 @@ const placeholderLessons = [
   },
 ]
 
+const A1_LEGACY_REVIEWS = [
+  { name: 'Sevinc Qasımova', text: 'Pərvin müəllimədən 4 il əvvəl canlı dərs götürmüşdüm. Sıfır deyildim, amma bu kurs biliklərimi dərindən möhkəmlətməyə çox kömək etdi.' },
+  { name: 'Məryəm İsmayıl', text: 'Kurs çox yaxşı dizayn olunub. Mənim kimi qrammatikadan bezənlər üçün əla kursdur.' },
+  { name: 'Rauf Həbibzadə', text: 'Mənim canlı dərs götürməyə vaxtım olmur. Kursu elə audio dərs kimi maşın sürə-sürə dinləyirəm. Təkrarlar cümlələri yadda saxlamağa çox kömək olur. Thank you, Parvin teacher. :)' },
+  { name: 'Gözəl Salahova', text: 'Kursu bir həftəyə bitirdim :D A2 səviyyəsi nə vaxt çıxar? Səbirsizliklə gözləyirəm.' },
+]
+
 function toYouTubeEmbedUrl(url, index = 0) {
   const fallback = placeholderLessons[index % placeholderLessons.length].url
   if (!url) return fallback
@@ -328,6 +335,10 @@ function CoursePage({ user, profile, handleLogout }) {
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [courseReviewData, setCourseReviewData] = useState({ summary: null, reviews: [] })
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewBody, setReviewBody] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [guestPurchaseOpen, setGuestPurchaseOpen] = useState(false)
   const adminPreview = isAdmin(user)
   const userId = user?.id
@@ -348,6 +359,45 @@ function CoursePage({ user, profile, handleLogout }) {
   useEffect(() => {
     progressRef.current = progress
   }, [progress])
+
+  const loadCourseReviews = useCallback(async (targetCourseId = courseId) => {
+    if (!targetCourseId) return
+    try {
+      const response = await fetch(`/api/course-reviews?courseId=${encodeURIComponent(targetCourseId)}`)
+      const result = await response.json()
+      if (!response.ok) return
+      setCourseReviewData({
+        summary: result.summaries?.[String(targetCourseId)] || null,
+        reviews: (result.reviews || []).filter((item) => String(item.courseId) === String(targetCourseId)),
+      })
+    } catch {
+      // Reviews are supplementary; the course page remains usable if unavailable.
+    }
+  }, [courseId])
+
+  useEffect(() => { loadCourseReviews() }, [loadCourseReviews])
+
+  const submitCourseReview = async (event) => {
+    event.preventDefault()
+    if (!courseId || !isEnrolled || reviewSubmitting) return
+    setReviewSubmitting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/course-reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ courseId, rating: reviewRating, review: reviewBody }),
+      })
+      if (!response.ok) throw new Error('review failed')
+      setReviewBody('')
+      await loadCourseReviews(courseId)
+      toast.success('Rəyiniz yadda saxlanıldı.')
+    } catch {
+      toast.error('Rəy yadda saxlanılmadı. Yenidən cəhd edin.')
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
 
   const setTeacherCourseViewMode = useCallback((mode) => {
     const nextMode = mode === 'buyer' ? 'buyer' : 'student'
@@ -1814,6 +1864,49 @@ function CoursePage({ user, profile, handleLogout }) {
               <li>{t('a1OutcomeQuestions')}</li>
               <li>{t('a1OutcomeSentences')}</li>
             </ul>
+          </section>
+        )}
+
+        {(isA1SalesCourse || courseReviewData.summary?.count > 0 || isEnrolled) && (
+          <section className="course-reviews-panel" aria-labelledby="course-reviews-title">
+            <header className="course-reviews-header">
+              <div>
+                <p className="admin-section-eyebrow">TƏLƏBƏ RƏYLƏRİ</p>
+                <h2 id="course-reviews-title">Tələbələr nə deyir?</h2>
+              </div>
+              {courseReviewData.summary?.count > 0 && (
+                <div className="course-rating-summary">
+                  <strong>{courseReviewData.summary.average}</strong>
+                  <span aria-hidden="true">★★★★★</span>
+                  <small>({courseReviewData.summary.count} tələbə)</small>
+                </div>
+              )}
+            </header>
+            <div className="course-review-grid">
+              {isA1SalesCourse && A1_LEGACY_REVIEWS.map((review) => (
+                <article className="course-review-card" key={review.name}>
+                  <div className="course-review-author"><span>{review.name.charAt(0)}</span><div><strong>{review.name}</strong><small>Keçmiş tələbə rəyi</small></div></div>
+                  <p>{review.text}</p>
+                </article>
+              ))}
+              {courseReviewData.reviews.filter((review) => review.review).map((review) => (
+                <article className="course-review-card" key={review.id}>
+                  <div className="course-review-author"><span>{review.author.charAt(0)}</span><div><strong>{review.author}</strong><small>{new Date(review.createdAt).toLocaleDateString('az-AZ')}</small></div></div>
+                  <div className="course-review-stars" aria-label={`${review.rating} / 5`}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</div>
+                  <p>{review.review}</p>
+                </article>
+              ))}
+            </div>
+            {isEnrolled && (
+              <form className="course-review-form" onSubmit={submitCourseReview}>
+                <h3>Rəyini paylaş</h3>
+                <div className="course-review-star-picker" aria-label="Qiymət seç">
+                  {[1, 2, 3, 4, 5].map((value) => <button type="button" key={value} className={value <= reviewRating ? 'active' : ''} onClick={() => setReviewRating(value)} aria-label={`${value} ulduz`}>★</button>)}
+                </div>
+                <textarea value={reviewBody} onChange={(event) => setReviewBody(event.target.value)} rows={3} maxLength={2000} placeholder="Kurs haqqında fikrini yaz..." />
+                <button className="primary-button" type="submit" disabled={reviewSubmitting}>{reviewSubmitting ? t('loading') : 'Rəyi yadda saxla'}</button>
+              </form>
+            )}
           </section>
         )}
 
