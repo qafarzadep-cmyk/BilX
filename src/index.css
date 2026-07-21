@@ -8384,3 +8384,42 @@ td button + .outline-button {
     max-width: none;
   }
 }
+
+/* Dedicated public reviews page */
+.course-card-rating {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.course-card-rating:hover small,
+.course-card-rating:focus-visible small,
+.course-hero-rating:hover small,
+.course-hero-rating:focus-visible small { text-decoration: underline; }
+
+.reviews-page-shell { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 72px; }
+.reviews-page-back { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #1f2937; font-weight: 700; cursor: pointer; padding: 8px 0; }
+.reviews-page-course-name { color: #667085; margin: 18px 0 8px; }
+.reviews-page-shell h1 { margin: 0 0 34px; font-size: clamp(28px, 3vw, 42px); color: #18213a; }
+.reviews-page-shell h1 span { color: #c66a00; }
+.reviews-page-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 64px; align-items: start; }
+.reviews-page-filters { position: sticky; top: 112px; }
+.reviews-page-search { display: flex; align-items: center; gap: 10px; margin-top: 28px; }
+.reviews-page-search input { min-width: 0; flex: 1; border: 1px solid #c9cedb; border-radius: 4px; padding: 13px 14px; font: inherit; }
+.reviews-page-list { border-top: 1px solid #d7dbe5; }
+.reviews-page-item { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 24px; padding: 34px 0; border-bottom: 1px solid #d7dbe5; }
+.reviews-page-item > div > strong { display: block; font-size: 20px; margin-bottom: 7px; }
+.reviews-page-item p { margin: 18px 0 0; font-size: 18px; line-height: 1.65; color: #30384c; }
+
+@media (max-width: 760px) {
+  .reviews-page-shell { width: min(100% - 28px, 680px); padding: 24px 0 48px; }
+  .reviews-page-shell h1 { margin-bottom: 24px; font-size: 26px; }
+  .reviews-page-layout { grid-template-columns: 1fr; gap: 32px; }
+  .reviews-page-filters { position: static; }
+  .reviews-page-item { grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 26px 0; }
+  .reviews-page-item p { font-size: 16px; }
+}

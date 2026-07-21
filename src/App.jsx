@@ -6,6 +6,7 @@ import AdminDashboard from './AdminDashboard'
 import AdminStudentProfile from './AdminStudentProfile'
 import CertificatePage from './CertificatePage'
 import CoursePage from './CoursePage'
+import CourseReviewsPage from './CourseReviewsPage'
 import { UPCOMING_COURSES } from './courseCatalog'
 import { getCourseUrl } from './courseUrl'
 import { formatCoursePrice, getCoursePricing } from './coursePricing'
@@ -36,14 +37,15 @@ function formatAzN(value) {
   return `${Number(value).toFixed(2)} AZN`
 }
 
-function CourseRating({ summary }) {
+function CourseRating({ summary, courseId }) {
+  const navigate = useNavigate()
   if (!summary?.count || !summary?.average) return null
   return (
-    <div className="course-card-rating" aria-label={`${summary.average} / 5, ${summary.count} tələbə`}>
+    <button type="button" className="course-card-rating" aria-label={`${summary.average} / 5, ${summary.count} tələbə`} onClick={(event) => { event.stopPropagation(); navigate(`/course/${courseId}/reviews`) }}>
       <strong>{summary.average}</strong>
       <span aria-hidden="true">★★★★★</span>
       <small>({summary.count} tələbə)</small>
-    </div>
+    </button>
   )
 }
 
@@ -550,7 +552,7 @@ function Home({ user, profile, handleLogout }) {
                           {instructorName && (
                             isAdmin(user) ? <button className="teacher-profile-link home-course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>{instructorName}</button> : <small className="home-course-instructor">{instructorName}</small>
                           )}
-                          <CourseRating summary={courseRatings[String(course.id)]} />
+                          <CourseRating summary={courseRatings[String(course.id)]} courseId={course.id} />
                           {isCourseEnrolled(course) && (
                             <div className="course-card-progress">
                               <div className="progress-bar"><span style={{ width: `${progressPercent}%` }} /></div>
@@ -658,7 +660,7 @@ function Home({ user, profile, handleLogout }) {
                         {instructorName && (
                           isAdmin(user) ? <button className="teacher-profile-link course-instructor" type="button" onClick={(event) => openTeacher(event, course.instructor_id)}>{instructorName}</button> : <small className="course-instructor">{instructorName}</small>
                         )}
-                        <CourseRating summary={courseRatings[String(course.id)]} />
+                        <CourseRating summary={courseRatings[String(course.id)]} courseId={course.id} />
                         {isCourseEnrolled(course) && (
                           <div className="course-card-progress">
                             <div className="progress-bar"><span style={{ width: `${progressPercent}%` }} /></div>
@@ -986,6 +988,7 @@ function App() {
       <Route path="/profile" element={<StudentProfile user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/course/:id" element={<CoursePage user={user} profile={profile} handleLogout={handleLogout} />} />
+      <Route path="/course/:id/reviews" element={<CourseReviewsPage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/certificate/:code" element={<CertificatePage user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/teacher/:id" element={<TeacherProfile user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/instructor" element={<InstructorDashboard user={user} profile={adminTeacherProfile} handleLogout={handleLogout} />} />

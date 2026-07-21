@@ -1787,7 +1787,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 : <small className="course-instructor hero-author">{t('instructorLabel')}: {instructorName}</small>
             )}
             {ratingSummary?.count > 0 && (
-              <button type="button" className="course-hero-rating" onClick={() => setReviewModalOpen(true)} aria-label={`${ratingSummary.average} / 5, ${ratingSummary.count} tələbə — rəyləri aç`}>
+              <button type="button" className="course-hero-rating" onClick={() => navigate(`/course/${course.id}/reviews`)} aria-label={`${ratingSummary.average} / 5, ${ratingSummary.count} tələbə — rəyləri aç`}>
                 <strong>{ratingSummary.average}</strong><span aria-hidden="true">★★★★★</span><small>({ratingSummary.count} tələbə)</small>
               </button>
             )}
@@ -1887,7 +1887,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 <h2 id="course-reviews-title">Tələbələr nə deyir?</h2>
               </div>
               {ratingSummary?.count > 0 && (
-                <button type="button" className="course-rating-summary" onClick={() => setReviewModalOpen(true)}>
+                <button type="button" className="course-rating-summary" onClick={() => navigate(`/course/${course.id}/reviews`)}>
                   <strong>{ratingSummary.average}</strong>
                   <span aria-hidden="true">★★★★★</span>
                   <small>({ratingSummary.count} tələbə)</small>
