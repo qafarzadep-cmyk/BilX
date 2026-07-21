@@ -4198,6 +4198,16 @@ table {
   color: #6a6f73;
 }
 
+.access-record-actions {
+  align-items: flex-end;
+}
+
+.access-record-actions button {
+  width: 100%;
+  margin-left: 0;
+  white-space: nowrap;
+}
+
 .approved-course-actions {
   display: flex;
   flex-wrap: wrap;

@@ -218,6 +218,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
       user_id: studentKey,
       course_id: courseIdNum,
       status: 'active',
+      enrolled_at: new Date().toISOString(),
     }
     let { error } = await supabase.from('enrollments').upsert({
       ...enrollmentRow,
@@ -528,7 +529,34 @@ function AdminDashboard({ user, profile, handleLogout }) {
         && String(request.course_id) === String(enrollment.course_id)
         && request.status === 'access_granted'
       ))
-      return { enrollment, matchingRequest }
+      const authStudent = adminUsers.find((item) => (
+        String(item.email || '').trim().toLowerCase() === studentEmail
+        || String(item.user_id || '').trim().toLowerCase() === studentEmail
+      ))
+      const studentProfile = profiles.find((item) => item.user_id === authStudent?.user_id)
+      const studentName = String(authStudent?.full_name || studentProfile?.full_name || matchingRequest?.user_name || '').trim()
+      const studentNameParts = splitFullName(studentName)
+      const course = courses.find((item) => String(item.id) === String(enrollment.course_id))
+      const instructorProfile = profiles.find((item) => item.user_id === course?.instructor_id)
+      return {
+        enrollment,
+        matchingRequest,
+        course,
+        student: authStudent ? {
+          key: authStudent.user_id,
+          userId: authStudent.user_id,
+          name: studentNameParts.name,
+          surname: studentNameParts.surname,
+          email: authStudent.email || studentEmail,
+          role: 'student',
+          signedUpAt: authStudent.created_at || null,
+          banned: Boolean(authStudent.banned),
+        } : null,
+        instructor: course?.instructor_id ? {
+          userId: course.instructor_id,
+          name: instructorProfile?.full_name || getCourseAuthorName(course),
+        } : null,
+      }
     })
   const courseLabel = (course) => {
     if (!course) return ''
@@ -908,16 +936,32 @@ function AdminDashboard({ user, profile, handleLogout }) {
                 </div>
                 <div className="panel-card">
                   <h2>{t('acceptedStudentsTitle')}</h2>
-                  {grantedAccessRows.length === 0 ? <p className="muted">{t('noAcceptedStudents')}</p> : grantedAccessRows.map(({ enrollment, matchingRequest }) => (
+                  {grantedAccessRows.length === 0 ? <p className="muted">{t('noAcceptedStudents')}</p> : grantedAccessRows.map(({ enrollment, matchingRequest, course, student, instructor }) => (
                     <div key={enrollment.id} className="admin-row">
                       <div className="payment-request-details">
-                        <strong>{enrollment.user_id}</strong>
-                        <span>{courseLabel(courses.find((course) => String(course.id) === String(enrollment.course_id))) || enrollment.course_id}</span>
+                        <strong>
+                          {student
+                            ? `${student.name || ''}${student.surname && student.surname !== '-' ? ` ${student.surname}` : ''}`.trim()
+                            : matchingRequest?.user_name || enrollment.user_id}
+                        </strong>
+                        <small>{student?.email || enrollment.user_id}</small>
+                        <span>{course?.title || enrollment.course_id}</span>
+                        {instructor?.name && <small>{t('instructorLabel')}: {instructor.name}</small>}
                         <small>{t('requestDateLabel')}: {formatDateTime(matchingRequest?.created_at)}</small>
-                        <small>{t('accessGrantedDateLabel')}: {formatDateTime(enrollment.enrolled_at)}</small>
+                        <small>{t('accessGrantedDateLabel')}: {formatDateTime(enrollment.enrolled_at || matchingRequest?.updated_at)}</small>
                         {enrollment.price_paid != null && <small>{t('purchasePriceLabel')}: {formatCoursePrice(enrollment.price_paid)}</small>}
                       </div>
-                      <div>
+                      <div className="payment-request-actions access-record-actions">
+                        {student?.userId && (
+                          <button className="outline-button" type="button" onClick={() => openUserProfile(student, enrollment)}>
+                            {t('studentProfileLabel')}
+                          </button>
+                        )}
+                        {instructor?.userId && (
+                          <button className="outline-button" type="button" onClick={() => navigate(`/teacher/${instructor.userId}`)}>
+                            {t('teacherProfileLabel')}
+                          </button>
+                        )}
                         <button className="danger-button" type="button" onClick={() => removeAccess(enrollment)}>{t('revokeAccess')}</button>
                       </div>
                     </div>
