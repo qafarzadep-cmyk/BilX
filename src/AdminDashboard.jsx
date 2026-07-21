@@ -585,9 +585,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
   adminUsers.forEach((item) => {
     if (userRowsByKey.has(item.user_id)) return
     const application = approvedTeacherByUserId.get(item.user_id)
-    const nameParts = application
-      ? { name: application.name || '-', surname: application.surname || '-' }
-      : splitFullName(item.full_name)
+    const currentFullName = String(item.full_name || '').trim()
+    const nameParts = currentFullName
+      ? splitFullName(currentFullName)
+      : { name: application?.name || '-', surname: application?.surname || '-' }
     upsertUserRow(item.user_id, {
       key: item.user_id,
       userId: item.user_id,
@@ -611,7 +612,10 @@ function AdminDashboard({ user, profile, handleLogout }) {
     if (userRowsByKey.has(item.user_id)) return
     if (authDirectoryReady && !authUserIds.has(item.user_id)) return
     const application = approvedTeacherByUserId.get(item.user_id)
-    const nameParts = application ? { name: application.name || '-', surname: application.surname || '-' } : splitFullName(item.full_name)
+    const currentFullName = String(item.full_name || '').trim()
+    const nameParts = currentFullName
+      ? splitFullName(currentFullName)
+      : { name: application?.name || '-', surname: application?.surname || '-' }
     upsertUserRow(item.user_id, {
       key: item.user_id,
       userId: item.user_id,
@@ -630,12 +634,13 @@ function AdminDashboard({ user, profile, handleLogout }) {
   approvedTeacherApplications.forEach((application) => {
     const key = application.user_id || application.email
     if (authDirectoryReady && (!application.user_id || !authUserIds.has(application.user_id))) return
+    const existing = userRowsByKey.get(key)
     upsertUserRow(key, {
       key,
       userId: application.user_id || null,
-      name: application.name || '-',
-      surname: application.surname || '-',
-      email: application.email || '-',
+      name: existing?.name || application.name || '-',
+      surname: existing?.surname || application.surname || '-',
+      email: existing?.email || application.email || '-',
       phone: application.phone || '-',
       role: 'instructor',
       teacherApprovedAt: application.reviewed_at || application.created_at || null,
