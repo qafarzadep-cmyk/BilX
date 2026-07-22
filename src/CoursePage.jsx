@@ -294,6 +294,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const savedResumeRef = useRef({ videoId: null, seconds: -1, savedAt: 0 })
   const resumeSecondsRef = useRef(0)
   const resumeAppliedVideoIdRef = useRef(null)
+  const resumeSeekAttemptsRef = useRef(0)
   const youtubeSaveIntervalRef = useRef(null)
   const progressRef = useRef([])
   const curriculumListRef = useRef(null)
@@ -476,6 +477,7 @@ function CoursePage({ user, profile, handleLogout }) {
     activeVideoIdRef.current = activeVideo?.id || null
     advancingVideoIdRef.current = null
     playbackSecondsRef.current = 0
+    resumeSeekAttemptsRef.current = 0
   }, [activeVideo?.id])
   // Preview samples are explicitly selected by the instructor. Keep this list
   // available for enrolled users and owners too, so they see the same course
@@ -699,10 +701,17 @@ function CoursePage({ user, profile, handleLogout }) {
     const saveCurrentPosition = () => {
       const videoId = activeVideoIdRef.current
       if (!videoId || !canViewFullCourse) return
-      const seconds = playerRef.current?.getCurrentTime?.()
+      const measuredSeconds = playerRef.current?.getCurrentTime?.()
         ?? legacyVideoRef.current?.currentTime
         ?? playbackSecondsRef.current
         ?? 0
+      // A player can briefly report zero while it is mounting or before the
+      // saved seek has landed. Never let that transient value erase a real
+      // resume position when the tab/app is backgrounded during startup.
+      const seconds = resumeSecondsRef.current > 0
+        && Number(measuredSeconds) < Math.max(1, resumeSecondsRef.current - 3)
+        ? resumeSecondsRef.current
+        : measuredSeconds
       void saveResumeLesson(videoId, seconds, true)
     }
     const handleVisibilityChange = () => {
@@ -744,10 +753,14 @@ function CoursePage({ user, profile, handleLogout }) {
       next.add(sectionKey)
       return next
     })
-    setActiveVideoId(videoId)
-    resumeSecondsRef.current = 0
+    const savedLesson = progressRef.current.find((item) => String(item.video_id) === String(videoId))
+    const savedSeconds = Math.max(0, Number(savedLesson?.position_seconds) || 0)
+    resumeSecondsRef.current = savedSeconds
     resumeAppliedVideoIdRef.current = null
-    if (canViewFullCourse) void saveResumeLesson(videoId, 0, true)
+    resumeSeekAttemptsRef.current = 0
+    activeVideoIdRef.current = videoId
+    setActiveVideoId(videoId)
+    if (canViewFullCourse) void saveResumeLesson(videoId, savedSeconds, true)
     if (!canViewFullCourse) {
       setActivePreviewId(videoId)
       setMuteAutoplay(true)
@@ -1514,6 +1527,12 @@ function CoursePage({ user, profile, handleLogout }) {
       }
     }
     const shouldStartPreview = playerVideo?.is_trailer || previewModalOpen || !canViewFullCourse
+    const applyResumeSeek = () => {
+      if (playerVideo?.is_trailer || resumeSecondsRef.current <= 0) return
+      postPlayerMessage('setCurrentTime', resumeSecondsRef.current)
+      resumeAppliedVideoIdRef.current = playerVideo.id
+      resumeSeekAttemptsRef.current += 1
+    }
     const startPreviewPlayback = () => {
       if (!shouldStartPreview) return
       postPlayerMessage('play')
@@ -1532,8 +1551,7 @@ function CoursePage({ user, profile, handleLogout }) {
       if (data.event === 'ready') {
         subscribe()
         if (!playerVideo?.is_trailer && resumeSecondsRef.current > 0 && String(resumeAppliedVideoIdRef.current) !== String(playerVideo.id)) {
-          postPlayerMessage('setCurrentTime', resumeSecondsRef.current)
-          resumeAppliedVideoIdRef.current = playerVideo.id
+          applyResumeSeek()
         }
         startPreviewPlayback()
       }
@@ -1545,10 +1563,20 @@ function CoursePage({ user, profile, handleLogout }) {
       else if (data.event === 'timeupdate') {
         const seconds = data.value?.seconds ?? data.value?.currentTime ?? data.value
         if (Number.isFinite(Number(seconds))) {
-          playbackSecondsRef.current = Number(seconds)
-          if (Number(seconds) > 0 && !playerVideo?.is_trailer && canViewFullCourse) {
+          const currentSeconds = Number(seconds)
+          const resumeTarget = resumeSecondsRef.current
+          if (!playerVideo?.is_trailer && resumeTarget > 0 && currentSeconds < Math.max(1, resumeTarget - 3)) {
+            // Some Bunny embeds emit an early 0-second update or ignore the
+            // first seek while loading. Retry the seek and do not persist the
+            // temporary value over the student's saved position.
+            if (resumeSeekAttemptsRef.current < 5) applyResumeSeek()
+            return
+          }
+          playbackSecondsRef.current = currentSeconds
+          if (resumeTarget > 0) resumeSecondsRef.current = 0
+          if (currentSeconds > 0 && !playerVideo?.is_trailer && canViewFullCourse) {
             setShowAccessWelcome(false)
-            void saveResumeLesson(playerVideo.id, seconds)
+            void saveResumeLesson(playerVideo.id, currentSeconds)
           }
         }
       }
@@ -1562,6 +1590,12 @@ function CoursePage({ user, profile, handleLogout }) {
     const playKick = shouldStartPreview ? window.setTimeout(startPreviewPlayback, 350) : null
     const secondPlayKick = shouldStartPreview ? window.setTimeout(startPreviewPlayback, 1300) : null
     const thirdPlayKick = shouldStartPreview ? window.setTimeout(startPreviewPlayback, 2600) : null
+    const resumeKick = !shouldStartPreview && resumeSecondsRef.current > 0
+      ? window.setTimeout(applyResumeSeek, 900)
+      : null
+    const secondResumeKick = !shouldStartPreview && resumeSecondsRef.current > 0
+      ? window.setTimeout(applyResumeSeek, 2200)
+      : null
 
     return () => {
       window.removeEventListener('message', handleMessage)
@@ -1570,6 +1604,8 @@ function CoursePage({ user, profile, handleLogout }) {
       if (playKick) window.clearTimeout(playKick)
       if (secondPlayKick) window.clearTimeout(secondPlayKick)
       if (thirdPlayKick) window.clearTimeout(thirdPlayKick)
+      if (resumeKick) window.clearTimeout(resumeKick)
+      if (secondResumeKick) window.clearTimeout(secondResumeKick)
     }
   }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, signedUrl, signedFor, playFirstLessonAfterTrailer, playNext, playNextPreview, saveResumeLesson])
 
@@ -1592,15 +1628,34 @@ function CoursePage({ user, profile, handleLogout }) {
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING && !playerVideo?.is_trailer && canViewFullCourse) {
               setShowAccessWelcome(false)
-              void saveResumeLesson(playerVideo.id, event.target.getCurrentTime(), true)
+              const currentSeconds = event.target.getCurrentTime()
+              const resumeTarget = resumeSecondsRef.current
+              if (resumeTarget > 0 && currentSeconds < Math.max(1, resumeTarget - 3)) {
+                event.target.seekTo(resumeTarget, true)
+              } else {
+                playbackSecondsRef.current = currentSeconds
+                if (resumeTarget > 0) resumeSecondsRef.current = 0
+                void saveResumeLesson(playerVideo.id, currentSeconds, true)
+              }
               window.clearInterval(youtubeSaveIntervalRef.current)
               youtubeSaveIntervalRef.current = window.setInterval(() => {
-                void saveResumeLesson(playerVideo.id, event.target.getCurrentTime())
+                const seconds = event.target.getCurrentTime()
+                if (resumeSecondsRef.current > 0 && seconds < Math.max(1, resumeSecondsRef.current - 3)) return
+                playbackSecondsRef.current = seconds
+                resumeSecondsRef.current = 0
+                void saveResumeLesson(playerVideo.id, seconds)
               }, 5000)
             }
             if ([window.YT.PlayerState.PAUSED, window.YT.PlayerState.ENDED].includes(event.data)) {
               window.clearInterval(youtubeSaveIntervalRef.current)
-              void saveResumeLesson(playerVideo.id, event.target.getCurrentTime(), true)
+              const currentSeconds = event.target.getCurrentTime()
+              if (resumeSecondsRef.current > 0 && currentSeconds < Math.max(1, resumeSecondsRef.current - 3)) {
+                event.target.seekTo(resumeSecondsRef.current, true)
+              } else {
+                playbackSecondsRef.current = currentSeconds
+                resumeSecondsRef.current = 0
+                void saveResumeLesson(playerVideo.id, currentSeconds, true)
+              }
             }
             if (event.data === window.YT.PlayerState.ENDED) {
               if (playerVideo?.is_trailer && canViewFullCourse && !previewModalOpen) playFirstLessonAfterTrailer(getPreviewChoiceId(playerVideo))
@@ -2085,18 +2140,35 @@ function CoursePage({ user, profile, handleLogout }) {
                     onPlay={() => {
                       if (!playerVideo?.is_trailer && canViewFullCourse) {
                         setShowAccessWelcome(false)
-                        void saveResumeLesson(playerVideo.id, legacyVideoRef.current?.currentTime || 0, true)
+                        const currentSeconds = legacyVideoRef.current?.currentTime || 0
+                        if (resumeSecondsRef.current > 0 && currentSeconds < Math.max(1, resumeSecondsRef.current - 3)) {
+                          legacyVideoRef.current.currentTime = resumeSecondsRef.current
+                        } else {
+                          playbackSecondsRef.current = currentSeconds
+                          resumeSecondsRef.current = 0
+                          void saveResumeLesson(playerVideo.id, currentSeconds, true)
+                        }
                       }
                     }}
                     onTimeUpdate={(event) => {
-                      playbackSecondsRef.current = event.currentTarget.currentTime
+                      const currentSeconds = event.currentTarget.currentTime
+                      if (resumeSecondsRef.current > 0 && currentSeconds < Math.max(1, resumeSecondsRef.current - 3)) return
+                      playbackSecondsRef.current = currentSeconds
+                      resumeSecondsRef.current = 0
                       if (!playerVideo?.is_trailer && canViewFullCourse) {
-                        void saveResumeLesson(playerVideo.id, event.currentTarget.currentTime)
+                        void saveResumeLesson(playerVideo.id, currentSeconds)
                       }
                     }}
                     onPause={(event) => {
                       if (!playerVideo?.is_trailer && canViewFullCourse) {
-                        void saveResumeLesson(playerVideo.id, event.currentTarget.currentTime, true)
+                        const currentSeconds = event.currentTarget.currentTime
+                        if (resumeSecondsRef.current > 0 && currentSeconds < Math.max(1, resumeSecondsRef.current - 3)) {
+                          event.currentTarget.currentTime = resumeSecondsRef.current
+                        } else {
+                          playbackSecondsRef.current = currentSeconds
+                          resumeSecondsRef.current = 0
+                          void saveResumeLesson(playerVideo.id, currentSeconds, true)
+                        }
                       }
                     }}
                     onEnded={() => {
