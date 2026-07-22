@@ -16,6 +16,7 @@ import Inbox from './Inbox'
 import Login from './Login'
 import Navbar from './Navbar'
 import Register from './Register'
+import RegistrationSuccess from './RegistrationSuccess'
 import ResetPassword from './ResetPassword'
 import StudentProfile from './StudentProfile'
 import TeacherProfile from './TeacherProfile'
@@ -779,13 +780,19 @@ function App() {
   }, [location.pathname])
 
   useEffect(() => {
-    if (!user || location.pathname !== '/profile') return
+    if (!user || !['/profile', '/registration-success'].includes(location.pathname)) return
     const params = new URLSearchParams(location.search)
     if (params.get('confirmed') !== '1') return
     localStorage.removeItem('bilx-pending-verification-email')
+    const welcomeKey = `bilx-registration-welcome-shown:${user.id}`
     const purchaseReturn = localStorage.getItem('bilx-purchase-return')
-    if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
-    navigate(purchaseReturn || '/profile', { replace: true })
+    if (localStorage.getItem(welcomeKey)) {
+      if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
+      navigate(purchaseReturn || '/profile', { replace: true })
+      return
+    }
+    localStorage.setItem(welcomeKey, '1')
+    navigate('/registration-success', { replace: true })
   }, [location.pathname, location.search, navigate, user])
 
   useEffect(() => {
@@ -1028,6 +1035,7 @@ function App() {
       <Route path="/" element={<Home user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/registration-success" element={<RegistrationSuccess user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/admin" element={<AdminDashboard user={user} profile={profile} handleLogout={handleLogout} />} />
       <Route path="/admin/student/:id" element={<AdminStudentProfile user={user} profile={profile} handleLogout={handleLogout} />} />

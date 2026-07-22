@@ -33,9 +33,7 @@ function Register() {
       if (!verifiedUser.email_confirmed_at && !verifiedUser.confirmed_at) return
 
       localStorage.removeItem('bilx-pending-verification-email')
-      const purchaseReturn = localStorage.getItem('bilx-purchase-return')
-      if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
-      navigate(purchaseReturn || '/profile', { replace: true })
+      navigate('/registration-success?confirmed=1', { replace: true })
     }
 
     const checkVerifiedUser = async () => {
@@ -71,7 +69,7 @@ function Register() {
       email: email.trim(),
       password,
       options: {
-        emailRedirectTo: appUrl('/profile?confirmed=1'),
+        emailRedirectTo: appUrl('/registration-success?confirmed=1'),
         data: {
           name: trimmedName,
           surname: trimmedSurname,
@@ -127,7 +125,7 @@ function Register() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: pendingEmail,
-      options: { emailRedirectTo: appUrl('/profile?confirmed=1') },
+      options: { emailRedirectTo: appUrl('/registration-success?confirmed=1') },
     })
     if (error) showMessage(error.message)
     else toast.success(t('verificationEmailResent'))

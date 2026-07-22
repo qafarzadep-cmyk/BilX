@@ -8118,6 +8118,27 @@ td button + .outline-button {
   text-align: center;
 }
 
+.registration-success-card {
+  text-align: center;
+}
+
+.registration-success-icon {
+  width: 84px;
+  height: 84px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #e8f8ee;
+  color: #159447;
+  box-shadow: 0 16px 34px rgba(21, 148, 71, 0.16);
+}
+
+.registration-success-card .primary-button {
+  margin-top: 24px;
+}
+
 .verification-mail-icon {
   width: 72px;
   height: 72px;
