@@ -27,7 +27,7 @@ async function handleReviews(req, res, config) {
     const names = new Map((profiles || []).map((item) => [String(item.user_id), item.full_name]))
     return res.status(200).json({
       summaries: Object.fromEntries(courseIds.map((id) => [String(id), summarizeRatings(rows, id)])),
-      reviews: rows.map((row) => ({ id: row.id, courseId: row.course_id, rating: row.rating, review: row.review, createdAt: row.created_at, author: names.get(String(row.user_id)) || 'BilX tələbəsi' })),
+      reviews: rows.map((row) => ({ id: row.id, userId: row.user_id, courseId: row.course_id, rating: row.rating, review: row.review, createdAt: row.created_at, author: names.get(String(row.user_id)) || 'BilX tələbəsi' })),
     })
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })

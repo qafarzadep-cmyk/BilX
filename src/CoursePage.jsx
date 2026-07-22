@@ -1775,6 +1775,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const isA1SalesCourse = String(course.id) === '17' || /sıfırdan ingiliscə danışıq/iu.test(course.title || '')
   const coursePricing = getCoursePricing(course)
   const ratingSummary = courseReviewData.summary?.count > 0 ? courseReviewData.summary : null
+  const hasSubmittedCourseReview = courseReviewData.reviews.some((review) => String(review.userId) === String(userId))
 
   return (
     <div className="page">
@@ -1909,7 +1910,7 @@ function CoursePage({ user, profile, handleLogout }) {
                 </article>
               ))}
             </div>}
-            {isEnrolled && (
+            {isEnrolled && !hasSubmittedCourseReview && (
               <form className="course-review-form" onSubmit={submitCourseReview}>
                 <h3>Bu kurs haqqında nə düşünürsünüz?</h3>
                 <p>Qiymətləndirin və rəyinizi yazın.</p>
