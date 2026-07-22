@@ -49,6 +49,37 @@ async function handleReviews(req, res, config) {
   return res.status(200).json({ ok: true })
 }
 
+async function handleRegistrationStatus(req, res, config) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  if (!email || email.length > 254 || !email.includes('@')) {
+    return res.status(400).json({ error: 'Invalid email.' })
+  }
+
+  const service = createClient(config.url, config.serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  let page = 1
+  let confirmed = false
+  while (page <= 20) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) return res.status(500).json({ error: 'Could not check registration.' })
+
+    const users = data?.users || []
+    const user = users.find((item) => String(item.email || '').toLowerCase() === email)
+    if (user) {
+      confirmed = Boolean(user.email_confirmed_at || user.confirmed_at)
+      break
+    }
+    if (users.length < 1000) break
+    page += 1
+  }
+
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
+  return res.status(200).json({ confirmed })
+}
+
 export default async function handler(req, res) {
   const config = getConfig()
   if (!config) {
@@ -57,6 +88,7 @@ export default async function handler(req, res) {
   }
 
   if (String(req.query?.reviews || '') === '1') return handleReviews(req, res, config)
+  if (String(req.query?.registrationStatus || '') === '1') return handleRegistrationStatus(req, res, config)
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const authHeader = req.headers.authorization || ''

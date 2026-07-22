@@ -66,7 +66,7 @@ function Register() {
     const checkRemoteConfirmation = async () => {
       if (stopped || completingVerification.current) return
       try {
-        const response = await fetch('/api/registration-status', {
+        const response = await fetch('/api/course-access?registrationStatus=1', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: pendingEmail }),
