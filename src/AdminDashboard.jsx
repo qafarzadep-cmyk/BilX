@@ -117,7 +117,9 @@ function AdminDashboard({ user, profile, handleLogout }) {
     const needsTeachers = ['teacher-applications', 'users', 'stats'].includes(activeTab)
     const needsEnrollments = ['access', 'users', 'courses', 'stats'].includes(activeTab)
     const needsRequests = ['access', 'users', 'stats'].includes(activeTab)
-    const needsUserDirectory = ['access', 'users', 'stats'].includes(activeTab)
+    // The auth directory is the source of truth for the sidebar user count.
+    // `profiles` can retain orphaned rows after an auth account is deleted.
+    const needsUserDirectory = true
     const emptyResult = () => Promise.resolve({ data: null, error: null })
     const [
       { data: courseData, error: courseError },
@@ -175,7 +177,7 @@ function AdminDashboard({ user, profile, handleLogout }) {
       pending: pendingCourseCount.count || 0,
       teachers: pendingTeacherCount.count || 0,
       requests: pendingRequestCount.count || 0,
-      users: userCount.count || 0,
+      users: Array.isArray(adminUserData) ? adminUserData.length : (userCount.count || 0),
       courses: approvedCourseCount.count || 0,
       enrollments: enrollmentCount.count || 0,
     })
