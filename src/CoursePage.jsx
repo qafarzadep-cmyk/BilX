@@ -333,6 +333,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [comments, setComments] = useState([])
   const [commentBody, setCommentBody] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [feedbackDismissedLessonIds, setFeedbackDismissedLessonIds] = useState(() => new Set())
   const [courseReviewData, setCourseReviewData] = useState({ summary: null, reviews: [] })
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewBody, setReviewBody] = useState('')
@@ -394,6 +395,26 @@ function CoursePage({ user, profile, handleLogout }) {
       toast.success('Rəyiniz yadda saxlanıldı.')
     } catch {
       toast.error('Rəy yadda saxlanılmadı. Yenidən cəhd edin.')
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
+  const submitQuickCourseRating = async (rating) => {
+    if (!courseId || !isEnrolled || reviewSubmitting) return
+    setReviewSubmitting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/course-access?reviews=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ courseId, rating, review: '' }),
+      })
+      if (!response.ok) throw new Error('rating failed')
+      await loadCourseReviews(courseId)
+      toast.success('Qiymətləndirməniz yadda saxlanıldı.')
+    } catch {
+      toast.error('Qiymətləndirmə yadda saxlanılmadı. Yenidən cəhd edin.')
     } finally {
       setReviewSubmitting(false)
     }
@@ -1293,6 +1314,7 @@ function CoursePage({ user, profile, handleLogout }) {
     setCommentBody('')
     setCommentSubmitting(false)
     if (Array.isArray(result.comments)) setComments(result.comments)
+    setFeedbackDismissedLessonIds((current) => new Set(current).add(String(activeVideo.id)))
 
     try {
       if (course?.instructor_id) {
@@ -1776,6 +1798,8 @@ function CoursePage({ user, profile, handleLogout }) {
   const coursePricing = getCoursePricing(course)
   const ratingSummary = courseReviewData.summary?.count > 0 ? courseReviewData.summary : null
   const hasSubmittedCourseReview = courseReviewData.reviews.some((review) => String(review.userId) === String(userId))
+  const hasCommentedOnActiveLesson = comments.some((comment) => String(comment.user_id) === String(userId))
+    || feedbackDismissedLessonIds.has(String(activeVideo?.id))
 
   return (
     <div className="page">
@@ -1886,8 +1910,8 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
         )}
 
-        {!loading && (isEnrolled ? !hasSubmittedCourseReview : courseReviewData.summary?.count > 0) && (
-          <section className={`course-reviews-panel${isEnrolled && !hasSubmittedCourseReview ? ' awaiting-review' : ''}`} aria-labelledby="course-reviews-title">
+        {!loading && !isEnrolled && courseReviewData.summary?.count > 0 && (
+          <section className="course-reviews-panel" aria-labelledby="course-reviews-title">
             {ratingSummary && <header className="course-reviews-header">
               <div>
                 <p className="admin-section-eyebrow">TƏLƏBƏ RƏYLƏRİ</p>
@@ -2154,6 +2178,25 @@ function CoursePage({ user, profile, handleLogout }) {
                         <span>{t('lessonLabel')} {activeLessonDetails.lessonNumber} :</span>
                         {activeLessonDetails.lessonTitle}
                       </h2>
+                      {isEnrolled && !hasSubmittedCourseReview && !hasCommentedOnActiveLesson && (
+                        <div className="lesson-rating-prompt" aria-label="Dərsi qiymətləndir">
+                          <strong>Dərsi qiymətləndir:</strong>
+                          <div className="lesson-rating-stars">
+                            {[1, 2, 3, 4, 5].map((value) => (
+                              <button
+                                type="button"
+                                key={value}
+                                disabled={reviewSubmitting}
+                                onClick={() => submitQuickCourseRating(value)}
+                                aria-label={`${value} ulduz ver`}
+                              >
+                                ★
+                              </button>
+                            ))}
+                          </div>
+                          <small>Qiymət verdikdən və ya şərh yazdıqdan sonra bu bildiriş yox olacaq.</small>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <h2>{playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}</h2>
