@@ -97,9 +97,13 @@ function StudentProfile({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [user])
+  }, [user?.id, user?.email])
 
   const courses = enrollments.map((item) => item.Courses).filter(Boolean)
+  const enrollmentCourseIds = useMemo(
+    () => enrollments.map((item) => String(item.course_id)).sort().join(','),
+    [enrollments]
+  )
   const discoverCourseItems = [
     ...discoverCourses.map((course) => ({ type: 'course', course })),
     ...UPCOMING_COURSES.map((course) => ({ type: 'upcoming', course })),
@@ -140,7 +144,7 @@ function StudentProfile({ user, profile, handleLogout }) {
     return () => {
       mounted = false
     }
-  }, [courses.length, enrollments, loading, user])
+  }, [enrollmentCourseIds, loading, user?.id])
 
   const requestCourse = async (event, course) => {
     event.stopPropagation()
@@ -236,7 +240,7 @@ function StudentProfile({ user, profile, handleLogout }) {
             <p>{t('discoverCoursesSubtitle')}</p>
           </div>
 
-          {discoverLoading ? (
+          {discoverLoading && discoverCourseItems.length === 0 ? (
             <p className="muted">{t('loading')}</p>
           ) : discoverCourseItems.length === 0 ? (
             <div className="empty-box">{t('noPublicCourses')}</div>
