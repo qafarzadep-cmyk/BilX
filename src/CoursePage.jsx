@@ -1886,8 +1886,8 @@ function CoursePage({ user, profile, handleLogout }) {
           </section>
         )}
 
-        {!loading && (courseReviewData.summary?.count > 0 || isEnrolled) && (
-          <section className="course-reviews-panel" aria-labelledby="course-reviews-title">
+        {!loading && (isEnrolled ? !hasSubmittedCourseReview : courseReviewData.summary?.count > 0) && (
+          <section className={`course-reviews-panel${isEnrolled && !hasSubmittedCourseReview ? ' awaiting-review' : ''}`} aria-labelledby="course-reviews-title">
             {ratingSummary && <header className="course-reviews-header">
               <div>
                 <p className="admin-section-eyebrow">TƏLƏBƏ RƏYLƏRİ</p>

@@ -6736,6 +6736,27 @@ td button + .outline-button {
 .course-review-form h3 { margin: 0; }
 .course-review-form > p { margin: -4px 0 2px; color: #667085; }
 .course-review-form textarea { width: 100%; resize: vertical; }
+
+.course-reviews-panel.awaiting-review {
+  animation: course-review-reminder 2.8s ease-in-out infinite;
+}
+
+@keyframes course-review-reminder {
+  0%, 100% {
+    border-color: rgba(20, 53, 195, 0.16);
+    box-shadow: 0 14px 34px rgba(20, 53, 195, 0.07);
+  }
+  50% {
+    border-color: rgba(20, 53, 195, 0.42);
+    box-shadow: 0 16px 38px rgba(20, 53, 195, 0.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-reviews-panel.awaiting-review {
+    animation: none;
+  }
+}
 .course-review-form .primary-button { justify-self: start; }
 .course-review-star-picker { display: flex; gap: 2px; }
 .course-review-star-picker button { padding: 0; border: 0; background: transparent; color: #cbd1dc; font-size: 28px; cursor: pointer; }
