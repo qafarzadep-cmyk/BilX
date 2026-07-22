@@ -1683,6 +1683,11 @@ function CoursePage({ user, profile, handleLogout }) {
   }, [activeQuiz, canViewFullCourse, playerVideo, previewModalOpen, playFirstLessonAfterTrailer, playNext, playNextPreview, saveResumeLesson])
 
   const continueCourseWhatsApp = async () => {
+    const message = user
+      ? `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user.email || ''}`
+      : `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: \n${t('whatsappEmail')}: `
+    window.open(getWhatsAppUrl(message), '_blank')
+
     if (user) {
       const requestPayload = {
         p_course_id: course.id,
@@ -1712,10 +1717,6 @@ function CoursePage({ user, profile, handleLogout }) {
       setRequested(true)
     }
 
-    const message = user
-      ? `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user.email || ''}`
-      : `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: \n${t('whatsappEmail')}: `
-    window.open(getWhatsAppUrl(message), '_blank')
   }
 
   const handleWhatsApp = async () => {

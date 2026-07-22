@@ -385,6 +385,11 @@ function Home({ user, profile, handleLogout }) {
     if (teacherId) navigate(`/teacher/${teacherId}`)
   }
   const continueCourseWhatsApp = async (course) => {
+    const message = user
+      ? `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user.email || ''}`
+      : `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: \n${t('whatsappEmail')}: `
+    window.open(getWhatsAppUrl(message), '_blank')
+
     if (user) {
       const requestPayload = {
         p_course_id: course.id,
@@ -412,10 +417,6 @@ function Home({ user, profile, handleLogout }) {
         if (pricedInsertError) await supabase.from('requests').insert(requestRow)
       }
     }
-    const message = user
-      ? `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${profile?.full_name || user.user_metadata?.full_name || ''}\n${t('whatsappEmail')}: ${user.email || ''}`
-      : `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: \n${t('whatsappEmail')}: `
-    window.open(getWhatsAppUrl(message), '_blank')
   }
   const openCourseWhatsApp = async (event, course) => {
     event.stopPropagation()

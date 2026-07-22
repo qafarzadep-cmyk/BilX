@@ -156,9 +156,9 @@ function StudentProfile({ user, profile, handleLogout }) {
       p_user_name: profile?.full_name || user.user_metadata?.full_name || user.email,
       p_requested_price: pricing.currentPrice,
     }
-    await supabase.rpc('create_purchase_request', requestPayload)
     const message = `${t('whatsappHello')} ${t('whatsappInterested').replace('{title}', course.title)}\n\n${t('whatsappName')}: ${requestPayload.p_user_name}\n${t('whatsappEmail')}: ${user.email || ''}`
     window.open(getWhatsAppUrl(message), '_blank')
+    await supabase.rpc('create_purchase_request', requestPayload)
   }
 
   if (!user) {
