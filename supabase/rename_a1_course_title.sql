@@ -9,7 +9,7 @@ where id = 17;
 
 update public.requests
 set course_name = 'Addım-addım ingiliscə (A1 səviyyəsi)'
-where course_id = 17;
+where course_id::text = '17';
 
 update public.notifications
 set body = replace(
