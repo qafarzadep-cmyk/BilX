@@ -335,7 +335,7 @@ function CoursePage({ user, profile, handleLogout }) {
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [feedbackDismissedLessonIds, setFeedbackDismissedLessonIds] = useState(() => new Set())
   const [courseReviewData, setCourseReviewData] = useState({ summary: null, reviews: [] })
-  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewRating, setReviewRating] = useState(0)
   const [reviewBody, setReviewBody] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
@@ -395,26 +395,6 @@ function CoursePage({ user, profile, handleLogout }) {
       toast.success('Rəyiniz yadda saxlanıldı.')
     } catch {
       toast.error('Rəy yadda saxlanılmadı. Yenidən cəhd edin.')
-    } finally {
-      setReviewSubmitting(false)
-    }
-  }
-
-  const submitQuickCourseRating = async (rating) => {
-    if (!courseId || !isEnrolled || reviewSubmitting) return
-    setReviewSubmitting(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch('/api/course-access?reviews=1', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-        body: JSON.stringify({ courseId, rating, review: '' }),
-      })
-      if (!response.ok) throw new Error('rating failed')
-      await loadCourseReviews(courseId)
-      toast.success('Qiymətləndirməniz yadda saxlanıldı.')
-    } catch {
-      toast.error('Qiymətləndirmə yadda saxlanılmadı. Yenidən cəhd edin.')
     } finally {
       setReviewSubmitting(false)
     }
@@ -674,33 +654,6 @@ function CoursePage({ user, profile, handleLogout }) {
       return next
     })
   }, [activeSectionId])
-
-  useEffect(() => {
-    // The public/buyer curriculum is part of the normal document. Centering a
-    // free-preview item here scrolls the entire page and fights the user's
-    // wheel/touch scrolling. Auto-follow is only useful in the enrolled
-    // curriculum panel, which has its own scroll container.
-    if (!canViewFullCourse) return undefined
-    if (!activeLessonRowId && !activeQuiz?.id) return undefined
-
-    const frameId = window.requestAnimationFrame(() => {
-      const item = activeCurriculumItemRef.current
-      if (!item) return
-
-      const list = curriculumListRef.current
-      if (list && list.scrollHeight > list.clientHeight) {
-        const listRect = list.getBoundingClientRect()
-        const itemRect = item.getBoundingClientRect()
-        const centeredTop = list.scrollTop + itemRect.top - listRect.top - ((list.clientHeight - itemRect.height) / 2)
-        list.scrollTo({ top: Math.max(0, centeredTop), behavior: 'smooth' })
-        return
-      }
-
-      item.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
-    })
-
-    return () => window.cancelAnimationFrame(frameId)
-  }, [activeLessonRowId, activeQuiz?.id, activeSectionId, canViewFullCourse, expandedSectionIds, visibleCurriculumSections])
 
   const toggleCurriculumSection = (sectionId) => {
     const sectionKey = String(sectionId)
@@ -2180,39 +2133,47 @@ function CoursePage({ user, profile, handleLogout }) {
                         {activeLessonDetails.lessonTitle}
                       </h2>
                       {isEnrolled && !hasSubmittedCourseReview && !hasCommentedOnActiveLesson && (
-                        <div className="lesson-rating-prompt" aria-label="Dərsi qiymətləndir">
-                          <strong>Dərsi qiymətləndir:</strong>
-                          <div className="lesson-rating-stars">
+                        <form className="lesson-rating-prompt" aria-label="Kursu qiymətləndir" onSubmit={submitCourseReview}>
+                          <strong>Bu kursu qiymətləndirin:</strong>
+                          <div className="lesson-rating-stars" role="radiogroup" aria-label="Qiymət seçin">
                             {[1, 2, 3, 4, 5].map((value) => (
                               <button
                                 type="button"
                                 key={value}
-                                disabled={reviewSubmitting}
-                                onClick={() => submitQuickCourseRating(value)}
+                                className={value <= reviewRating ? 'active' : ''}
+                                onClick={() => setReviewRating(value)}
+                                role="radio"
+                                aria-checked={reviewRating === value}
                                 aria-label={`${value} ulduz ver`}
                               >
                                 ★
                               </button>
                             ))}
                           </div>
-                          <small>Qiymət verdikdən və ya şərh yazdıqdan sonra bu bildiriş yox olacaq.</small>
-                        </div>
+                          <small>{reviewRating ? `Seçdiyiniz qiymət: ${reviewRating}/5` : 'Qiymət seçin'}</small>
+                          <textarea
+                            value={reviewBody}
+                            onChange={(event) => setReviewBody(event.target.value)}
+                            rows={2}
+                            maxLength={2000}
+                            placeholder="Kurs haqqında fikrinizi yazın..."
+                            aria-label="Kurs haqqında rəy"
+                          />
+                          <button className="primary-button lesson-rating-submit" type="submit" disabled={!reviewRating || reviewSubmitting}>
+                            {reviewSubmitting ? t('loading') : 'Rəyi göndər'}
+                          </button>
+                        </form>
                       )}
                     </div>
                   ) : (
                     <h2>{playerVideo?.displayTitle || playerVideo?.title || t('lessonTitle')}</h2>
                   )}
                 </div>
-                {hasAccess && !activeQuiz && !playerVideo?.is_trailer && (
+                {hasAccess && !activeQuiz && !playerVideo?.is_trailer && activeVideo?.source_url && (
                 <div className="player-actions">
-                  {activeVideo?.source_url && (
-                    <a className="outline-button complete-button" href={activeVideo.source_url} target="_blank" rel="noreferrer">
-                      <ExternalLink size={16} /> {t('openLink')}
-                    </a>
-                  )}
-                  <button className="primary-button complete-button" onClick={() => playNext(activeVideo?.id)}>
-                    {t('markComplete')}
-                  </button>
+                  <a className="outline-button complete-button" href={activeVideo.source_url} target="_blank" rel="noreferrer">
+                    <ExternalLink size={16} /> {t('openLink')}
+                  </a>
                 </div>
                 )}
               </div>
