@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, MailCheck } from 'lucide-react'
@@ -18,23 +18,26 @@ function Register() {
   const [message, setMessage] = useState('')
   const [pendingEmail, setPendingEmail] = useState(() => localStorage.getItem('bilx-pending-verification-email') || '')
   const [resending, setResending] = useState(false)
+  const completingVerification = useRef(false)
   const { t } = useLanguage()
 
   const showMessage = (text) => {
     setMessage(text)
   }
 
-  useEffect(() => {
-    const finishVerifiedRegistration = async (session) => {
-      const verifiedUser = session?.user
-      const normalizedPendingEmail = pendingEmail.trim().toLowerCase()
-      if (!verifiedUser || !normalizedPendingEmail) return
-      if (verifiedUser.email?.toLowerCase() !== normalizedPendingEmail) return
-      if (!verifiedUser.email_confirmed_at && !verifiedUser.confirmed_at) return
+  const finishVerifiedRegistration = useCallback(async (session) => {
+    const verifiedUser = session?.user
+    const normalizedPendingEmail = pendingEmail.trim().toLowerCase()
+    if (!verifiedUser || !normalizedPendingEmail) return false
+    if (verifiedUser.email?.toLowerCase() !== normalizedPendingEmail) return false
+    if (!verifiedUser.email_confirmed_at && !verifiedUser.confirmed_at) return false
 
-      localStorage.removeItem('bilx-pending-verification-email')
-      navigate('/registration-success?confirmed=1', { replace: true })
-    }
+    localStorage.removeItem('bilx-pending-verification-email')
+    navigate('/registration-success?confirmed=1', { replace: true })
+    return true
+  }, [navigate, pendingEmail])
+
+  useEffect(() => {
 
     const checkVerifiedUser = async () => {
       const { data, error } = await supabase.auth.getUser()
@@ -54,7 +57,56 @@ function Register() {
       window.removeEventListener('focus', checkOnFocus)
       listener.subscription.unsubscribe()
     }
-  }, [navigate, pendingEmail])
+  }, [finishVerifiedRegistration])
+
+  useEffect(() => {
+    if (!pendingEmail) return undefined
+
+    let stopped = false
+    const checkRemoteConfirmation = async () => {
+      if (stopped || completingVerification.current) return
+      try {
+        const response = await fetch('/api/registration-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: pendingEmail }),
+        })
+        if (!response.ok) return
+        const result = await response.json()
+        if (!result.confirmed || stopped) return
+
+        completingVerification.current = true
+        if (password) {
+          const { data, error } = await supabase.auth.signInWithPassword({ email: pendingEmail, password })
+          if (!error && data.user) {
+            await finishVerifiedRegistration({ user: data.user })
+            return
+          }
+        }
+
+        localStorage.removeItem('bilx-pending-verification-email')
+        navigate('/registration-success?confirmed=1', { replace: true })
+      } catch {
+        // A temporary network failure should leave the persistent waiting screen intact.
+      } finally {
+        completingVerification.current = false
+      }
+    }
+
+    void checkRemoteConfirmation()
+    const intervalId = window.setInterval(checkRemoteConfirmation, 4000)
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible') void checkRemoteConfirmation()
+    }
+    window.addEventListener('focus', checkRemoteConfirmation)
+    document.addEventListener('visibilitychange', checkWhenVisible)
+    return () => {
+      stopped = true
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', checkRemoteConfirmation)
+      document.removeEventListener('visibilitychange', checkWhenVisible)
+    }
+  }, [finishVerifiedRegistration, navigate, password, pendingEmail])
 
   const handleRegister = async (event) => {
     event.preventDefault()
