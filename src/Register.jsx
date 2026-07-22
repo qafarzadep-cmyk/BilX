@@ -26,22 +26,37 @@ function Register() {
 
   useEffect(() => {
     const finishVerifiedRegistration = async (session) => {
-      if (!session?.user) return
+      const verifiedUser = session?.user
+      const normalizedPendingEmail = pendingEmail.trim().toLowerCase()
+      if (!verifiedUser || !normalizedPendingEmail) return
+      if (verifiedUser.email?.toLowerCase() !== normalizedPendingEmail) return
+      if (!verifiedUser.email_confirmed_at && !verifiedUser.confirmed_at) return
+
       localStorage.removeItem('bilx-pending-verification-email')
       const purchaseReturn = localStorage.getItem('bilx-purchase-return')
       if (purchaseReturn) localStorage.removeItem('bilx-purchase-return')
       navigate(purchaseReturn || '/profile', { replace: true })
     }
 
-    supabase.auth.getSession().then(({ data }) => finishVerifiedRegistration(data.session))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => finishVerifiedRegistration(session))
-    const checkOnFocus = () => supabase.auth.getSession().then(({ data }) => finishVerifiedRegistration(data.session))
+    const checkVerifiedUser = async () => {
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data.user) return
+      await finishVerifiedRegistration({ user: data.user })
+    }
+
+    void checkVerifiedUser()
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
+        void finishVerifiedRegistration(session)
+      }
+    })
+    const checkOnFocus = () => { void checkVerifiedUser() }
     window.addEventListener('focus', checkOnFocus)
     return () => {
       window.removeEventListener('focus', checkOnFocus)
       listener.subscription.unsubscribe()
     }
-  }, [navigate])
+  }, [navigate, pendingEmail])
 
   const handleRegister = async (event) => {
     event.preventDefault()
