@@ -824,7 +824,6 @@ function App() {
           localStorage.removeItem(PROFILE_CACHE_KEY)
           setUser(null)
           setProfile(null)
-          navigate('/', { replace: true })
           return
         }
         setUser(data.user)
