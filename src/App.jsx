@@ -42,10 +42,9 @@ function CourseRating({ summary, courseId }) {
   const navigate = useNavigate()
   if (!summary?.count || !summary?.average) return null
   return (
-    <button type="button" className="course-card-rating" aria-label={`${summary.average} / 5, ${summary.count} tələbə`} onClick={(event) => { event.stopPropagation(); navigate(`/course/${courseId}/reviews`) }}>
+    <button type="button" className="course-card-rating" aria-label={`${summary.average} / 5`} onClick={(event) => { event.stopPropagation(); navigate(`/course/${courseId}/reviews`) }}>
       <strong>{summary.average}</strong>
       <span aria-hidden="true">★★★★★</span>
-      <small>({summary.count} tələbə)</small>
     </button>
   )
 }

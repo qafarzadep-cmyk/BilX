@@ -301,7 +301,7 @@ function StudentProfile({ user, profile, handleLogout }) {
                       {instructorName && <small className="course-instructor">{instructorName}</small>}
                       {rating?.count > 0 && (
                         <button className="course-card-rating" type="button" onClick={(event) => { event.stopPropagation(); navigate(`/course/${course.id}/reviews`) }}>
-                          <strong>{rating.average}</strong><span aria-hidden="true">★★★★★</span><small>({rating.count} tələbə)</small>
+                          <strong>{rating.average}</strong><span aria-hidden="true">★★★★★</span>
                         </button>
                       )}
                       <div className="course-card-footer">

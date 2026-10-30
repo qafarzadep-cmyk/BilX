@@ -1827,8 +1827,8 @@ function CoursePage({ user, profile, handleLogout }) {
                 : <small className="course-instructor hero-author">{t('instructorLabel')}: {instructorName}</small>
             )}
             {ratingSummary?.count > 0 && (
-              <button type="button" className="course-hero-rating" onClick={() => navigate(`/course/${course.id}/reviews`)} aria-label={`${ratingSummary.average} / 5, ${ratingSummary.count} tələbə — rəyləri aç`}>
-                <strong>{ratingSummary.average}</strong><span aria-hidden="true">★★★★★</span><small>({ratingSummary.count} tələbə)</small>
+              <button type="button" className="course-hero-rating" onClick={() => navigate(`/course/${course.id}/reviews`)} aria-label={`${ratingSummary.average} / 5 — rəyləri aç`}>
+                <strong>{ratingSummary.average}</strong><span aria-hidden="true">★★★★★</span>
               </button>
             )}
             <p>{isA1SalesCourse ? t('a1LandingSubtitle') : course.description}</p>
@@ -1930,7 +1930,6 @@ function CoursePage({ user, profile, handleLogout }) {
                 <button type="button" className="course-rating-summary" onClick={() => navigate(`/course/${course.id}/reviews`)}>
                   <strong>{ratingSummary.average}</strong>
                   <span aria-hidden="true">★★★★★</span>
-                  <small>({ratingSummary.count} tələbə)</small>
                 </button>
               )}
             </header>}
