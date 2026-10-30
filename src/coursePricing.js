@@ -5,7 +5,7 @@ const LAUNCH_OFFER = {
   courseTitle: A1_COURSE_TITLE,
   price: 34.9,
   regularPrice: 59.9,
-  endsOn: '20 avqustadək',
+  endsOn: '',
 }
 
 export function getCoursePricing(course) {

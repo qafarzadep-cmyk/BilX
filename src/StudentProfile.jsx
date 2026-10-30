@@ -308,7 +308,7 @@ function StudentProfile({ user, profile, handleLogout }) {
                         {pricing.isOffer ? (
                           <div className="course-card-offer">
                             <div className="course-card-price-row"><strong className="course-card-price">{formatCoursePrice(pricing.currentPrice)}</strong><del>{formatCoursePrice(pricing.regularPrice)}</del><span className="course-card-discount">{discountPercent}% endirim</span></div>
-                            <small className="course-card-offer-message">{pricing.endsOn} yay endirimi — indi al və {Number.isInteger(savings) ? savings : savings.toFixed(2)} AZN qənaət et</small>
+                            <small className="course-card-offer-message">İndi al və {Number.isInteger(savings) ? savings : savings.toFixed(2)} AZN qənaət et</small>
                           </div>
                         ) : <strong className="course-card-price">{pricing.currentPrice > 0 ? formatCoursePrice(pricing.currentPrice) : t('freeLabel')}</strong>}
                         <button className="course-card-whatsapp-button" type="button" onClick={(event) => requestCourse(event, course)}><MessageCircle size={16} /> {isA1Course ? t('courseStartNow') : t('courseAcquire')}</button>

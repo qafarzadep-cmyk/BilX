@@ -68,7 +68,7 @@ function CourseCardPrice({ course, enrolled, enrolledLabel, freeLabel }) {
         <span className="course-card-discount">{discountPercent}% endirim</span>
       </div>
       <small className="course-card-offer-message">
-        {pricing.endsOn} yay endirimi — indi al və {savingsLabel} AZN qənaət et
+        İndi al və {savingsLabel} AZN qənaət et
       </small>
     </div>
   )
